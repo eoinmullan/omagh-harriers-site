@@ -1,0 +1,150 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Omagh Harriers AC - Home">
+  <!-- Hero Section -->
+  <section class="relative h-[60vh] min-h-[400px] flex items-center justify-center bg-gradient-to-r from-black to-gray-900">
+    <!-- Background image will be added when photo is ready -->
+    <div class="absolute inset-0 bg-black/50"></div>
+
+    <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
+      <h1 class="text-5xl md:text-7xl font-bold text-white mb-6">
+        Omagh Harriers AC
+      </h1>
+      <p class="text-xl md:text-2xl text-amber mb-8">
+        Running Together, Growing Stronger
+      </p>
+      <p class="text-lg text-gray-200 mb-8 max-w-2xl mx-auto">
+        Join our vibrant running community in Omagh, County Tyrone. From beginners to experienced athletes, everyone is welcome.
+      </p>
+      <a
+        href="/half-marathon"
+        class="inline-block bg-amber text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors"
+      >
+        2026 Half Marathon Info
+      </a>
+    </div>
+  </section>
+
+  <!-- Training Times Section -->
+  <section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-4xl font-bold text-center mb-4">Training Times</h2>
+      <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+        Join us for our regular training sessions. All abilities welcome!
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- Tuesday Training -->
+        <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber">
+          <div class="flex items-center mb-4">
+            <div class="bg-amber w-12 h-12 rounded-full flex items-center justify-center mr-4">
+              <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 class="text-2xl font-bold">Tuesday</h3>
+          </div>
+          <p class="text-gray-700 mb-2">
+            <strong>Time:</strong> 7:00 PM
+          </p>
+          <p class="text-gray-700 mb-2">
+            <strong>Location:</strong> Omagh Leisure Complex
+          </p>
+          <p class="text-gray-600">
+            Track and interval training session. Perfect for building speed and endurance.
+          </p>
+        </div>
+
+        <!-- Thursday Training -->
+        <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber">
+          <div class="flex items-center mb-4">
+            <div class="bg-amber w-12 h-12 rounded-full flex items-center justify-center mr-4">
+              <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 class="text-2xl font-bold">Thursday</h3>
+          </div>
+          <p class="text-gray-700 mb-2">
+            <strong>Time:</strong> 7:00 PM
+          </p>
+          <p class="text-gray-700 mb-2">
+            <strong>Location:</strong> Omagh Leisure Complex
+          </p>
+          <p class="text-gray-600">
+            Road running session. Varied routes and paces to suit all abilities.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-12 bg-amber/10 border border-amber rounded-lg p-6 text-center">
+        <p class="text-lg">
+          <strong>New members welcome!</strong> Come along to any session and introduce yourself to our friendly group.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- About Section -->
+  <section class="py-16 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-2 gap-12 items-center">
+        <div>
+          <h2 class="text-4xl font-bold mb-6">About Our Club</h2>
+          <p class="text-gray-700 mb-4">
+            Omagh Harriers AC is a friendly running club based in Omagh, County Tyrone. We welcome runners of all abilities, from complete beginners to experienced athletes.
+          </p>
+          <p class="text-gray-700 mb-4">
+            Our club is affiliated with Athletics Northern Ireland and provides a supportive environment for runners to achieve their personal goals, whether that's completing your first 5K or setting a new personal best in a marathon.
+          </p>
+          <p class="text-gray-700 mb-6">
+            We organize the annual Omagh Half Marathon, one of the premier road racing events in Northern Ireland.
+          </p>
+          <a
+            href="/policies"
+            class="inline-block bg-black text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+          >
+            View Club Policies
+          </a>
+        </div>
+        <div class="bg-gradient-to-br from-black to-gray-800 rounded-lg p-8 text-white">
+          <h3 class="text-2xl font-bold mb-6 text-amber">Why Join Us?</h3>
+          <ul class="space-y-4">
+            <li class="flex items-start">
+              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Structured training sessions for all abilities</span>
+            </li>
+            <li class="flex items-start">
+              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Friendly, welcoming community</span>
+            </li>
+            <li class="flex items-start">
+              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Qualified coaches and experienced runners</span>
+            </li>
+            <li class="flex items-start">
+              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Social events and club competitions</span>
+            </li>
+            <li class="flex items-start">
+              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Athletics NI affiliation</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>

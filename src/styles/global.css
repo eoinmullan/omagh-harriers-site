@@ -4,3 +4,7 @@
   --color-yellow: #fff278;
   --color-amber: #fcb900;
 }
+
+.logo-duotone {
+  filter: url(#duotone-yellow);
+}

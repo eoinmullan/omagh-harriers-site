@@ -20,12 +20,32 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
     <title>{title}</title>
   </head>
   <body class="bg-white text-gray-900">
+    <!-- SVG Filter for duotone effect -->
+    <svg style="position: absolute; width: 0; height: 0;" aria-hidden="true">
+      <defs>
+        <filter id="duotone-yellow">
+          <feColorMatrix
+            type="matrix"
+            values="1 0 0 0 0
+                    1 0 0 0 0
+                    1 0 0 0 0
+                    0 0 0 1 0"
+          />
+          <feComponentTransfer color-interpolation-filters="sRGB">
+            <feFuncR type="table" tableValues="0 1"></feFuncR>
+            <feFuncG type="table" tableValues="0 0.95"></feFuncG>
+            <feFuncB type="table" tableValues="0 0.47"></feFuncB>
+          </feComponentTransfer>
+        </filter>
+      </defs>
+    </svg>
+
     <nav class="bg-black text-white">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           <div class="flex items-center">
-            <a href="/" class="text-xl font-bold text-yellow hover:text-white transition-colors">
-              Omagh Harriers AC
+            <a href="/" class="flex items-center hover:opacity-80 transition-opacity">
+              <img src="/omagh-harriers_white.jpg" alt="Omagh Harriers AC" class="h-12 logo-duotone" />
             </a>
           </div>
 

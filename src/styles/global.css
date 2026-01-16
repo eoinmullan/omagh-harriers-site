@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  --color-amber: #FFB700;
+  --color-yellow: #fff278;
+  --color-amber: #fcb900;
 }

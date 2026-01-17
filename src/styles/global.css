@@ -8,3 +8,46 @@
 .logo-duotone {
   filter: url(#duotone-yellow);
 }
+
+.hamburger-icon {
+  display: block;
+  width: 24px;
+  height: 18px;
+  position: relative;
+}
+
+.hamburger-line {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background-color: currentColor;
+  transition: all 0.3s ease;
+  position: absolute;
+  left: 0;
+}
+
+.hamburger-line:nth-child(1) {
+  top: 0;
+}
+
+.hamburger-line:nth-child(2) {
+  top: 8px;
+}
+
+.hamburger-line:nth-child(3) {
+  top: 16px;
+}
+
+.menu-open .hamburger-line:nth-child(1) {
+  top: 8px;
+  transform: rotate(45deg);
+}
+
+.menu-open .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-open .hamburger-line:nth-child(3) {
+  top: 8px;
+  transform: rotate(-45deg);
+}

@@ -7,7 +7,7 @@ import Layout from '../layouts/Layout.astro';
   description="Join us for the Omagh Half Marathon & 5K on Sunday, March 29, 2026. A premier Irish half marathon."
 >
   <!-- Hero Section -->
-  <section class="relative h-[600px] flex items-center justify-center bg-gradient-to-r from-black to-gray-900">
+  <section class="relative h-[280px] sm:h-[400px] md:h-[600px] flex items-center justify-center">
     <img
       src="/aerial-shot.jpg"
       alt="Aerial view of Omagh Harriers running community"
@@ -25,12 +25,12 @@ import Layout from '../layouts/Layout.astro';
       <p class="text-xl text-gray-200 mb-8">
         Omagh Leisure Complex
       </p>
-      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <div class="flex flex-col sm:flex-row gap-4 justify-center hidden sm:block">
         <a
-          href="https://omaghhalfmarathon.run/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-block bg-amber text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors"
+            href="https://omaghhalfmarathon.run/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-block bg-amber text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors"
         >
           Visit Official Race Site
         </a>
@@ -42,6 +42,17 @@ import Layout from '../layouts/Layout.astro';
   <section class="py-12 bg-amber/10 border-y border-amber">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="grid md:grid-cols-2 gap-8">
+        <!-- Half marathon button for mobile -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center block sm:hidden">
+          <a
+              href="https://omaghhalfmarathon.run/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-block bg-amber text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors text-center max-w-xs mx-auto"
+          >
+            Visit Official Race Site
+          </a>
+        </div>
         <div class="text-center p-6">
           <h3 class="text-2xl font-bold mb-2">Half Marathon</h3>
           <p class="text-red-600 font-bold text-lg mb-2">SOLD OUT</p>

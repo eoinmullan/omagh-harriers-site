@@ -4,13 +4,13 @@ import Layout from '../layouts/Layout.astro';
 
 <Layout title="Omagh Harriers AC - Home">
   <!-- Hero Section -->
-  <section class="relative h-[600px] flex items-center justify-center bg-gradient-to-r from-black to-gray-900">
+  <section class="relative h-[280px] sm:h-[400px] md:h-[600px] flex items-center justify-center">
     <img
       src="/aerial-shot.jpg"
       alt="Aerial view of Omagh Harriers running community"
       class="absolute inset-0 w-full h-full object-cover"
     />
-    <div class="absolute inset-0 bg-black/50"></div>
+    <div class="absolute inset-0 bg-black/10"></div>
 
     <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
       <h1 class="text-5xl md:text-7xl font-bold text-white mb-6">
@@ -19,20 +19,23 @@ import Layout from '../layouts/Layout.astro';
       <p class="text-xl md:text-2xl text-amber mb-8">
         Running Together, Growing Stronger
       </p>
-      <p class="text-lg text-gray-200 mb-8 max-w-2xl mx-auto">
+      <p class="text-lg text-gray-200 mb-8 max-w-2xl mx-auto hidden sm:block">
         Vibrant running community in Omagh, County Tyrone. From beginners to experienced athletes, everyone is welcome.
       </p>
       <a
-        href="/half-marathon"
+        href="https://hub.klubfunder.com/OmaghHarriersAC/membership/membership-payment"
         class="inline-block bg-amber text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors"
       >
-        2026 Half Marathon Info
+        2026 Member Registration
       </a>
     </div>
   </section>
 
   <!-- Training Times Section -->
-  <section class="py-16 bg-white">
+  <section class="py-8 bg-white">
+    <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto block sm:hidden">
+      Vibrant running community in Omagh, County Tyrone. From beginners to experienced athletes, everyone is welcome.
+    </p>
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <h2 class="text-4xl font-bold text-center mb-4">Winter/Spring 2026 Training Times</h2>
       <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto">

@@ -8,17 +8,6 @@ import Layout from '../../layouts/Layout.astro';
 >
   <div class="bg-gradient-to-r from-black to-gray-900 py-16">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="mb-6">
-        <a
-            href="/policies"
-            class="inline-flex items-center text-amber hover:text-yellow-400 transition-colors mb-4"
-        >
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-          </svg>
-          Back to Policies
-        </a>
-      </div>
       <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Committee Code of Conduct</h1>
       <p class="text-xl text-gray-300">
         Code of Conduct for Committee Members
@@ -26,7 +15,7 @@ import Layout from '../../layouts/Layout.astro';
     </div>
   </div>
 
-  <section class="py-16 bg-white">
+  <section class="pt-16 pb-0 bg-white">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="prose prose-lg max-w-none">
         <!-- Introduction -->
@@ -119,6 +108,17 @@ import Layout from '../../layouts/Layout.astro';
         <!-- Logo -->
         <div class="mt-12 text-center">
           <img src="/omagh-harriers_black.png" alt="Omagh Harriers AC Logo" width="408" height="160" class="mx-auto" />
+        </div>
+        <div class="mt-12 pt-8 border-t border-gray-200">
+          <a
+            href="/policies"
+            class="inline-flex items-center text-black hover:text-amber transition-colors font-semibold"
+          >
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to Policies
+          </a>
         </div>
       </div>
     </div>

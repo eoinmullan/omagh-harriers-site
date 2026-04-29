@@ -1,0 +1,100 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="About - Omagh Harriers AC"
+  description="Learn about Omagh Harriers AC, our history, and our club community in Omagh, County Tyrone."
+>
+  <!-- Hero Section -->
+  <section class="relative h-[280px] sm:h-[400px] md:h-[600px] flex items-center justify-center">
+    <img
+      src="/aerial-shot.jpg"
+      alt="Aerial view of Omagh Harriers running community"
+      class="absolute inset-0 w-full h-full object-cover"
+    />
+    <div class="absolute inset-0 bg-black/10"></div>
+
+    <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
+      <h1 class="text-5xl md:text-6xl font-bold text-white mb-4">
+        About Us
+      </h1>
+      <p class="text-xl md:text-2xl text-amber font-semibold">
+        Omagh Harriers AC
+      </p>
+    </div>
+  </section>
+
+  <!-- About Content -->
+  <section class="py-16 bg-white">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="prose prose-lg max-w-none">
+        <h2 class="text-3xl font-bold mb-6">Who We Are</h2>
+        <p class="text-gray-700 mb-6 text-lg leading-relaxed">
+          Omagh Harriers AC is a friendly running and athletics club based in Omagh, County Tyrone. We welcome runners and athletes of all abilities — from complete beginners taking their first steps, to experienced competitors chasing personal bests.
+        </p>
+        <p class="text-gray-700 mb-6 text-lg leading-relaxed">
+          We are affiliated with Athletics Northern Ireland and compete throughout the year across track &amp; field, cross country, indoor athletics, and road running. Our members have represented the club at local, provincial, and national level.
+        </p>
+        <p class="text-gray-700 mb-10 text-lg leading-relaxed">
+          Whether your goal is to get fit, run your first race, or compete at a high level, you'll find a supportive community here. Come along to any session and see for yourself.
+        </p>
+      </div>
+
+      <!-- Key Facts -->
+      <div class="grid sm:grid-cols-3 gap-6 mb-16">
+        <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
+          <p class="text-4xl font-bold text-black mb-2">2</p>
+          <p class="text-gray-600 font-medium">Training sessions per week</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
+          <p class="text-4xl font-bold text-black mb-2">All</p>
+          <p class="text-gray-600 font-medium">Abilities welcome</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
+          <p class="text-4xl font-bold text-black mb-2">ANI</p>
+          <p class="text-gray-600 font-medium">Athletics NI affiliated</p>
+        </div>
+      </div>
+
+      <!-- Training -->
+      <h2 class="text-3xl font-bold mb-6">Training</h2>
+      <div class="grid md:grid-cols-2 gap-6 mb-16">
+        <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber">
+          <h3 class="text-xl font-bold mb-3">Tuesday</h3>
+          <p class="text-gray-700 mb-1"><strong>Time:</strong> 6:30 PM</p>
+          <p class="text-gray-700 mb-1"><strong>Location:</strong> Omagh Leisure Complex Track</p>
+          <p class="text-gray-600 mt-2">Speed session</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber">
+          <h3 class="text-xl font-bold mb-3">Thursday</h3>
+          <p class="text-gray-700 mb-1"><strong>Time:</strong> 6:30 PM</p>
+          <p class="text-gray-700 mb-1"><strong>Location:</strong> Youth Sport, Omagh</p>
+          <p class="text-gray-600 mt-2">Endurance session</p>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="bg-black text-white rounded-lg p-10 text-center">
+        <h2 class="text-2xl font-bold text-amber mb-4">Ready to Join?</h2>
+        <p class="text-gray-300 mb-6">
+          New members are always welcome. Come along to any session or get in touch to find out more.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a
+            href="https://hub.klubfunder.com/OmaghHarriersAC/membership/membership-payment"
+            class="inline-block bg-amber text-black px-8 py-3 rounded-lg font-bold hover:bg-yellow-400 transition-colors"
+          >
+            Register for 2026
+          </a>
+          <a
+            href="mailto:info@omaghharriers.com"
+            class="inline-block border border-amber text-amber px-8 py-3 rounded-lg font-bold hover:bg-amber hover:text-black transition-colors"
+          >
+            Contact Us
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>

@@ -57,15 +57,15 @@ Cross country is a core part of the junior calendar from autumn through winter. 
 
 ## Hero Copy
 
-**H1:** Junior Athletics
+**H1:** Junior Academy
 
 **Subheading:** Developing young athletes in a fun, supportive environment — from first strides to club competition.
 
 ---
 
-## Junior Athletics Intro Copy
+## Junior Academy Intro Copy
 
-Omagh Harriers AC is committed to developing young athletes and fostering a love of running, track & field from an early age. Our junior academy provides coaching and training opportunities for young runners, helping them build their skills and confidence in a welcoming club environment.
+Omagh Harriers AC is committed to developing young athletes and fostering a love of running, track & field from an early age. Our Junior Academy provides coaching and training opportunities for young runners, helping them build their skills and confidence in a welcoming club environment.
 
 We cater for a range of age groups and abilities. Whether your child is taking their first steps in athletics or looking to compete at Ulster and national level, there is a place for them at Omagh Harriers.
 
@@ -96,9 +96,9 @@ Omagh Harriers AC is fully committed to safeguarding the welfare of all young at
 
 ## Contact CTA Copy
 
-**Heading:** Interested in Junior Athletics?
+**Heading:** Interested in the Junior Academy?
 
-For more information about our junior section, training times, and how to get your child involved, please get in touch with the club.
+For more information about our Junior Academy, training times, and how to get your child involved, please get in touch with the club.
 
 **CTA:** Contact Us → mailto:info@omaghharriers.com
 
@@ -108,4 +108,4 @@ For more information about our junior section, training times, and how to get yo
 
 **Meta title:** Juniors | Omagh Harriers AC
 
-**Meta description:** Junior athletics at Omagh Harriers AC — training times, seasonal programme and how to get involved for young athletes in Omagh.
+**Meta description:** Junior Academy at Omagh Harriers AC — training times, seasonal programme and how to get involved for young athletes in Omagh.

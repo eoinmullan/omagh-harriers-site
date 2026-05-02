@@ -16,12 +16,25 @@
 
 ---
 
+## Mobile-First Design Principles
+
+This site is **mobile-first**. The majority of visitors arrive via social media shares on their phones — race day traffic especially is almost entirely mobile. Every design and content decision should prioritise the mobile experience above all else.
+
+- **Layout:** All sections must be fully usable at 375px wide. Desktop is an enhancement, not the baseline.
+- **Hero:** Subheading is hidden on mobile to keep the above-the-fold area clean. Gradient overlay replaces flat treatment on small screens. CTA button must be thumb-reachable.
+- **Tables:** Winners and results tables are the hardest element to render well on mobile. Prefer fewer columns; the category winners table was reduced from 7 columns to 4 for this reason.
+- **Accordions:** The Winners section (three sub-sections) and FAQ use collapsibles so long content doesn't dominate the mobile scroll.
+- **CTAs and links:** Facebook and Instagram links in the Next Event strip are the primary conversion points for mobile visitors — keep them prominent and easy to tap.
+- **Performance:** Page should load fast on mobile networks. Avoid heavy images or unoptimised assets, especially in the hero.
+
+---
+
 ## Key Implementation Decisions
 
 - **This site is the official race site.** All links to `omaghhalfmarathon.run` have been removed.
 - **Single thank-you.** Gratitude appears only in the Race Recap paragraph, nowhere else.
 - **"Next date TBC"** appears only in the Next Event strip and FAQ.
-- **Category winners** use the same 4-column table format as Overall winners (Pos / Name / Club / Time), with category labels as divider rows. The original 7-column layout was dropped.
+- **Category winners** use the same 4-column table format as Overall winners (Pos / Name / Club / Time), with category labels as divider rows. The original 7-column layout was dropped to keep tables usable on mobile.
 - **Female winner time:** 1:14:08 (not gross 1:14:10).
 
 ---

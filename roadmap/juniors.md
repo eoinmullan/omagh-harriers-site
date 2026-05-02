@@ -13,6 +13,20 @@
 
 ---
 
+## Mobile-First Design Principles
+
+This site is **mobile-first**. The primary audience for the juniors page is parents — most will land here from a Facebook or Instagram share on their phone, often in the car park before a session. Every design and content decision should prioritise the mobile experience above all else.
+
+- **Layout:** All sections must be fully usable at 375px wide. Desktop is an enhancement, not the baseline.
+- **Training Times:** This is the single most important piece of content on the page — a parent needs to see the day, time and location at a glance. The table must be readable without horizontal scrolling on mobile. Prefer fewer columns or a stacked card layout over a wide table.
+- **Hero:** Subheading can be hidden on mobile to keep the above-the-fold area clean. The page title and a clear path to the training times are what matter.
+- **Typical Season:** Three sections of prose — use collapsible accordions (`<details>/<summary>`) on mobile so the section doesn't dominate the scroll.
+- **CTAs:** The contact email link is the primary conversion point. It must be a large, thumb-reachable tap target — not a small inline link.
+- **Safeguarding:** Keep visible and accessible, but below the fold. Parents expect it to be there; they shouldn't need to hunt for it.
+- **Performance:** Fast load on mobile networks. Avoid large unoptimised images in the hero.
+
+---
+
 ## Training Times
 
 Spring/Summer 2026 schedule. Sourced from the home page — keep in sync.

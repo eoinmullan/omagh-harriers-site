@@ -1,259 +1,724 @@
 ---
 import Layout from '../layouts/Layout.astro';
+
+const resultsArchive = [
+  { year: 2026, url: 'https://www.myrunresults.com/events/spar_omagh_half_marathon__5k/6195/results' },
+  { year: 2025, url: 'https://www.myrunresults.com/events/35th_spar_omagh_half_marathon__5k/5518/results' },
+  { year: 2024, url: 'https://www.myrunresults.com/events/34th_spar_omagh_half_marathon__5k/5013/results' },
+  { year: 2023, url: 'https://www.myrunresults.com/events/33rd_spar_omagh_half_marathon__5k/4678/results?class=half%20marathon' },
+  { year: 2022, url: 'https://www.myrunresults.com/events/spar_omagh_half_marathon/4228/results' },
+  { year: 2021, url: null },
+  { year: 2020, url: null },
+  { year: 2019, url: 'https://www.myrunresults.com/events/spar_omagh_half_marathon_2019/2858/results?class=half%20marathon' },
+  { year: 2018, url: 'https://www.myrunresults.com/events/spar_omagh_half_marathon/2425/results?class=half%20marathon' },
+  { year: 2017, url: 'https://www.myrunresults.com/events/spar_omagh_half_marathon__5k_fun_run/1933/results?class=half%20marathon' },
+];
 ---
 
 <Layout
-  title="Omagh Half Marathon - March 29, 2026"
-  description="Join us for the Omagh Half Marathon & 5K on Sunday, March 29, 2026. A premier Irish half marathon."
+  title="SPAR Omagh Half Marathon & 5K | Omagh Harriers AC"
+  description="A look back at the 2026 SPAR Omagh Half Marathon & 5K, plus updates for the next event from Omagh Harriers AC."
 >
-  <!-- Hero Section -->
-  <section class="relative h-[280px] sm:h-[400px] md:h-[600px] flex items-center justify-center">
+
+  <!-- 1. HERO -->
+  <section class="relative h-[280px] sm:h-[400px] md:h-[600px] flex items-end">
     <img
       src="/aerial-shot.jpg"
-      alt="Aerial view of Omagh Harriers running community"
+      alt="Aerial view of Omagh on race day"
       class="absolute inset-0 w-full h-full object-cover"
     />
-    <div class="absolute inset-0 bg-black/10"></div>
-
-    <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
-      <h1 class="text-5xl md:text-6xl font-bold text-white mb-4">
-        Omagh Half Marathon
+    <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-black/5 md:from-black/10 md:to-black/10"></div>
+    <div class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 sm:pb-10 md:pb-16">
+      <div class="inline-block bg-amber text-black text-xs sm:text-sm font-bold px-3 py-1 rounded mb-2 sm:mb-4 uppercase tracking-wide">
+        36th edition · 29 March 2026
+      </div>
+      <h1 class="text-2xl sm:text-5xl md:text-6xl font-bold text-white mb-2 sm:mb-3 leading-tight">
+        SPAR Omagh Half Marathon & 5K
       </h1>
-      <p class="text-2xl md:text-3xl text-amber mb-6 font-bold">
-        Sunday, March 29, 2026
+      <p class="hidden sm:block text-base sm:text-xl text-gray-200 mb-6 max-w-2xl">
+        Despite the downpours, the energy never dipped. Thank you to everyone who made race day what it was.
       </p>
-      <p class="text-xl text-gray-200 mb-8">
-        Omagh Leisure Complex
-      </p>
-      <div class="flex flex-col sm:flex-row gap-4 justify-center hidden sm:block">
+      <div class="flex flex-wrap gap-3">
         <a
-            href="https://omaghhalfmarathon.run/"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-block bg-amber text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors"
+          href="https://www.myrunresults.com/events/spar_omagh_half_marathon__5k/6195/results"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-amber text-black px-6 py-3 rounded-lg font-bold hover:bg-yellow-400 transition-colors"
         >
-          Visit Official Race Site
+          View 2026 Results
         </a>
       </div>
     </div>
   </section>
 
-  <!-- Registration Status -->
-  <section class="py-12 bg-amber/10 border-y border-amber">
+  <!-- 2. AT A GLANCE -->
+  <section class="py-12 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="grid md:grid-cols-2 gap-8">
-        <!-- Half marathon button for mobile -->
-        <div class="flex flex-col sm:flex-row gap-4 justify-center block sm:hidden">
-          <a
-              href="https://omaghhalfmarathon.run/"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-block bg-amber text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors text-center max-w-xs mx-auto"
-          >
-            Visit Official Race Site
-          </a>
-        </div>
-        <div class="text-center p-6">
-          <h3 class="text-2xl font-bold mb-2">Half Marathon</h3>
-          <p class="text-red-600 font-bold text-lg mb-2">SOLD OUT</p>
-          <p class="text-gray-600">All places for the 2026 half marathon have been filled</p>
-        </div>
-        <div class="text-center p-6">
-          <h3 class="text-2xl font-bold mb-2">5K Run</h3>
-          <p class="text-green-600 font-bold text-lg mb-2">PLACES AVAILABLE</p>
-          <p class="text-gray-600">Registration still open for the 5K event</p>
-        </div>
+      <h2 class="text-3xl font-bold mb-8">2026 at a Glance</h2>
+      <div class="max-w-2xl">
+        <table class="w-full text-left">
+          <tbody>
+            <tr class="border-b border-gray-200">
+              <th class="py-3 pr-6 font-semibold text-gray-900 align-top">Total runners</th>
+              <td class="py-3 text-gray-700">4,323</td>
+            </tr>
+            <tr class="border-b border-gray-200">
+              <th class="py-3 pr-6 font-semibold text-gray-900 align-top">Clubs represented</th>
+              <td class="py-3 text-gray-700">284</td>
+            </tr>
+            <tr class="border-b border-gray-200">
+              <th class="py-3 pr-6 font-semibold text-gray-900 align-top">Teams</th>
+              <td class="py-3 text-gray-700">322</td>
+            </tr>
+            <tr class="border-b border-gray-200">
+              <th class="py-3 pr-6 font-semibold text-gray-900 align-top">Distances</th>
+              <td class="py-3 text-gray-700">Half Marathon, Half Marathon Walk, 5K</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </section>
 
-  <!-- Event Information -->
-  <section class="py-16 bg-white">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-4xl font-bold text-center mb-12">Event Information</h2>
-
-      <div class="grid md:grid-cols-3 gap-8 mb-12">
-        <div class="text-center p-6 bg-gray-50 rounded-lg">
-          <div class="w-16 h-16 bg-amber rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h3 class="font-bold text-xl mb-2">Race Date</h3>
-          <p class="text-gray-700">Sunday, March 29, 2026</p>
-        </div>
-
-        <div class="text-center p-6 bg-gray-50 rounded-lg">
-          <div class="w-16 h-16 bg-amber rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </div>
-          <h3 class="font-bold text-xl mb-2">Location</h3>
-          <p class="text-gray-700">Omagh Leisure Complex</p>
-        </div>
-
-        <div class="text-center p-6 bg-gray-50 rounded-lg">
-          <div class="w-16 h-16 bg-amber rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-          </div>
-          <h3 class="font-bold text-xl mb-2">Participants</h3>
-          <p class="text-gray-700">Over 2,500 runners annually</p>
-        </div>
-      </div>
-
-      <!-- About the Race -->
-      <div class="prose prose-lg max-w-none">
-        <div class="bg-gray-50 rounded-lg p-8 mb-8">
-          <h3 class="text-3xl font-bold mb-4">About the Race</h3>
-          <p class="text-gray-700 mb-4">
-            The Omagh Half Marathon is one of Ireland's premier road racing events, attracting over 2,500
-            participants each year. Organized by Omagh Harriers AC, this event showcases the best of Omagh and
-            provides a fantastic challenge for runners of all abilities.
-          </p>
-          <p class="text-gray-700">
-            The event is made possible by a dedicated committee of 10 people and approximately 200 volunteers
-            on race day, ensuring a well-organized and memorable experience for all participants.
-          </p>
-        </div>
-
-        <!-- Race Categories -->
-        <div class="mb-8">
-          <h3 class="text-3xl font-bold mb-6">Race Categories</h3>
-          <div class="grid md:grid-cols-2 gap-6">
-            <div class="border-l-4 border-amber pl-6 py-4">
-              <h4 class="text-2xl font-bold mb-2">Half Marathon</h4>
-              <p class="text-gray-700 mb-3">
-                13.1 miles of challenging road racing through Omagh and surrounding areas.
-              </p>
-              <p class="text-sm text-gray-600 italic">
-                Note: Course underwent minor modifications in 2022 to accommodate the Sunday race day schedule.
-              </p>
-            </div>
-            <div class="border-l-4 border-amber pl-6 py-4">
-              <h4 class="text-2xl font-bold mb-2">5K Run</h4>
-              <p class="text-gray-700">
-                A shorter distance option perfect for those new to racing or looking for a faster-paced event.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Team Prizes -->
-        <div class="bg-amber/10 border border-amber rounded-lg p-6 mb-8">
-          <h4 class="text-2xl font-bold mb-3">Team Competitions</h4>
-          <p class="text-gray-700 mb-3">
-            <strong>New:</strong> Non-athletic sports club team prizes are now available in both junior and senior categories.
-          </p>
-          <ul class="list-disc list-inside space-y-2 text-gray-700">
-            <li>Under-19s team category</li>
-            <li>Adult team category</li>
-          </ul>
-        </div>
-
-        <!-- Registration -->
-        <div class="mb-8">
-          <h3 class="text-3xl font-bold mb-6">Registration</h3>
-          <p class="text-gray-700 mb-4">
-            <strong>Entry Opening Date:</strong> October 3rd (for following year's race)
-          </p>
-          <p class="text-gray-700 mb-6">
-            Registration is managed through SI Entries. The half marathon typically sells out well in advance,
-            so early registration is strongly recommended.
-          </p>
-          <a
-            href="https://omaghhalfmarathon.run/"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-block bg-black text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
-          >
-            Register on Official Site
-          </a>
-        </div>
-
-        <!-- Parking & Logistics -->
-        <div class="bg-gray-50 rounded-lg p-6 mb-8">
-          <h4 class="text-2xl font-bold mb-3">Parking & Start/Finish</h4>
-          <p class="text-gray-700 mb-3">
-            Both the start and finish line are located at Omagh Leisure Complex.
-          </p>
-          <p class="text-gray-700">
-            Parking options include both free and paid facilities. Please verify parking details on the official
-            race website closer to race day.
-          </p>
-        </div>
-
-        <!-- Past Results -->
-        <div class="mb-8">
-          <h3 class="text-3xl font-bold mb-6">Results</h3>
-          <p class="text-gray-700 mb-4">
-            Complete race results from 2017-2025 are available online.
-          </p>
-          <a
-            href="https://myrunresults.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center text-black font-semibold hover:text-amber transition-colors"
-          >
-            View Past Results
-            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Sponsors Section -->
+  <!-- 3. WINNERS -->
   <section class="py-16 bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-4xl font-bold text-center mb-4">Our Sponsors</h2>
-      <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-        The Omagh Half Marathon is made possible by the generous support of our sponsors and partners.
-      </p>
-      <div class="text-center">
-        <p class="text-gray-700 mb-4"><strong>Major Sponsors Include:</strong></p>
-        <div class="flex flex-wrap justify-center gap-4 text-lg text-gray-700">
-          <span class="px-4 py-2 bg-white rounded-lg font-semibold">SPAR NI</span>
-          <span class="px-4 py-2 bg-white rounded-lg font-semibold">Silverbirch Hotel</span>
-          <span class="px-4 py-2 bg-white rounded-lg font-semibold">Bradley's Pharmacy</span>
-          <span class="px-4 py-2 bg-white rounded-lg font-semibold">& Many Local Businesses</span>
+      <h2 class="text-3xl font-bold mb-10">2026 Winners</h2>
+
+      <!-- Overall -->
+      <details class="mb-6">
+      <summary class="cursor-pointer list-none flex justify-between items-center border-l-4 border-amber pl-3 py-2 text-xl font-bold">Overall<span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span></summary>
+      <div class="grid md:grid-cols-2 gap-8 mt-5">
+
+        <div>
+          <h4 class="font-semibold text-gray-600 mb-3 text-sm uppercase tracking-wide">Male Open</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-gray-300">
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500 w-8">Pos</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Name</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Club</th>
+                  <th class="pb-2 text-right font-semibold text-gray-500">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1</td>
+                  <td class="py-2 pr-4 font-semibold">Stephen McAuley</td>
+                  <td class="py-2 pr-4 text-gray-500">Letterkenny AC</td>
+                  <td class="py-2 text-right tabular-nums">1:06:56</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2</td>
+                  <td class="py-2 pr-4">Michael Fox</td>
+                  <td class="py-2 pr-4 text-gray-500">Letterkenny AC</td>
+                  <td class="py-2 text-right tabular-nums">1:08:48</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">3</td>
+                  <td class="py-2 pr-4">James Speight</td>
+                  <td class="py-2 pr-4 text-gray-500">Dromore Runners</td>
+                  <td class="py-2 text-right tabular-nums">1:10:16</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">4</td>
+                  <td class="py-2 pr-4">John Joe Doherty</td>
+                  <td class="py-2 pr-4 text-gray-500">Finn Valley AC</td>
+                  <td class="py-2 text-right tabular-nums">1:10:17</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-4 text-gray-400">5</td>
+                  <td class="py-2 pr-4">Timothy Johnston</td>
+                  <td class="py-2 pr-4 text-gray-500">Annadale Striders</td>
+                  <td class="py-2 text-right tabular-nums">1:11:00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        <div>
+          <h4 class="font-semibold text-gray-600 mb-3 text-sm uppercase tracking-wide">Female Open</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-gray-300">
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500 w-8">Pos</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Name</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Club</th>
+                  <th class="pb-2 text-right font-semibold text-gray-500">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1</td>
+                  <td class="py-2 pr-4 font-semibold">Ann-Marie McGlynn</td>
+                  <td class="py-2 pr-4 text-gray-500">Strabane AC</td>
+                  <td class="py-2 text-right tabular-nums">1:14:08</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2</td>
+                  <td class="py-2 pr-4">Maria McGee</td>
+                  <td class="py-2 pr-4 text-gray-500">Rosses AC</td>
+                  <td class="py-2 text-right tabular-nums">1:16:50</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">3</td>
+                  <td class="py-2 pr-4">Dearbhla Cox</td>
+                  <td class="py-2 pr-4 text-gray-500">Annadale Striders</td>
+                  <td class="py-2 text-right tabular-nums">1:17:55</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">4</td>
+                  <td class="py-2 pr-4">Cliona Murphy</td>
+                  <td class="py-2 pr-4 text-gray-500">Dublin City Harriers</td>
+                  <td class="py-2 text-right tabular-nums">1:18:41</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-4 text-gray-400">5</td>
+                  <td class="py-2 pr-4">Claire McGuigan</td>
+                  <td class="py-2 pr-4 text-gray-500">Strabane AC</td>
+                  <td class="py-2 text-right tabular-nums">1:19:33</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      </details>
+
+      <!-- Teams -->
+      <details class="mb-6">
+      <summary class="cursor-pointer list-none flex justify-between items-center border-l-4 border-amber pl-3 py-2 text-xl font-bold">Teams<span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span></summary>
+      <div class="grid md:grid-cols-2 gap-8 mt-5">
+
+        <div>
+          <h4 class="font-semibold text-gray-600 mb-3 text-sm uppercase tracking-wide">Male Teams</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-gray-300">
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500 w-8">Pos</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Team</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500 w-10">Pts</th>
+                  <th class="pb-2 text-left font-semibold text-gray-500">Scoring runners</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1</td>
+                  <td class="py-2 pr-4 font-semibold">Armagh AC</td>
+                  <td class="py-2 pr-4">40</td>
+                  <td class="py-2 text-gray-500 text-xs">Dean Nugent, Brian McElvanna, Fearghal Delaney</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2</td>
+                  <td class="py-2 pr-4">Road Runners AC</td>
+                  <td class="py-2 pr-4">76</td>
+                  <td class="py-2 text-gray-500 text-xs">Gary Montgomery, Brendan McNally, Reece McGinley</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-4 text-gray-400">3</td>
+                  <td class="py-2 pr-4">North Belfast Harriers</td>
+                  <td class="py-2 pr-4">115</td>
+                  <td class="py-2 text-gray-500 text-xs">Mark Smith, Matthew McNutt, David Foster</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-gray-600 mb-3 text-sm uppercase tracking-wide">Female Teams</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-gray-300">
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500 w-8">Pos</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Team</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500 w-10">Pts</th>
+                  <th class="pb-2 text-left font-semibold text-gray-500">Scoring runners</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1</td>
+                  <td class="py-2 pr-4 font-semibold">North Belfast Harriers</td>
+                  <td class="py-2 pr-4">52</td>
+                  <td class="py-2 text-gray-500 text-xs">Elisoa Crawford, Louise Smith, Sarah-Jane McFadden</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2</td>
+                  <td class="py-2 pr-4">Finn Valley AC</td>
+                  <td class="py-2 pr-4">92</td>
+                  <td class="py-2 text-gray-500 text-xs">Leoni Cooke, Maggie O'Hara, Martina Quinn</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-4 text-gray-400">3</td>
+                  <td class="py-2 pr-4">Galbally Runners</td>
+                  <td class="py-2 pr-4">93</td>
+                  <td class="py-2 text-gray-500 text-xs">Aimee Smyth, Edel Corr, Emer McCann</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      </details>
+
+      <!-- Category Winners -->
+      <details class="mb-2">
+      <summary class="cursor-pointer list-none flex justify-between items-center border-l-4 border-amber pl-3 py-2 text-xl font-bold">Category Winners<span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span></summary>
+      <div class="grid md:grid-cols-2 gap-8 mt-5">
+
+        <div>
+          <h4 class="font-semibold text-gray-600 mb-3 text-sm uppercase tracking-wide">Male</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-gray-300">
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500 w-8">Pos</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Name</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Club</th>
+                  <th class="pb-2 text-right font-semibold text-gray-500">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/35</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Shane Donnelly</td>
+                  <td class="py-2 pr-4 text-gray-500">Tafelta AC</td>
+                  <td class="py-2 text-right tabular-nums">1:11:47</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Mark Monteith</td>
+                  <td class="py-2 pr-4 text-gray-500">Victoria Park & Connswater AC</td>
+                  <td class="py-2 text-right tabular-nums">1:13:21</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/40</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Gary Montgomery</td>
+                  <td class="py-2 pr-4 text-gray-500">Road Runners AC</td>
+                  <td class="py-2 text-right tabular-nums">1:12:38</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Fearghal Delaney</td>
+                  <td class="py-2 pr-4 text-gray-500">Armagh AC</td>
+                  <td class="py-2 text-right tabular-nums">1:13:27</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/45</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Jonny Steede</td>
+                  <td class="py-2 pr-4 text-gray-500">Glens Runners</td>
+                  <td class="py-2 text-right tabular-nums">1:12:24</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Dean Nugent</td>
+                  <td class="py-2 pr-4 text-gray-500">Armagh AC</td>
+                  <td class="py-2 text-right tabular-nums">1:12:52</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/50</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Declan Reed</td>
+                  <td class="py-2 pr-4 text-gray-500">City of Derry Spartans</td>
+                  <td class="py-2 text-right tabular-nums">1:12:14</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Martin McKenna</td>
+                  <td class="py-2 pr-4 text-gray-500">Armagh AC</td>
+                  <td class="py-2 text-right tabular-nums">1:18:03</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/55</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Mark Smith</td>
+                  <td class="py-2 pr-4 text-gray-500">North Belfast Harriers</td>
+                  <td class="py-2 text-right tabular-nums">1:15:45</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Pat McCrory</td>
+                  <td class="py-2 pr-4 text-gray-500">Omagh Harriers AC</td>
+                  <td class="py-2 text-right tabular-nums">1:22:09</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/60</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Nat Glenn</td>
+                  <td class="py-2 pr-4 text-gray-500">Road Runners AC</td>
+                  <td class="py-2 text-right tabular-nums">1:25:38</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Michael Duncan</td>
+                  <td class="py-2 pr-4 text-gray-500">Lifford Strabane AC</td>
+                  <td class="py-2 text-right tabular-nums">1:29:12</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/65</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Tony Toner</td>
+                  <td class="py-2 pr-4 text-gray-500">Tafelta AC</td>
+                  <td class="py-2 text-right tabular-nums">1:32:15</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Peter Gormley</td>
+                  <td class="py-2 pr-4 text-gray-500">Omagh Harriers AC</td>
+                  <td class="py-2 text-right tabular-nums">1:39:25</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/70</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Tommy Gartland</td>
+                  <td class="py-2 pr-4 text-gray-500">Knockmany Running Club</td>
+                  <td class="py-2 text-right tabular-nums">1:41:02</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Pius Doherty</td>
+                  <td class="py-2 pr-4 text-gray-500">Lifford Strabane AC</td>
+                  <td class="py-2 text-right tabular-nums">1:46:13</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">U/20</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Adrian Sheridan</td>
+                  <td class="py-2 pr-4 text-gray-500">Dromore Runners</td>
+                  <td class="py-2 text-right tabular-nums">1:18:39</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">William McCausland</td>
+                  <td class="py-2 pr-4 text-gray-500">Omagh Harriers AC</td>
+                  <td class="py-2 text-right tabular-nums">1:23:48</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-gray-600 mb-3 text-sm uppercase tracking-wide">Female</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-gray-300">
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500 w-8">Pos</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Name</th>
+                  <th class="pb-2 pr-4 text-left font-semibold text-gray-500">Club</th>
+                  <th class="pb-2 text-right font-semibold text-gray-500">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/35</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Helen Perry</td>
+                  <td class="py-2 pr-4 text-gray-500">Lisburn Triathlon Club</td>
+                  <td class="py-2 text-right tabular-nums">1:23:08</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Maggie O'Hara</td>
+                  <td class="py-2 pr-4 text-gray-500">Finn Valley AC</td>
+                  <td class="py-2 text-right tabular-nums">1:23:25</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/40</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Leoni Cooke</td>
+                  <td class="py-2 pr-4 text-gray-500">Finn Valley AC</td>
+                  <td class="py-2 text-right tabular-nums">1:21:36</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Edel Corr</td>
+                  <td class="py-2 pr-4 text-gray-500">Galbally Runners</td>
+                  <td class="py-2 text-right tabular-nums">1:26:04</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/45</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Niamh Marrs</td>
+                  <td class="py-2 pr-4 text-gray-500">Glens Runners</td>
+                  <td class="py-2 text-right tabular-nums">1:24:00</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Liz O'Brien</td>
+                  <td class="py-2 pr-4 text-gray-500">Dromore Runners</td>
+                  <td class="py-2 text-right tabular-nums">1:32:41</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/50</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Elisoa Crawford</td>
+                  <td class="py-2 pr-4 text-gray-500">North Belfast Harriers</td>
+                  <td class="py-2 text-right tabular-nums">1:23:54</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Julie Butler</td>
+                  <td class="py-2 pr-4 text-gray-500">—</td>
+                  <td class="py-2 text-right tabular-nums">1:29:34</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/55</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Louise Smith</td>
+                  <td class="py-2 pr-4 text-gray-500">North Belfast Harriers</td>
+                  <td class="py-2 text-right tabular-nums">1:27:58</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Janice Plumb</td>
+                  <td class="py-2 pr-4 text-gray-500">North Belfast Harriers</td>
+                  <td class="py-2 text-right tabular-nums">1:35:37</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/60</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Mary Slocum</td>
+                  <td class="py-2 pr-4 text-gray-500">Ward Park Runners</td>
+                  <td class="py-2 text-right tabular-nums">1:33:40</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Rosie Mallon</td>
+                  <td class="py-2 pr-4 text-gray-500">Orchard County Runners</td>
+                  <td class="py-2 text-right tabular-nums">1:44:00</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/65</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Elizabeth Toal</td>
+                  <td class="py-2 pr-4 text-gray-500">—</td>
+                  <td class="py-2 text-right tabular-nums">1:51:28</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Anne McElhinney</td>
+                  <td class="py-2 pr-4 text-gray-500">Inishowen AC</td>
+                  <td class="py-2 text-right tabular-nums">1:58:26</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">O/70</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Kathleen Moohan</td>
+                  <td class="py-2 pr-4 text-gray-500">Run For Enda</td>
+                  <td class="py-2 text-right tabular-nums">2:12:42</td>
+                </tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Anne Magee</td>
+                  <td class="py-2 pr-4 text-gray-500">Monkstown Spartans</td>
+                  <td class="py-2 text-right tabular-nums">2:21:54</td>
+                </tr>
+                <tr class="bg-gray-100"><td colspan="4" class="py-1 px-2 text-xs font-bold text-gray-500 uppercase tracking-wide">U/20</td></tr>
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 font-bold text-amber">1st</td>
+                  <td class="py-2 pr-4 font-semibold">Lucy Cheatley</td>
+                  <td class="py-2 pr-4 text-gray-500">North Down AC</td>
+                  <td class="py-2 text-right tabular-nums">—</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-4 text-gray-400">2nd</td>
+                  <td class="py-2 pr-4">Hannah O'Toole</td>
+                  <td class="py-2 pr-4 text-gray-500">East Coast Athletics Club</td>
+                  <td class="py-2 text-right tabular-nums">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- 4. RACE RECAP -->
+  <section class="py-12 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-3xl font-bold mb-6">Race Recap</h2>
+      <div class="max-w-3xl">
+        <p class="text-gray-700 text-lg leading-relaxed">
+          The 2026 SPAR Omagh Half Marathon & 5K brought runners, walkers, clubs and families back to the roads around Omagh on a wet Sunday in March. The weather tested everyone — and everyone came through. Across the day, 4,323 finishers from 284 clubs took on the half marathon, walk and 5K, supported by a race committee of ten and more than 200 volunteers. Thank you to SPAR NI for their continued title sponsorship, to Action for Children as the 2026 charity partner, and to every marshal, water-station crew and supporter who helped make race day what it was.
+        </p>
       </div>
     </div>
   </section>
 
-  <!-- Charity Partner -->
-  <section class="py-12 bg-white">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl font-bold mb-4">Charity Partner</h2>
-      <p class="text-gray-700 text-lg">
-        <strong>2025 Official Charity Partner:</strong> Care for Cancer
-      </p>
+  <!-- 5. SPONSORS -->
+  <section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-3xl font-bold mb-2">Sponsors</h2>
+      <p class="text-gray-500 mb-10">Sponsor logos and details coming soon.</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+        {Array.from({ length: 8 }).map(() => (
+          <div class="h-20 bg-gray-100 rounded-lg border border-gray-200 border-dashed"></div>
+        ))}
+      </div>
     </div>
   </section>
 
-  <!-- CTA Section -->
-  <section class="py-16 bg-gradient-to-r from-black to-gray-900 text-white">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl md:text-4xl font-bold mb-6">
-        Ready to Take on the Challenge?
-      </h2>
-      <p class="text-xl text-gray-300 mb-8">
-        Visit the official race website for complete information, registration, and race day details.
-      </p>
-      <a
-        href="https://omaghhalfmarathon.run/"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-block bg-amber text-black px-8 py-4 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors"
-      >
-        Visit Omagh Half Marathon Website
-      </a>
+  <!-- 7. RESULTS ARCHIVE -->
+  <section class="py-16 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-3xl font-bold mb-2">Results Archive</h2>
+      <p class="text-gray-500 mb-8">Full results from every year on MyRunResults.</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+        {resultsArchive.map(({ year, url }) =>
+          url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="block p-5 bg-white rounded-lg border border-gray-200 hover:border-amber hover:shadow-md transition-all text-center group"
+            >
+              <span class="text-2xl font-bold group-hover:text-amber transition-colors block">{year}</span>
+              <span class="text-xs text-gray-400 mt-1 block">View results →</span>
+            </a>
+          ) : (
+            <div class="p-5 bg-white rounded-lg border border-gray-100 text-center opacity-50">
+              <span class="text-2xl font-bold text-gray-400 block">{year}</span>
+              <span class="text-xs text-gray-400 mt-1 block">Not held – Covid-19</span>
+            </div>
+          )
+        )}
+      </div>
     </div>
   </section>
+
+  <!-- 8. NEXT EVENT -->
+  <section class="py-12 bg-black text-white">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-2xl md:text-3xl font-bold mb-3">Next Year's Race</h2>
+      <p class="text-gray-400 mb-8 max-w-xl mx-auto">
+        Date and entry details will be announced soon. Follow our channels to be the first to hear.
+      </p>
+      <div class="flex flex-wrap justify-center gap-4">
+        <a
+          href="https://www.facebook.com/OmaghHalfMarathon"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-amber text-black px-5 py-2.5 rounded-lg font-bold hover:bg-yellow-400 transition-colors"
+        >
+          Follow on Facebook
+        </a>
+        <a
+          href="https://www.instagram.com/omaghhalfmarathon"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="border border-white/30 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-white/10 transition-colors"
+        >
+          Follow on Instagram
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. ABOUT THE RACE -->
+  <section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-3xl">
+        <h2 class="text-3xl font-bold mb-6">About the Race</h2>
+        <p class="text-gray-700 mb-4 leading-relaxed">
+          The Omagh Half Marathon has grown into one of Northern Ireland's best-known road-running events. Its roots stretch back to the early 1980s, moving from a 10-mile race to a 12-mile race before becoming a half marathon, with Omagh Harriers relaunching the event in 2000. Today it brings together serious racers, club runners, charity runners, walkers, first-timers, schools and families — typically drawing well over 4,000 participants from hundreds of clubs across Ireland and beyond.
+        </p>
+        <p class="text-gray-700 leading-relaxed">
+          The course has enough pace for runners chasing a strong time, and enough Tyrone character to make the finish line feel properly earned — undulating throughout, with testing sections around Arvalee, the climb towards TC Autos and the mile 12 drag by Strathroy. Start and finish at Omagh Leisure Complex, with chip timing, pacers, bespoke medals and a packed finish-line atmosphere backed by more than 200 volunteers.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. FAQ -->
+  <section class="py-16 bg-gray-50">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-3xl font-bold mb-8">Frequently Asked Questions</h2>
+      <div class="space-y-2">
+
+        <details class="bg-white rounded-lg border border-gray-200">
+          <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center list-none">
+            When is the next Omagh Half Marathon?
+            <span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span>
+          </summary>
+          <div class="px-6 pb-5 text-gray-700 text-sm leading-relaxed">
+            <p>The next event date has not yet been confirmed. Follow us on Facebook and Instagram for the first announcement. The half marathon has sold out quickly in recent years, so entry is worth booking early once it opens.</p>
+          </div>
+        </details>
+
+        <details class="bg-white rounded-lg border border-gray-200">
+          <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center list-none">
+            Where does the race take place?
+            <span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span>
+          </summary>
+          <div class="px-6 pb-5 text-gray-700 text-sm leading-relaxed">
+            <p>The start and finish are both at Omagh Leisure Complex, Old Mountfield Road, Omagh, BT79 7EG. The course is a road route through the Omagh area. Final route and logistics details for each year are included in the official race instructions sent to all entrants before race day.</p>
+          </div>
+        </details>
+
+        <details class="bg-white rounded-lg border border-gray-200">
+          <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center list-none">
+            What distances are available?
+            <span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span>
+          </summary>
+          <div class="px-6 pb-5 text-gray-700 text-sm leading-relaxed">
+            <p>The 2026 event included the half marathon run (13.1 miles), a half marathon walk, a wheelchair category and the 5K. The programme for the next event will be confirmed closer to race day — check back here for details.</p>
+          </div>
+        </details>
+
+        <details class="bg-white rounded-lg border border-gray-200">
+          <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center list-none">
+            When do entries open?
+            <span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span>
+          </summary>
+          <div class="px-6 pb-5 text-gray-700 text-sm leading-relaxed">
+            <p>Entry dates for the next event have not yet been confirmed. In 2026, entries opened on Friday 3 October 2025 and closed on Saturday 14 February 2026. Early entry is strongly recommended — the half marathon has sold out well in advance in recent years. Entry details will be posted here once confirmed.</p>
+          </div>
+        </details>
+
+        <details class="bg-white rounded-lg border border-gray-200">
+          <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center list-none">
+            Where can I find my results?
+            <span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span>
+          </summary>
+          <div class="px-6 pb-5 text-gray-700 text-sm leading-relaxed">
+            <p>Full results for 2026 and all previous years are available on <a href="https://www.myrunresults.com" target="_blank" rel="noopener noreferrer" class="font-semibold underline hover:text-amber transition-colors">MyRunResults</a>. Individual results, category listings and team results are all available there. Direct links to each year are in the Results Archive above.</p>
+          </div>
+        </details>
+
+        <details class="bg-white rounded-lg border border-gray-200">
+          <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center list-none">
+            Is there parking at Omagh Leisure Complex?
+            <span class="indicator text-amber text-xl ml-4 flex-shrink-0">+</span>
+          </summary>
+          <div class="px-6 pb-5 text-gray-700 text-sm leading-relaxed">
+            <p>Parking is available at and around Omagh Leisure Complex on race day, including free and paid options nearby. Full race-day logistics — including parking, bag drop and warm-up area — are included in the official race instructions sent to all entrants before the event.</p>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </section>
+
 </Layout>
+
+<style>
+  details[open] summary .indicator {
+    transform: rotate(45deg);
+  }
+  summary .indicator {
+    transition: transform 0.2s ease;
+  }
+</style>

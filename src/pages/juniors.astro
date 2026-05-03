@@ -3,132 +3,208 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout
-  title="Juniors - Omagh Harriers AC"
-  description="Information about junior athletics at Omagh Harriers AC"
+  title="Juniors | Omagh Harriers AC"
+  description="Junior Academy at Omagh Harriers AC — training times, seasonal programme and how to get involved for young athletes in Omagh."
 >
-  <!-- Hero Section -->
-  <section class="relative h-[280px] sm:h-[400px] md:h-[600px] flex items-center justify-center">
+  <!-- Hero: bottom-anchored -->
+  <section class="relative h-[280px] sm:h-[400px] md:h-[600px] flex items-end">
     <img
       src="/aerial-shot.jpg"
-      alt="Aerial view of Omagh Harriers running community"
+      alt="Omagh Harriers junior athletes in action"
       class="absolute inset-0 w-full h-full object-cover"
     />
     <div class="absolute inset-0 bg-black/10"></div>
 
-    <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
-      <div class="mb-8">
-        <svg class="w-24 h-24 mx-auto text-amber opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-        </svg>
-      </div>
-      <h1 class="text-5xl md:text-6xl font-bold text-white mb-6">
-        Juniors Section
+    <div class="relative z-10 w-full px-4 sm:px-6 lg:px-8 pb-8 sm:pb-12 max-w-7xl mx-auto">
+      <span class="inline-block text-amber text-xs sm:text-sm font-semibold tracking-widest uppercase mb-3">
+        Junior Academy · Omagh Harriers AC
+      </span>
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-3 leading-tight">
+        Junior Academy
       </h1>
-      <p class="text-2xl md:text-3xl text-amber mb-8 font-semibold">
-        Coming Soon!
+      <p class="hidden sm:block text-lg sm:text-xl text-gray-200 max-w-2xl">
+        Developing young athletes in a fun, supportive environment — from first strides to club competition.
       </p>
-      <div class="bg-white/95 backdrop-blur rounded-lg p-8 max-w-2xl mx-auto hidden md:block">
-        <p class="text-lg text-gray-800 mb-6">
-          We're currently building a dedicated section for our junior athletes. This page will feature
-          information about junior training sessions, events, and opportunities for young runners.
-        </p>
-        <p class="text-gray-700">
-          Check back soon for updates, or contact the club directly for information about junior athletics.
-        </p>
-      </div>
     </div>
   </section>
 
-  <!-- Coming Soon Notice for Desktop -->
-  <section class="py-12 bg-amber/10 border-y border-amber block md:hidden">
+  <!-- Intro -->
+  <section class="py-10 sm:py-14 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="bg-white/95 backdrop-blur rounded-lg p-8 max-w-2xl mx-auto">
-        <p class="text-lg text-gray-800 mb-6">
-          We're currently building a dedicated section for our junior athletes. This page will feature
-          information about junior training sessions, events, and opportunities for young runners.
-        </p>
-        <p class="text-gray-700">
-          Check back soon for updates, or contact the club directly for information about junior athletics.
-        </p>
+      <h2 class="text-2xl sm:text-3xl font-bold mb-5">Junior Academy</h2>
+      <p class="text-gray-700 text-base sm:text-lg leading-relaxed mb-4">
+        Omagh Harriers AC is committed to developing young athletes and fostering a love of running, track &amp; field from an early age. Our Junior Academy provides coaching and training opportunities for young runners, helping them build their skills and confidence in a welcoming club environment.
+      </p>
+      <p class="text-gray-700 text-base sm:text-lg leading-relaxed">
+        We cater for a range of age groups and abilities. Whether your child is taking their first steps in athletics or looking to compete at Ulster and national level, there is a place for them at Omagh Harriers.
+      </p>
+    </div>
+  </section>
+
+  <!-- Training Times -->
+  <section class="py-10 sm:py-14 bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-2xl sm:text-3xl font-bold text-center mb-8">Training Times</h2>
+
+      <!-- Mobile: stacked cards -->
+      <div class="space-y-3 sm:hidden">
+        <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
+          <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">Development Squad</p>
+          <p class="text-gray-800 font-semibold">Monday, 4:30pm</p>
+          <p class="text-gray-500 text-sm">OLC Track</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
+          <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">Main Group</p>
+          <p class="text-gray-800 font-semibold">Monday, 6:00pm</p>
+          <p class="text-gray-500 text-sm">OLC Track</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
+          <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">All Juniors</p>
+          <p class="text-gray-800 font-semibold">Thursday, 6:00pm</p>
+          <p class="text-gray-500 text-sm">Youth Sport Omagh</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
+          <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">Track &amp; Field Group</p>
+          <p class="text-gray-800 font-semibold">Monday &amp; Thursday, 6:00pm</p>
+          <p class="text-gray-500 text-sm">Youth Sport Omagh</p>
+        </div>
+      </div>
+
+      <!-- Desktop: table -->
+      <div class="hidden sm:block bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm sm:text-base">
+          <thead>
+            <tr class="border-b border-gray-200 bg-gray-50">
+              <th class="text-left py-3 px-5 font-semibold">Session</th>
+              <th class="text-left py-3 px-5 font-semibold">Day &amp; Time</th>
+              <th class="text-left py-3 px-5 font-semibold">Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-100">
+              <td class="py-3 px-5 font-medium">Development Squad</td>
+              <td class="py-3 px-5 text-gray-700">Monday, 4:30pm</td>
+              <td class="py-3 px-5 text-gray-600">OLC Track</td>
+            </tr>
+            <tr class="border-b border-gray-100">
+              <td class="py-3 px-5 font-medium">Main Group</td>
+              <td class="py-3 px-5 text-gray-700">Monday, 6:00pm</td>
+              <td class="py-3 px-5 text-gray-600">OLC Track</td>
+            </tr>
+            <tr class="border-b border-gray-100">
+              <td class="py-3 px-5 font-medium">All Juniors</td>
+              <td class="py-3 px-5 text-gray-700">Thursday, 6:00pm</td>
+              <td class="py-3 px-5 text-gray-600">Youth Sport Omagh</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-5 font-medium">Track &amp; Field Group</td>
+              <td class="py-3 px-5 text-gray-700">Monday &amp; Thursday, 6:00pm</td>
+              <td class="py-3 px-5 text-gray-600">Youth Sport Omagh</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </section>
 
-  <!-- Junior Info Section -->
-  <section class="py-16 bg-white">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="grid md:grid-cols-2 gap-12">
-        <div>
-          <h2 class="text-3xl font-bold mb-6">Junior Athletics</h2>
-          <p class="text-gray-700 mb-4">
-            Omagh Harriers AC is committed to developing young athletes and fostering a love of running
-            from an early age.
-          </p>
-          <p class="text-gray-700 mb-6">
-            Our junior section provides coaching and training opportunities for young runners, helping them
-            develop their skills in a fun, supportive environment.
-          </p>
-          <div class="bg-amber/10 border border-amber rounded-lg p-6">
-            <h3 class="font-bold text-lg mb-2">Training Information</h3>
-            <p class="text-gray-700 mb-3">
-              <strong>Days:</strong> Monday & Thursday
-            </p>
-            <p class="text-gray-700 mb-3">
-              <strong>Location:</strong> Omagh Leisure Complex
-            </p>
-            <p class="text-sm text-gray-600">
-              Contact the club for specific times and age group details.
-            </p>
+  <!-- What We Offer -->
+  <section class="py-10 sm:py-14 bg-white">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-2xl sm:text-3xl font-bold text-center mb-8">What We Offer</h2>
+      <ul class="grid md:grid-cols-2 gap-x-12 gap-y-4">
+        <li class="flex items-start">
+          <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-700 text-base sm:text-lg">Qualified coaches experienced in youth athletics</span>
+        </li>
+        <li class="flex items-start">
+          <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-700 text-base sm:text-lg">Age-appropriate training programmes</span>
+        </li>
+        <li class="flex items-start">
+          <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-700 text-base sm:text-lg">Track and field, cross country and road running</span>
+        </li>
+        <li class="flex items-start">
+          <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-700 text-base sm:text-lg">Safe, inclusive environment</span>
+        </li>
+        <li class="flex items-start">
+          <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-700 text-base sm:text-lg">Opportunities to compete locally, provincially and nationally</span>
+        </li>
+        <li class="flex items-start">
+          <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-700 text-base sm:text-lg">ANI-affiliated club with structured underage pathways</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- The Club Season -->
+  <section class="py-10 sm:py-14 bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-2xl sm:text-3xl font-bold text-center mb-8">The Club Season</h2>
+      <div class="space-y-3">
+
+        <details class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-bold text-base sm:text-lg select-none list-none">
+            Indoors — Winter into Spring
+            <svg class="w-5 h-5 text-gray-400 details-chevron flex-shrink-0 ml-3 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+          <div class="px-5 pb-6 text-gray-700 text-sm sm:text-base leading-relaxed">
+            Indoor athletics takes place over the winter and into early spring. Athletes compete on indoor tracks, focusing on sprints, middle distance, hurdles and field events such as long jump, high jump and shot put. Indoor competitions are held across Ireland and provide a great introduction to competitive athletics for younger athletes.
           </div>
-        </div>
+        </details>
 
-        <div class="bg-gradient-to-br from-black to-gray-800 rounded-lg p-8 text-white">
-          <h3 class="text-2xl font-bold mb-6 text-amber">What We Offer</h3>
-          <ul class="space-y-4">
-            <li class="flex items-start">
-              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-              </svg>
-              <span>Qualified coaches experienced in youth athletics</span>
-            </li>
-            <li class="flex items-start">
-              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-              </svg>
-              <span>Age-appropriate training programs</span>
-            </li>
-            <li class="flex items-start">
-              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-              </svg>
-              <span>Track and field activities</span>
-            </li>
-            <li class="flex items-start">
-              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-              </svg>
-              <span>Safe, inclusive environment</span>
-            </li>
-            <li class="flex items-start">
-              <svg class="w-6 h-6 text-amber mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-              </svg>
-              <span>Opportunities to compete in local events</span>
-            </li>
-          </ul>
-        </div>
+        <details class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-bold text-base sm:text-lg select-none list-none">
+            Outdoor Track &amp; Field — Spring and Summer
+            <svg class="w-5 h-5 text-gray-400 details-chevron flex-shrink-0 ml-3 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+          <div class="px-5 pb-6 text-gray-700 text-sm sm:text-base leading-relaxed">
+            As the season moves outdoors, training and competition shifts to the outdoor track. Athletes develop across all track distances and field disciplines. The summer season includes NI &amp; Ulster and All-Ireland underage championships, giving athletes the opportunity to compete at regional and national level.
+          </div>
+        </details>
+
+        <details class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-bold text-base sm:text-lg select-none list-none">
+            Cross Country — Autumn &amp; Winter
+            <svg class="w-5 h-5 text-gray-400 details-chevron flex-shrink-0 ml-3 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+          <div class="px-5 pb-6 text-gray-700 text-sm sm:text-base leading-relaxed">
+            Cross country is a core part of the junior calendar from autumn through winter. Athletes race over grass, mud and terrain courses at local, provincial and national level. The NI &amp; Ulster Cross Country and National Cross Country Championships are key targets for club athletes.
+          </div>
+        </details>
+
       </div>
     </div>
   </section>
 
-  <!-- Safeguarding Notice -->
-  <section class="py-12 bg-gray-50">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="bg-white rounded-lg p-8 border-l-4 border-amber">
-        <h3 class="text-2xl font-bold mb-4">Child Safety & Safeguarding</h3>
-        <p class="text-gray-700 mb-4">
-          Omagh Harriers AC is fully committed to safeguarding the welfare of all young athletes.
-          We follow strict safeguarding policies in line with Athletics Northern Ireland guidelines.
+  <!-- Safeguarding -->
+  <section class="py-10 sm:py-14 bg-white">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="bg-white rounded-lg p-6 sm:p-8 border-l-4 border-amber shadow-sm">
+        <h3 class="text-xl sm:text-2xl font-bold mb-4">Child Safety &amp; Safeguarding</h3>
+        <p class="text-gray-700 text-base sm:text-lg leading-relaxed mb-4">
+          Omagh Harriers AC is fully committed to safeguarding the welfare of all young athletes. We follow strict safeguarding policies in line with Athletics NI guidelines. All coaches working with juniors hold up-to-date Access NI clearance.
         </p>
         <a
           href="/policies"
@@ -143,20 +219,30 @@ import Layout from '../layouts/Layout.astro';
     </div>
   </section>
 
-  <!-- Contact Section -->
-  <section class="py-16 bg-white">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl font-bold mb-6">Interested in Junior Athletics?</h2>
-      <p class="text-gray-700 text-lg mb-8 max-w-2xl mx-auto">
-        For more information about our junior section, training times, and how to get involved,
-        please get in touch with the club.
+  <!-- Contact CTA -->
+  <section class="py-12 sm:py-16 bg-black text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <p class="text-amber font-semibold uppercase tracking-widest text-xs sm:text-sm mb-3">Interested in the Junior Academy?</p>
+      <h2 class="text-2xl sm:text-3xl font-bold mb-2">Get In Touch</h2>
+      <p class="text-gray-400 mb-8 text-sm sm:text-base max-w-xl mx-auto">
+        For more information about our Junior Academy, training times, and how to get your child involved, please get in touch with the club.
       </p>
       <a
         href="mailto:info@omaghharriers.com"
-        class="inline-block bg-black text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+        class="inline-block bg-amber text-black px-8 py-4 rounded-lg font-bold text-base sm:text-lg hover:bg-yellow-400 transition-colors"
       >
-        Contact Us
+        Contact Us →
       </a>
     </div>
   </section>
 </Layout>
+
+<script>
+  document.querySelectorAll('details').forEach((el) => {
+    const chevron = el.querySelector<HTMLElement>('.details-chevron');
+    if (!chevron) return;
+    el.addEventListener('toggle', () => {
+      chevron.style.transform = el.open ? 'rotate(180deg)' : '';
+    });
+  });
+</script>

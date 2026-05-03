@@ -2,61 +2,125 @@
 
 ## Goal
 
-A low-friction, invite-only members area for club members. No account creation — members sign in using their existing email address. Identity is verified against a pre-approved allowlist of known member emails.
+A low-friction, invite-only members area for club members. No account creation — members sign in using an email address that appears on the pre-approved allowlist. The same Supabase backend powers a separate sign-in PWA used by admins at training sessions.
 
 ## Auth Strategy
 
-**Magic link (passwordless email)** is the primary auth method — works for all email providers. Optionally add Google and Microsoft OAuth as a convenience shortcut for the majority of members.
+Two complementary methods, both gated by the allowlist (which lives in the Supabase `members` table). Supabase's "link accounts with same email" setting means a member who uses both methods becomes a single auth user.
 
-Flow:
-1. Member enters email on the sign-in page
-2. Middleware checks the email against the allowlist — if not found, reject before sending anything
-3. Supabase sends a magic link to their inbox
-4. One click and they're in, session lasts 30 days
-5. Optional: "Sign in with Google" / "Sign in with Microsoft" buttons skip step 1–3 for those providers
+### Magic link
 
-Auth provider: **Supabase Auth** (free tier, magic links + OAuth built-in, works with Astro SSR).
+Member enters their email → allowlist check → Supabase sends a one-click link → they're in. Covers 100% of members.
+
+### Google + Microsoft + Apple OAuth
+
+One-click sign-in for the majority. The OAuth provider returns a verified email; if it's on the allowlist, the session is granted. ~5-minute config per provider in the Supabase dashboard plus an OAuth app registration in each developer console.
+
+**Coverage:** ~40% Gmail, ~25% Microsoft, plus Apple ID holders (common on iPhones) — likely 70%+ of members get one-click sign-in.
+
+> **Decision: SMS and WhatsApp OTP are out of scope.** Magic link + OAuth covers everyone with no per-message costs, no Twilio account, and no Meta approval process. Phone OTP would add operational overhead for a UX that magic link already delivers.
 
 ## Member Allowlist
 
-The allowlist is the source of truth for who is a member. Start with a static approach, migrate to the database once there's a reason to (e.g. self-service renewal).
+The allowlist lives in the Supabase `members` table from day one (no JSON file). The table doubles as the canonical record for credits, attendance, and admin role flags.
 
-- Store unique, lowercase member emails in `src/data/members.json`
-- Deduplicate and normalise on import (lowercase, trim)
-- On each sign-in attempt, check the email against this list before calling Supabase
-- Supabase row-level security can also enforce this at the DB layer as a belt-and-braces measure
+```
+members
+  id, auth_user_id, email (unique, lowercased), name, phone,
+  is_admin, is_active, created_at
+```
+
+- Sign-in flow: check the submitted email against `members` before calling Supabase auth
+- On first successful sign-in: write the new `auth_user_id` back to the row
+- Lapsed members: flip `is_active = false`
+- New members: insert a row (manual SQL or admin UI in the members area)
 
 ## Stack Changes
 
-The site currently uses Astro with static output. To support server-side auth middleware, one change is needed:
+The site is currently **static (Astro SSG) deployed on Cloudflare Pages**. To support server-side auth middleware, switch to SSR using the Cloudflare Workers adapter:
 
-**`astro.config.mjs`** — add `output: 'server'` and a server adapter (e.g. Vercel or Node).
+```sh
+npx astro add cloudflare
+```
 
-Everything else stays the same — existing static pages continue to work, the middleware only activates for `/members/*` routes.
+Then add `output: 'server'` to `astro.config.mjs`. Existing static pages continue to work unchanged; middleware only activates for `/members/*`, `/admin/*`, and `/signin/*`.
+
+> **On Workers vs Pages:** the Cloudflare Pages path is being deprecated by Cloudflare in favour of Workers. Migrating to Workers now (rather than pinning the adapter to v12 to stay on Pages) avoids fighting end-of-life tooling later.
 
 ## Planned Routes
 
 | Route | Access | Notes |
 |---|---|---|
 | `/members` | Members only | Dashboard / landing page |
-| `/members/profile` | Members only | View membership details |
+| `/members/credits` | Members only | Balance + transaction history |
+| `/members/topup` | Members only | Stripe Checkout entry |
+| `/members/topup/success` | Members only | Post-payment confirmation |
+| `/admin/credits` | Admin only | Manual credit adjustments + session recording |
+| `/api/stripe/webhook` | Public (Stripe-signed) | Astro API route — credits accounts on top-up |
 | `/signin` | Public | Magic link / OAuth entry point |
 | `/signin/callback` | Public | Supabase auth callback handler |
 
-## Rough Implementation Steps
+## Env Vars
 
-1. **Switch to SSR** — add `output: 'server'` and a server adapter to `astro.config.mjs`
-2. **Add Supabase** — install `@supabase/supabase-js`, create a free Supabase project, configure env vars (`PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`)
-3. **Build the allowlist** — create `src/data/members.json` from the current member email list (deduplicated, lowercased)
-4. **Auth middleware** — `src/middleware.ts` intercepts requests to `/members/*`, checks for a valid Supabase session, redirects to `/signin` if not authenticated
-5. **Sign-in page** — `src/pages/signin.astro` with an email input form; on submit, check allowlist then call `supabase.auth.signInWithOtp()`
-6. **Auth callback** — `src/pages/signin/callback.astro` exchanges the token from the magic link for a session cookie
-7. **Members pages** — `src/pages/members/index.astro` etc., gated by middleware
-8. **OAuth (optional, post-MVP)** — add Google and Microsoft as providers in Supabase dashboard, add buttons to the sign-in page
+| Variable | Purpose |
+|---|---|
+| `PUBLIC_SUPABASE_URL` | Supabase client config |
+| `PUBLIC_SUPABASE_ANON_KEY` | Supabase client config |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side writes from Stripe webhook (never exposed to client) |
+| `STRIPE_SECRET_KEY` | Create Checkout sessions server-side |
+| `STRIPE_WEBHOOK_SECRET` | Verify webhook signatures |
+| `PUBLIC_STRIPE_PUBLISHABLE_KEY` | (optional) if using Stripe.js client-side |
+
+## Training Credits
+
+Session attendance costs £2. Members can top up their balance in advance (e.g. £10 = 5 sessions). Cash payments are recorded by an admin in the sign-in PWA at the session itself; online top-ups go through Stripe.
+
+### Data model
+
+```
+credit_transactions
+  id, member_id, amount_pence (signed),
+  type (top_up | session | manual_adjustment | refund),
+  idempotency_key (unique), notes, created_by, created_at
+```
+
+Balance = `SUM(amount_pence)` per member (exposed via a `member_balances` view). History is the full transaction log.
+
+### Online top-up via Stripe
+
+The club already has a **Stripe Standard account** connected to Klubfunder — use the same account directly. No new Stripe account needed.
+
+Flow:
+1. Member selects a top-up amount (£10 / £20 / custom) in the members area
+2. App creates a Stripe Checkout session with `member_id` in metadata, redirects to Stripe's hosted page
+3. On success, Stripe fires a webhook to `/api/stripe/webhook` (Astro API route, not a Supabase Edge Function — fewer moving parts, single deployment pipeline)
+4. The handler verifies the Stripe signature, then writes a `top_up` transaction using the Stripe event ID as `idempotency_key` (replays are safe)
+5. Member is redirected back with their updated balance
+
+**Fees:** ~1.4% + 20p per transaction (e.g. 34p on a £10 top-up). Paid by the club, not the member.
+
+### Cash top-up / session deduction
+
+Admin records these in the sign-in PWA at the session, or in `/admin/credits` from the desktop members area. Both routes write to `credit_transactions` with `type = manual_adjustment` or `session`, using a deterministic `idempotency_key` so offline-then-sync from the PWA can never double-charge.
+
+## Sign-in PWA (separate deployment)
+
+A standalone React + Vite PWA hosted at `signin.omaghharriers.com`, used by admins at training sessions. Mobile-first, installable, offline-resilient. Members never see the URL — admins install it on their phones once.
+
+Detailed in [members_area_implementation_plan.md](members_area_implementation_plan.md).
+
+## Cost Summary
+
+| Item | Annual cost |
+|---|---|
+| Cloudflare Workers / Pages | Free tier covers everything |
+| Supabase | Free tier (500MB DB, 50k MAU) |
+| Stripe | ~1.4% + 20p per top-up transaction |
+| Domain | Existing |
+| **Total ongoing** | **£0/year + Stripe fees** |
 
 ## Open Questions
 
-- What content goes in the members area? (race results, membership status, renewal, committee docs?)
-- Who manages the allowlist when new members join / lapse? Manual JSON edit, or a simple admin UI?
-- Hosting: currently static — what adapter to use for SSR? (Vercel is the simplest if already deployed there)
-- Should lapsed members lose access? If so, the allowlist needs an active/inactive flag
+- What content goes in the members area beyond credits? (race results, membership status, committee docs?)
+- Who manages the allowlist when new members join or lapse? Admin UI in the members area, or direct Supabase SQL?
+- Should lapsed members lose access immediately, or have a grace period?

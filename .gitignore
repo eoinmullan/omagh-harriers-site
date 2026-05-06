@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 .claude/
 CLAUDE.local.md
+
+# Per-project gh CLI auth dir (set GH_CONFIG_DIR=$(pwd)/.gh when running gh)
+.gh/

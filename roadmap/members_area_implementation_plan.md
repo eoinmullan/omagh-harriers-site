@@ -96,10 +96,10 @@ Restructure the repo as a pnpm monorepo so the Phase 5 PWA can live alongside, a
 Enable SSR on the existing Cloudflare Pages deployment so middleware and API routes are possible. No visible changes to the public site.
 
 ### SSR migration
-- [ ] Install `@astrojs/cloudflare` (latest) in `apps/site`
-- [ ] Add `output: 'server'` and the Cloudflare adapter (`directory` mode for Pages Functions) to `apps/site/astro.config.mjs`
-- [ ] Audit every existing `.astro` page; add `export const prerender = true` so static pages stay statically generated under `output: 'server'`
-- [ ] Verify all existing pages still build and render correctly
+- [x] Install `@astrojs/cloudflare` in `apps/site` (pinned to `^12` because `13.x` requires Astro 6; we're on Astro 5)
+- [x] Add `output: 'server'` and the Cloudflare adapter to `apps/site/astro.config.mjs` (the old `mode: 'directory'` option no longer exists in v12 — adapter auto-targets Pages and emits `_routes.json`)
+- [x] Audit every existing `.astro` page; add `export const prerender = true` so static pages stay statically generated under `output: 'server'`
+- [x] Verify all existing pages still build and render correctly
 - [ ] Deploy and confirm live site is unaffected
 
 ---

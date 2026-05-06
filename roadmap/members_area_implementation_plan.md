@@ -100,7 +100,7 @@ Enable SSR on the existing Cloudflare Pages deployment so middleware and API rou
 - [x] Add `output: 'server'` and the Cloudflare adapter to `apps/site/astro.config.mjs` (the old `mode: 'directory'` option no longer exists in v12 — adapter auto-targets Pages and emits `_routes.json`)
 - [x] Audit every existing `.astro` page; add `export const prerender = true` so static pages stay statically generated under `output: 'server'`
 - [x] Verify all existing pages still build and render correctly
-- [ ] Deploy and confirm live site is unaffected
+- [x] Deploy and confirm live site is unaffected
 
 ---
 

@@ -25,4 +25,3 @@ pnpm-debug.log*
 
 .claude/
 CLAUDE.local.md
-apps/site/DEPLOYMENT.local.md

@@ -71,19 +71,19 @@ One-off setup: only your time. No per-seat costs, no monthly subscriptions.
 Restructure the repo as a pnpm monorepo so the Phase 5 PWA can live alongside, and add a thin CI safety net before SSR + Supabase + Stripe land. No code changes, no SSR yet — just the directory move, Cloudflare Pages config flip, and a typecheck/build check on PRs. Done first so that no later phase has to drag a half-built feature through a restructure.
 
 ### Monorepo restructure
-- [ ] Initialise pnpm workspace at the repo root (`pnpm-workspace.yaml`, root `package.json`)
-- [ ] Move the existing Astro site into `apps/site/`; rename its package to `@omagh/site`
-- [ ] Add `tsconfig.base.json` at the repo root; have `apps/site/tsconfig.json` extend it (cheap now, pays off when `apps/signin` and `packages/supabase` arrive)
-- [ ] Verify `pnpm dev` and `pnpm --filter @omagh/site build` work from the new location
+- [x] Initialise pnpm workspace at the repo root (`pnpm-workspace.yaml`, root `package.json`)
+- [x] Move the existing Astro site into `apps/site/`; rename its package to `@omagh/site`
+- [x] Add `tsconfig.base.json` at the repo root; have `apps/site/tsconfig.json` extend it (cheap now, pays off when `apps/signin` and `packages/supabase` arrive)
+- [x] Verify `pnpm dev` and `pnpm --filter @omagh/site build` work from the new location
 
 ### Cloudflare Pages cutover
-- [ ] In the existing Cloudflare Pages project, change **Root directory** to `apps/site`
-- [ ] Test on a preview deployment first (push to a branch, confirm the Pages preview builds and renders correctly) before merging to `main`
-- [ ] Merge the monorepo move and the Pages config change in the same window so production isn't broken between them
+- [x] In the existing Cloudflare Pages project, change **Root directory** to `apps/site`
+- [x] Test on a preview deployment first (push to a branch, confirm the Pages preview builds and renders correctly) before merging to `main`
+- [x] Merge the monorepo move and the Pages config change in the same window so production isn't broken between them
 
 ### CI safety net
-- [ ] Add `.github/workflows/ci.yml` running `pnpm install` + `pnpm -r typecheck` + `pnpm -r build` on PRs (deploys stay with Cloudflare Pages — Actions is purely a check)
-- [ ] No secrets needed yet; scope the workflow to typecheck + build only
+- [x] Add `.github/workflows/ci.yml` running `pnpm install` + `pnpm -r typecheck` + `pnpm -r build` on PRs (deploys stay with Cloudflare Pages — Actions is purely a check)
+- [x] No secrets needed yet; scope the workflow to typecheck + build only
 
 > **Path-based build skipping** (Pages → Build settings → "Build watch paths") is worth setting once `apps/signin/` exists in Phase 5 so a site-only commit doesn't rebuild the PWA and vice versa. Free-tier 500 builds/month is plenty either way; this is an optimisation, not a Phase 0 blocker.
 

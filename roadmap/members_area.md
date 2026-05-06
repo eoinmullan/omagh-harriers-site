@@ -10,42 +10,88 @@ Two complementary methods, both gated by the allowlist (which lives in the Supab
 
 ### Magic link
 
-Member enters their email → allowlist check → Supabase sends a one-click link → they're in. Covers 100% of members.
+Member enters their email → Supabase sends a one-click link (only if a pre-provisioned auth user exists for that email — see [Member Allowlist](#member-allowlist)) → they're in. Covers 100% of members.
 
-### Google + Microsoft + Apple OAuth
+### Google + Microsoft OAuth
 
-One-click sign-in for the majority. The OAuth provider returns a verified email; if it's on the allowlist, the session is granted. ~5-minute config per provider in the Supabase dashboard plus an OAuth app registration in each developer console.
+One-click sign-in for the majority. The OAuth provider returns a verified email; if a Supabase auth user already exists for that email (i.e. they're allowlisted — see below), the session is granted. ~5-minute config per provider in the Supabase dashboard plus an OAuth app registration in each developer console.
 
-**Coverage:** ~40% Gmail, ~25% Microsoft, plus Apple ID holders (common on iPhones) — likely 70%+ of members get one-click sign-in.
+**Coverage:** ~40% Gmail + ~25% Microsoft → ~65%+ of members get one-click sign-in. Everyone else uses magic link.
 
-> **Decision: SMS and WhatsApp OTP are out of scope.** Magic link + OAuth covers everyone with no per-message costs, no Twilio account, and no Meta approval process. Phone OTP would add operational overhead for a UX that magic link already delivers.
+> **Decision: SMS, WhatsApp OTP, and Sign in with Apple are out of scope.** Magic link + Google + Microsoft covers everyone with no per-message costs, no Twilio account, no Meta approval process, and no £99/year Apple Developer Program membership. Phone OTP and Apple Sign-In would add operational overhead for a UX that magic link already delivers.
 
 ## Member Allowlist
 
-The allowlist lives in the Supabase `members` table from day one (no JSON file). The table doubles as the canonical record for credits, attendance, and admin role flags.
+The allowlist lives in the Supabase `members` table from day one (no JSON file). The table doubles as the canonical record for credits, attendance, and role assignments.
 
 ```
 members
   id, auth_user_id, email (unique, lowercased), name, phone,
-  is_admin, is_active, created_at
+  role ('member' | 'admin' | 'superuser'),
+  is_active, terms_accepted_at, created_at
 ```
 
-- Sign-in flow: check the submitted email against `members` before calling Supabase auth
-- On first successful sign-in: write the new `auth_user_id` back to the row
-- Lapsed members: flip `is_active = false`
-- New members: insert a row (manual SQL or admin UI in the members area)
+### Roles
+
+Three levels, ordered by increasing privilege:
+
+- **`member`** — default. Sees their own credits, transactions, attendance.
+- **`admin`** — everything `member` sees, plus the admin area: manage members (add/deactivate), record cash top-ups and manual adjustments, run training sign-ins via the PWA, view reports.
+- **`superuser`** — everything `admin` sees, plus role assignment (promote/demote admins) and any future destructive or audit-sensitive actions. Reserved for one or two trusted committee members.
+
+Enforcement: a `custom_access_token_hook` injects `role` into the JWT on every token issue. RLS policies and middleware checks reference `auth.jwt() ->> 'role'`.
+
+### How the allowlist is enforced
+
+Rather than intercepting each sign-in attempt to check the email against `members`, we lean on Supabase's own user table:
+
+- **"Disable new sign-ups"** is toggled on in Supabase Auth settings. Supabase will only authenticate emails that already have an auth user.
+- **Pre-provision auth users** for every allowlisted member. At seed time (and whenever a new member is added) the backend calls the Supabase Admin API to create the auth user and writes the returned `auth_user_id` back into the `members` row.
+- This gates **both** magic link and OAuth automatically: a non-allowlisted Google or Microsoft sign-in is rejected by Supabase before any callback runs. No per-callback allowlist logic, no auth hooks needed.
+
+### New-member onboarding
+
+When a new member joins:
+1. Admin adds them via the member management UI (in the admin area).
+2. Backend calls the Supabase Admin API to create the auth user.
+3. A row is inserted into `members` with the new `auth_user_id`.
+4. The member can sign in immediately via magic link or OAuth.
+
+### Lapsed members
+
+- Flip `is_active = false` on the `members` row, and revoke the Supabase auth user (or just delete it) so they can no longer sign in.
+
+### UX for non-allowlisted email
+
+If someone enters an email that isn't allowlisted, the sign-in form returns an **explicit** message ("This email isn't on our member list — please contact the committee"). For a small club where membership is semi-public anyway, the better UX wins over silent rejection.
+
+### Initial seed
+
+The initial members list is sourced from a **Klubfunder export** — the existing membership system. One-off CSV → Supabase Admin API ingestion at the start of Phase 2.
+
+### Email branding
+
+Supabase's default magic-link email is generic and shows Supabase branding. The auth email templates (magic link, OTP, etc.) are customised with Omagh Harriers branding and sender name as part of Phase 2.
+
+### Terms & conditions and privacy
+
+On first sign-in (and on any later T&Cs revision), members are redirected to a `/signin/terms` page and must accept before reaching `/members`. Acceptance is recorded as a timestamp on the `members` row (`terms_accepted_at`). A public `/privacy` page describes what data is held, why, and how to request deletion. Deletion requests are handled manually by an admin (rare).
 
 ## Stack Changes
 
-The site is currently **static (Astro SSG) deployed on Cloudflare Pages**. To support server-side auth middleware, switch to SSR using the Cloudflare Workers adapter:
+The site is currently **static (Astro SSG) deployed on Cloudflare Pages**. To support server-side auth middleware, enable SSR via Pages Functions using Astro's Cloudflare adapter (`directory` mode):
 
 ```sh
 npx astro add cloudflare
 ```
 
-Then add `output: 'server'` to `astro.config.mjs`. Existing static pages continue to work unchanged; middleware only activates for `/members/*`, `/admin/*`, and `/signin/*`.
+Then add `output: 'server'` to `astro.config.mjs`. Existing static pages stay statically generated by adding `export const prerender = true` to each; middleware only activates for `/members/*`, `/admin/*`, and `/signin/*`.
 
-> **On Workers vs Pages:** the Cloudflare Pages path is being deprecated by Cloudflare in favour of Workers. Migrating to Workers now (rather than pinning the adapter to v12 to stay on Pages) avoids fighting end-of-life tooling later.
+> **Why Pages, not Workers:** Pages Functions run on the same Workers runtime, so there's no functional difference for an Astro SSR site. Cloudflare's investment is shifting toward Workers, but Pages is not deprecated and there's nothing here that benefits from the migration cost. Stay on Pages; revisit only if Cloudflare publishes an EOL date.
+
+### Supabase redirect URLs
+
+In Supabase Auth settings, add `https://omaghharriers.com/**`, `https://signin.omaghharriers.com/**`, and the localhost dev URLs to the allowlist — without this, magic-link redirects are rejected.
 
 ## Planned Routes
 
@@ -55,10 +101,17 @@ Then add `output: 'server'` to `astro.config.mjs`. Existing static pages continu
 | `/members/credits` | Members only | Balance + transaction history |
 | `/members/topup` | Members only | Stripe Checkout entry |
 | `/members/topup/success` | Members only | Post-payment confirmation |
+| `/admin/members` | Admin only | List, add, deactivate members |
+| `/admin/members/roles` | Superuser only | Promote / demote admins |
 | `/admin/credits` | Admin only | Manual credit adjustments + session recording |
+| `/admin/sessions` | Admin only | Create / list training sessions |
+| `/admin/reports` | Admin only | Attendance, balances, top-up summaries |
 | `/api/stripe/webhook` | Public (Stripe-signed) | Astro API route — credits accounts on top-up |
 | `/signin` | Public | Magic link / OAuth entry point |
 | `/signin/callback` | Public | Supabase auth callback handler |
+| `/signin/terms` | Authenticated, pre-acceptance | T&Cs accept page (first sign-in or after revision) |
+| `/privacy` | Public | Privacy notice |
+| `/terms` | Public | Terms & conditions |
 
 ## Env Vars
 
@@ -80,18 +133,33 @@ Session attendance costs £2. Members can top up their balance in advance (e.g. 
 ```
 credit_transactions
   id, member_id, amount_pence (signed),
-  type (top_up | session | manual_adjustment | refund),
+  type ('top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund'),
+  attendance_id (nullable, FK → attendance — set when type='session'),
   idempotency_key (unique), notes, created_by, created_at
 ```
 
 Balance = `SUM(amount_pence)` per member (exposed via a `member_balances` view). History is the full transaction log.
 
+### Transparency commitment
+
+Members see their full credit history, with each row clearly labelled by method and source. The credits page renders human-readable lines such as:
+
+- *£10.00 added — paid by card via Stripe — 2026-05-04*
+- *£10.00 added — paid by cash at training, recorded by Eoin Mullan — 2026-05-06*
+- *£2.00 deducted — Monday Track Speed — 2026-05-06*
+
+Joining `credit_transactions` to `attendance` and `training_sessions` (see below) gives session debits the session name and date without storing it twice.
+
 ### Online top-up via Stripe
 
 The club already has a **Stripe Standard account** connected to Klubfunder — use the same account directly. No new Stripe account needed.
 
+**Top-up amounts (probable, pending stakeholder discussion):** £10, £20, £40 fixed buttons. No custom amount. Anything lower and Stripe fees become a meaningful percentage; anything higher increases refund risk if a member is injured before using the credit.
+
+**Negative balances are allowed.** A member who attends without enough credit goes into the red — the system continues to function and the balance simply records reality. The next top-up clears the deficit.
+
 Flow:
-1. Member selects a top-up amount (£10 / £20 / custom) in the members area
+1. Member selects a top-up amount in the members area
 2. App creates a Stripe Checkout session with `member_id` in metadata, redirects to Stripe's hosted page
 3. On success, Stripe fires a webhook to `/api/stripe/webhook` (Astro API route, not a Supabase Edge Function — fewer moving parts, single deployment pipeline)
 4. The handler verifies the Stripe signature, then writes a `top_up` transaction using the Stripe event ID as `idempotency_key` (replays are safe)
@@ -103,6 +171,39 @@ Flow:
 
 Admin records these in the sign-in PWA at the session, or in `/admin/credits` from the desktop members area. Both routes write to `credit_transactions` with `type = manual_adjustment` or `session`, using a deterministic `idempotency_key` so offline-then-sync from the PWA can never double-charge.
 
+## Training Sessions & Attendance
+
+Training sessions are first-class entities, not free-text dates. The club may run several different sessions on the same day (e.g. three on a Monday) and we want to know who attended which one.
+
+```
+training_sessions
+  id, name, starts_at (timestamptz), location (nullable),
+  created_by, created_at
+
+attendance
+  id, member_id, session_id (FK → training_sessions),
+  recorded_by, idempotency_key (unique), created_at
+```
+
+- Sessions are created by admins (or superusers) — either ahead of time from the admin area, or on the spot in the sign-in PWA before sign-ins begin.
+- The PWA presents a session selector after admin sign-in; all attendance writes within that session belong to its `session_id`.
+- Idempotency key for an attendance row is deterministic: `attendance:{member_id}:{session_id}` — sign-in is naturally one-per-member-per-session.
+- When attendance is recorded, a paired `credit_transactions` row of `type = 'session'` with `attendance_id` set is inserted in the same transaction. This anchors the audit trail and powers the transparency view.
+
+Attendance is a permanent record independent of payment status — keeping the attendance log is as important as keeping the credit log.
+
+## Admin Reporting
+
+A dedicated reporting area inside `/admin` for committee operational needs. No new tables — these are queries and views over `members`, `credit_transactions`, `training_sessions`, and `attendance`. Likely reports:
+
+- Attendance by session (who turned up to Monday Track Speed on a given date)
+- Attendance by member over a date range
+- Member balances (current snapshot, plus members in arrears)
+- Cash vs Stripe top-up totals over a period
+- Session frequency and headcounts over time
+
+Exportable as CSV. Read-only — no destructive actions on this page.
+
 ## Sign-in PWA (separate deployment)
 
 A standalone React + Vite PWA hosted at `signin.omaghharriers.com`, used by admins at training sessions. Mobile-first, installable, offline-resilient. Members never see the URL — admins install it on their phones once.
@@ -113,7 +214,7 @@ Detailed in [members_area_implementation_plan.md](members_area_implementation_pl
 
 | Item | Annual cost |
 |---|---|
-| Cloudflare Workers / Pages | Free tier covers everything |
+| Cloudflare Pages | Free tier covers everything |
 | Supabase | Free tier (500MB DB, 50k MAU) |
 | Stripe | ~1.4% + 20p per top-up transaction |
 | Domain | Existing |
@@ -122,5 +223,4 @@ Detailed in [members_area_implementation_plan.md](members_area_implementation_pl
 ## Open Questions
 
 - What content goes in the members area beyond credits? (race results, membership status, committee docs?)
-- Who manages the allowlist when new members join or lapse? Admin UI in the members area, or direct Supabase SQL?
-- Should lapsed members lose access immediately, or have a grace period?
+- Final top-up amounts (currently £10 / £20 / £40 — pending stakeholder discussion).

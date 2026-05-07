@@ -106,50 +106,9 @@ Enable SSR on the existing Cloudflare Pages deployment so middleware and API rou
 
 ## Phase 2 — Auth: Magic Link + Members Table
 
-Core auth infrastructure. Members can sign in via email magic link; the allowlist is enforced via Supabase's own user table (pre-provisioned auth users + sign-ups disabled).
+Core auth infrastructure. Members can sign in via email magic link; the allowlist is enforced via Supabase's own user table (pre-provisioned auth users + sign-ups disabled). Klubfunder CSV exports are reconciled into the `members` table by a sync script that handles both the initial seed and ongoing weekly/monthly updates.
 
-### Supabase setup
-- [ ] Create a free Supabase project
-- [ ] Add `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` to env (and Cloudflare Pages env vars)
-- [ ] Add `SUPABASE_SERVICE_ROLE_KEY` to server-side env (for Admin API calls — never exposed to client)
-- [ ] Install `@supabase/supabase-js`
-- [ ] Toggle **"Disable new sign-ups"** in Supabase Auth settings — Supabase will then reject any sign-in attempt from an email that doesn't already have an auth user
-- [ ] Enable "Link accounts with same email" in Supabase Auth settings (so magic link and OAuth identities for the same email become one user)
-
-### Members table (the allowlist)
-- [ ] Create `members` table — `id`, `email` (unique, lowercased), `name`, `phone`, `auth_user_id`, `role` (`'member' | 'admin' | 'superuser'`, default `'member'`), `is_active`, `terms_accepted_at`, `created_at`
-- [ ] Schema changes are tracked informally as SQL files in `supabase/migrations/` checked into the repo (run manually against the project)
-- [ ] Export the current member list from Klubfunder (CSV)
-- [ ] Seed members: for each row in the Klubfunder export, call the Supabase Admin API to create the auth user and write `auth_user_id` back to the `members` row at seed time. Mark a small number of seed rows as `admin` and one or two as `superuser`.
-- [ ] Add a `custom_access_token_hook` Postgres function that injects `role` from `members` into the JWT on every token issue
-- [ ] RLS: members can read their own row; policies for admin-or-superuser writes reference `auth.jwt() ->> 'role' IN ('admin', 'superuser')`; superuser-only policies reference `auth.jwt() ->> 'role' = 'superuser'`
-
-### Auth pages and middleware
-- [ ] Create `src/middleware.ts` — intercept `/members/*` and `/admin/*`, check Supabase session, look up `auth.uid()` against `members.auth_user_id`, redirect to `/signin` on missing/expired session
-- [ ] Create `src/pages/signin.astro` — email input form; calls `supabase.auth.signInWithOtp()` directly (Supabase rejects non-allowlisted emails because sign-ups are disabled). Surface the rejection as an explicit "this email isn't on our member list — please contact the committee" message
-- [ ] Add Turnstile CAPTCHA on the signin form (optional but recommended); rely on Supabase's per-email rate limit as a backstop
-- [ ] Create `src/pages/signin/callback.astro` — exchange magic link token for session cookie
-- [ ] Create `src/pages/signin/terms.astro` — first-sign-in T&Cs acceptance page; on accept, write `members.terms_accepted_at = now()` and redirect to `/members`
-- [ ] Create `src/pages/terms.astro` and `src/pages/privacy.astro` — public T&Cs and privacy notice (privacy notice describes what data is held and that deletion requests go to admins)
-- [ ] Middleware: after auth check, if `members.terms_accepted_at IS NULL`, redirect to `/signin/terms`
-- [ ] Customise Supabase auth email templates (magic link, OTP) with Omagh Harriers branding and sender name — Supabase Auth → Email Templates
-- [ ] Create `src/pages/members/index.astro` — basic gated landing page
-- [ ] Add a sign-out button (calls `supabase.auth.signOut()` then redirects to `/`)
-- [ ] Add Members link to nav (redirects to `/signin` when unauthenticated)
-- [ ] Test: allowlisted email receives link and lands on `/members`
-- [ ] Test: non-allowlisted email gets the explicit "not on member list" message
-- [ ] Test: first sign-in is gated by `/signin/terms`; second sign-in skips it
-- [ ] Test: sign-out clears the session and `/members` redirects to `/signin`
-
-### Member management UI (admin)
-- [ ] Create `src/pages/admin/members.astro` — list members (name, email, role, is_active), add new member, deactivate existing member
-- [ ] "Add member" flow: form takes name + email + phone → server-side endpoint calls Supabase Admin API to create the auth user → writes the `members` row with the returned `auth_user_id` and role `'member'` → returns success
-- [ ] "Deactivate member" flow: flips `is_active = false` on the row and revokes the Supabase auth user so they can no longer sign in
-- [ ] Gate `/admin/*` to `role IN ('admin', 'superuser')` in middleware (using the JWT claim)
-- [ ] Create `src/pages/admin/members/roles.astro` — superuser-only page to promote members to `admin` (or back to `member`); promoting/demoting `superuser` itself is gated to existing superusers
-- [ ] Test: admin adds a new member → that email can immediately sign in via magic link
-- [ ] Test: admin deactivates a member → that email can no longer sign in
-- [ ] Test: a non-superuser admin cannot access `/admin/members/roles`
+- [ ] See [members_area_phase_2.md](./members_area_phase_2.md) for the detailed PR-by-PR breakdown
 
 ---
 

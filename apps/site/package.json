@@ -8,10 +8,13 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "astro": "astro"
+    "astro": "astro",
+    "supabase:types": "supabase gen types typescript --project-id jwjkyiushsrtuvqdtwsx --schema public > src/lib/supabase/types.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.6.13",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.105.3",
     "@tailwindcss/vite": "^4.1.18",
     "astro": "^5.16.6",
     "tailwindcss": "^4.1.18"

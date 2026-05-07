@@ -126,12 +126,12 @@ One-click sign-in for the ~65%+ of members with a Google or Microsoft account. A
 
 ## Phase 4 — Training Credits
 
-Session balance tracking, top-up history, Stripe online top-up via Astro API route, and admin tools for cash payments and session deductions.
+Session balance tracking, top-up history, Stripe online top-up via Astro API route, and admin tools for cash payments and session deductions. Balances are held **per principal** (the household), not per member — one parent tops up once and any of their members can draw from it. An admin credit-transfer feature also belongs here, used to move a stranded balance when a household's contact email changes in Klubfunder.
 
 ### Data model
-- [ ] Create `credit_transactions` table — `id`, `member_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund'`), `attendance_id` (nullable, FK → `attendance`, set when `type = 'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`
-- [ ] RLS: members can read their own transactions; admin/superuser role can read/write all
-- [ ] Create a `member_balances` view that sums `credit_transactions.amount_pence` per member
+- [ ] Create `credit_transactions` table — `id`, `principal_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund' | 'transfer_in' | 'transfer_out'`), `member_id` (nullable, set when the transaction is tied to a specific member — typically `'session'`), `attendance_id` (nullable, FK → `attendance`, set when `type = 'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`
+- [ ] RLS: principals can read transactions for their own household; admin/superuser role can read/write all
+- [ ] Create a `principal_balances` view that sums `credit_transactions.amount_pence` per principal
 
 ### Member-facing (transparency)
 - [ ] Create `src/pages/members/credits.astro` — current balance + full transaction history with each row clearly labelled by method (Stripe vs cash) and, for session debits, the session name and date (joined via `attendance` → `training_sessions`)
@@ -141,7 +141,7 @@ Session balance tracking, top-up history, Stripe online top-up via Astro API rou
 ### Stripe top-up
 - [ ] Retrieve API keys from existing club Stripe dashboard (Standard account)
 - [ ] Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to env
-- [ ] Create `src/pages/members/topup.astro` — fixed amount buttons (£10 / £20 / £40, pending final stakeholder confirmation), creates Stripe Checkout session with `member_id` in metadata
+- [ ] Create `src/pages/members/topup.astro` — fixed amount buttons (£10 / £20 / £40, pending final stakeholder confirmation), creates Stripe Checkout session with `principal_id` in metadata
 - [ ] Create `src/pages/members/topup/success.astro` — post-payment confirmation page
 - [ ] Create `src/pages/api/stripe/webhook.ts` — Astro API route, verifies Stripe signature with the service-role Supabase client, writes `top_up_stripe` transaction using the Stripe event ID as `idempotency_key`
 - [ ] Register webhook endpoint in Stripe dashboard
@@ -149,9 +149,11 @@ Session balance tracking, top-up history, Stripe online top-up via Astro API rou
 - [ ] Test: replay the same webhook event → no duplicate transaction (idempotency)
 
 ### Admin tools
-- [ ] Create `src/pages/admin/credits.astro` — select member, record `top_up_cash` (with note) or `manual_adjustment` (with required note explaining the adjustment)
+- [ ] Create `src/pages/admin/credits.astro` — select principal, record `top_up_cash` (with note) or `manual_adjustment` (with required note explaining the adjustment)
+- [ ] **Credit transfer** — select a source principal and a target principal, optional amount (defaults to the full source balance), required note. Writes paired `transfer_out` (negative) and `transfer_in` (positive) rows referencing each other via `notes`. Used when a household's contact email changes in Klubfunder and the balance needs to follow them.
 - [ ] Gate `/admin/*` to `role IN ('admin', 'superuser')` in middleware
-- [ ] Test: admin records a cash payment → member balance updates and the transaction is labelled "paid by cash" on the member's credits page
+- [ ] Test: admin records a cash payment → principal balance updates and the transaction is labelled "paid by cash" on the credits page
+- [ ] Test: admin transfers a balance from principal A to principal B → both balances update, both transactions appear in each principal's history
 
 ---
 

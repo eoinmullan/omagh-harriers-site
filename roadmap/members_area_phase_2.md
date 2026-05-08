@@ -77,12 +77,28 @@ The CSV has no stable per-row identifier. Matching is on natural keys:
 - **Members** match by `(lower(first_name), lower(surname), date_of_birth)`. Spelling drift across exports (e.g. *Hannah* → *Hanah*) is allowed to create a new member row — historical attendance against the old spelling stays put. AAN is stored where present but not used for matching, since most members don't have one.
 - **`display_name` for a principal**: take the most common non-empty `Parent or Guardian Full Name` across the principal's members. If all are empty (the email belongs to one or more adult members with no parent column filled), use `first_name + surname` of the alphabetically-first adult member.
 
-### Script: `scripts/sync-klubfunder.ts`
-- [ ] Reads a CSV path from CLI args: `pnpm sync-klubfunder ./klubfunder-export.csv`
-- [ ] Connects to Supabase using `SUPABASE_SECRET_KEY` (loaded from `apps/site/.env`)
-- [ ] Parses the Klubfunder CSV. Columns we use: `First Name`, `Surname`, `Date of Birth`, `Select gender`, `Athletic Association Number`, `Parent or Guardian Full Name`, `Parent or Guardian Email`, `Status`. Everything else is ignored.
-- [ ] Lowercases and trims emails before comparison
-- [ ] Computes a diff per table:
+### Architecture: pure core + thin wrappers
+
+Sync logic lives in a pure core function so the same code can be driven from a CLI now and a drag-and-drop admin page later (Phase 4). The core takes a CSV string + the current DB state, returns a plan; a separate function applies the plan against a Supabase admin client.
+
+- [x] **Pure core** at `apps/site/src/lib/sync/klubfunder.ts`:
+  - `parseKlubfunderCSV(csv: string): KlubfunderRow[]` — parses, validates, normalises (trim + lowercase emails)
+  - `computePlan(rows, existing, now): SyncPlan` — pure function, no IO, fully unit-testable
+  - `applyPlan(plan, supabase): Promise<ApplyResult>` — does the IO
+  - `describePlan(plan): string` — human-readable summary for CLI/UI
+- [x] **Service-role client** at `apps/site/src/lib/supabase/admin.ts` — separate from the SSR client; uses `SUPABASE_SECRET_KEY` and bypasses RLS
+- [x] **Unit tests** at `apps/site/src/lib/sync/klubfunder.test.ts` covering `parseKlubfunderCSV`, `computePlan` (add / reactivate / move / lapse cases), and `display_name` derivation. Vitest set up at the workspace level.
+
+### CLI wrapper: `apps/site/scripts/sync-klubfunder.ts`
+- [x] Reads a CSV path from CLI args: `pnpm sync-klubfunder <csv-path> [--apply]`
+- [x] Loads `SUPABASE_SECRET_KEY` from `apps/site/.env`
+- [x] Reads CSV → calls `parseKlubfunderCSV`
+- [x] Loads existing principals + members → calls `computePlan`
+- [x] Prints `describePlan` to stdout
+- [x] If `--apply`: calls `applyPlan` and prints the result summary
+- [x] Columns the parser uses: `First Name`, `Surname`, `Date of Birth`, `Select gender`, `Athletic Association Number`, `Parent or Guardian Full Name`, `Parent or Guardian Email`, `Status`. Everything else is ignored.
+
+### Diff rules
   - **Principals**:
     - **Add** — new emails in the export → create auth user + principals row (`source='klubfunder'`)
     - **Reactivate** — existing principal currently `is_active=false` reappears → `is_active=true`, unban auth user
@@ -96,31 +112,30 @@ The CSV has no stable per-row identifier. Matching is on natural keys:
     - **Update** — `status` (paid/lapsed), `gender`, or `athletic_association_number` changed → update
     - **Lapse** — `source='klubfunder'`, `is_active=true`, absent from the export → `is_active=false`, `status='lapsed'`
     - **Skip** — `source='manual'`
-- [ ] **Default mode (dry run)**: prints the plan grouped by action; exits without mutating
-- [ ] **`--apply` flag**: executes the plan:
-  - **Add principal**: `auth.admin.createUser({ email, email_confirm: true })`, then insert principals row
-  - **Reactivate principal**: `is_active=true`, `auth.admin.updateUserById(id, { ban_duration: 'none' })`, refresh `last_seen_in_klubfunder_at`
-  - **Lapse principal**: `is_active=false`, `auth.admin.updateUserById(id, { ban_duration: '876000h' })` (≈100 years)
-  - **Add/move/reactivate/lapse member**: row updates only — members don't have auth users
-- [ ] Writes a summary to stdout: counts per action + any errors
-- [ ] **Never deletes rows** — lapsed records are preserved so credit/attendance history (Phases 4–5) stays intact
+### Apply behaviour
+- [x] **Add principal**: `auth.admin.createUser({ email, email_confirm: true })`, then insert principals row
+- [x] **Reactivate principal**: `is_active=true`, `auth.admin.updateUserById(id, { ban_duration: 'none' })`, refresh `last_seen_in_klubfunder_at`
+- [x] **Lapse principal**: `is_active=false`, `auth.admin.updateUserById(id, { ban_duration: '876000h' })` (≈100 years)
+- [x] **Add/move/reactivate/lapse member**: row updates only — members don't have auth users
+- [x] **Order**: principals (add → reactivate → update) → members (add → move → reactivate → update → lapse) → principals (lapse). Lapsing principals last so they're not memberless mid-flight.
+- [x] **Never deletes rows** — lapsed records are preserved so credit/attendance history (Phases 4–5) stays intact
 
 ### Initial seed
-- [ ] Drop the latest Klubfunder export at a known path (e.g. `~/Downloads/members.csv`)
-- [ ] Run `pnpm sync-klubfunder <csv-path>` (dry run); review the plan
-- [ ] Run `pnpm sync-klubfunder <csv-path> --apply`
+- [x] Drop the latest Klubfunder export at a known path (e.g. `~/Downloads/members.csv`)
+- [x] Run `pnpm sync-klubfunder <csv-path>` (dry run); review the plan
+- [x] Run `pnpm sync-klubfunder <csv-path> --apply`
 - [ ] In the Supabase dashboard, manually promote a small number of principals to `admin` and one or two to `superuser` (the script never sets roles other than `'member'`)
 
 ### Documentation
-- [ ] Add a section to `CLAUDE.md` documenting the sync workflow: where to drop the CSV, how to run dry-run vs apply, and what each action means
+- [x] Add a section to `CLAUDE.md` documenting the sync workflow: where to drop the CSV, how to run dry-run vs apply, and what each action means
 
 ### Verification
-- [ ] Dry run against empty tables prints `Add N principals` (one per unique email) and `Add M members` (one per row)
-- [ ] `--apply` against empty tables seeds principals + members; second run is a no-op (idempotent)
-- [ ] Remove one member row from the CSV, re-run with `--apply` → that member is lapsed; if it was the principal's last active member AND the email is also gone, principal is lapsed too
-- [ ] Re-add the row, re-run with `--apply` → both reactivate
-- [ ] Manually add a principal via the dashboard with `source='manual'`; run sync → that principal is **not** lapsed even though absent from the CSV
-- [ ] Change a member's contact email in the CSV (move them to a different principal) → sync moves their `principal_id`
+- [x] Dry run against empty tables prints `Add N principals` (one per unique email) and `Add M members` (one per row)
+- [x] `--apply` against empty tables seeds principals + members; second run is a no-op (idempotent)
+- [x] Remove one member row from the CSV, re-run with `--apply` → that member is lapsed; if it was the principal's last active member AND the email is also gone, principal is lapsed too *(covered by unit tests)*
+- [x] Re-add the row, re-run with `--apply` → both reactivate *(covered by unit tests)*
+- [x] Manually add a principal via the dashboard with `source='manual'`; run sync → that principal is **not** lapsed even though absent from the CSV *(covered by unit tests + verified in apply: existing manual admin untouched)*
+- [x] Change a member's contact email in the CSV (move them to a different principal) → sync moves their `principal_id` *(covered by unit tests)*
 
 ### Open questions (resolve when we hit them)
 - [ ] If a member has been manually deactivated by an admin (PR 4 admin UI) and then reappears in a Klubfunder export, should sync reactivate them or respect the manual deactivation? Suggest: respect manual — add a `manually_deactivated_at` timestamp; sync skips reactivation when set.

@@ -4,6 +4,24 @@ Breaks the Phase 2 work in `members_area_implementation_plan.md` into shippable 
 
 PRs land in order — later ones depend on earlier schema/helpers. Phase 3 (OAuth) is a follow-on once these have landed.
 
+## Status
+
+All four PRs land on the `members-area-phase-2` branch, then the whole phase merges to `main` in one MR at the end.
+
+| PR | What it ships | Status |
+|---|---|---|
+| 1 | Supabase setup, principals/members schema, JWT role hook, middleware skeleton | ✅ committed |
+| 2 | Klubfunder sync core (pure fn) + CLI wrapper, initial seed run | ✅ committed |
+| 3 | Sign-in flow, T&Cs gate, members landing | 🔜 next |
+| 4 | Admin UI for principals/members + drag-and-drop Klubfunder upload (web wrapper around the same sync core) | after PR 3 |
+
+The Supabase project is live and seeded:
+- ~198 klubfunder-source principals + 287 members from the initial CSV import
+- 1 manual-source `principals` row used as the dev admin (email: `eoin.mullan@outlook.com`, `role='admin'`)
+- The custom JWT hook is registered and confirmed injecting `role` into tokens
+
+The sync workflow (CLI usage, action semantics, no-emails guarantee) is documented in `CLAUDE.md`.
+
 ## Data model — principals vs members
 
 The Klubfunder export keys everything off a single contact email per member, which in practice is the **household** email — shared between siblings and (often) their adult parent. Two implications:

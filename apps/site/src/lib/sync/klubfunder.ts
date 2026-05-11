@@ -277,7 +277,6 @@ function memberNaturalKeyFromRow(m: {
 }
 
 export function deriveDisplayName(rowsForEmail: KlubfunderRow[]): string {
-  // Most common non-empty parent-or-guardian name
   const counts = new Map<string, number>();
   for (const r of rowsForEmail) {
     if (r.parentOrGuardianFullName) {
@@ -293,14 +292,10 @@ export function deriveDisplayName(rowsForEmail: KlubfunderRow[]): string {
     );
     return first[0];
   }
-  // Fall back to alphabetically-first member's full name
-  const sorted = [...rowsForEmail].sort(
-    (a, b) =>
-      a.surname.localeCompare(b.surname) ||
-      a.firstName.localeCompare(b.firstName),
-  );
-  const first = sorted[0];
-  return `${first.firstName} ${first.surname}`;
+  const oldest = [...rowsForEmail].sort(
+    (a, b) => a.dateOfBirth.localeCompare(b.dateOfBirth),
+  )[0];
+  return `${oldest.firstName} ${oldest.surname}`;
 }
 
 // =============================================================================

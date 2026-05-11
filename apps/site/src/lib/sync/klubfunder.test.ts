@@ -159,22 +159,6 @@ describe('deriveDisplayName', () => {
     expect(result).toBe('Roisin McCullagh');
   });
 
-  it('falls back to alphabetically-first member when no parent name is set', () => {
-    const result = deriveDisplayName([
-      row({ firstName: 'Eoin', surname: 'Mullan', parentOrGuardianFullName: null }),
-      row({ firstName: 'Aileen', surname: 'Mullan', parentOrGuardianFullName: null }),
-    ]);
-    expect(result).toBe('Aileen Mullan');
-  });
-
-  it('handles a single adult member with no parent column filled', () => {
-    expect(
-      deriveDisplayName([
-        row({ firstName: 'Lee', surname: 'Price', parentOrGuardianFullName: null }),
-      ]),
-    ).toBe('Lee Price');
-  });
-
   it('breaks ties on parent name alphabetically', () => {
     expect(
       deriveDisplayName([
@@ -182,6 +166,20 @@ describe('deriveDisplayName', () => {
         row({ parentOrGuardianFullName: 'Alice' }),
       ]),
     ).toBe('Alice');
+  });
+
+  it('falls back to oldest member when no parent name is set', () => {
+    const result = deriveDisplayName([
+      row({ firstName: 'Eoin', surname: 'Mullan', parentOrGuardianFullName: null, dateOfBirth: '1990-06-01' }),
+      row({ firstName: 'Aileen', surname: 'Mullan', parentOrGuardianFullName: null, dateOfBirth: '1985-03-15' }),
+    ]);
+    expect(result).toBe('Aileen Mullan');
+  });
+
+  it('handles a single member with no parent name', () => {
+    expect(
+      deriveDisplayName([row({ firstName: 'Lee', surname: 'Price', parentOrGuardianFullName: null })]),
+    ).toBe('Lee Price');
   });
 });
 

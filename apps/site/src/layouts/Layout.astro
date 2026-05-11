@@ -57,6 +57,7 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
               <a href="/juniors" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Juniors</a>
               <a href="/about" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">About</a>
               <a href="/policies" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Club Policies</a>
+              <a id="nav-members-link" href="/signin" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Sign in</a>
             </div>
           </div>
 
@@ -88,6 +89,7 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
           <a href="/juniors" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Juniors</a>
           <a href="/about" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">About</a>
           <a href="/policies" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Club Policies</a>
+          <a id="nav-members-link-mobile" href="/signin" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Sign in</a>
         </div>
       </div>
     </nav>
@@ -127,6 +129,20 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
         </div>
       </div>
     </footer>
+
+    <script>
+      import { createSupabaseBrowserClient } from '../lib/supabase/browser';
+
+      const supabase = createSupabaseBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        const desktopLink = document.getElementById('nav-members-link');
+        const mobileLink = document.getElementById('nav-members-link-mobile');
+        if (desktopLink) { desktopLink.textContent = 'Members area'; desktopLink.setAttribute('href', '/members'); }
+        if (mobileLink) { mobileLink.textContent = 'Members area'; mobileLink.setAttribute('href', '/members'); }
+      }
+    </script>
 
     <script>
       // Mobile menu toggle

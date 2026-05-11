@@ -12,7 +12,7 @@ All four PRs land on the `members-area-phase-2` branch, then the whole phase mer
 |---|---|---|
 | 1 | Supabase setup, principals/members schema, JWT role hook, middleware skeleton | ✅ committed |
 | 2 | Klubfunder sync core (pure fn) + CLI wrapper, initial seed run | ✅ committed |
-| 3 | Sign-in flow, T&Cs gate, members landing | 🔜 next |
+| 3 | Sign-in flow, T&Cs gate, members landing | ✅ committed |
 | 4 | Admin UI for principals/members + drag-and-drop Klubfunder upload (web wrapper around the same sync core) | after PR 3 |
 
 The Supabase project is live and seeded:
@@ -166,24 +166,24 @@ Sync logic lives in a pure core function so the same code can be driven from a C
 User-facing auth: principals can sign in via magic link, accept T&Cs on first sign-in, and land on a gated `/members` page that shows their household. Requires PR 2 to have seeded data — otherwise there's nothing to test against.
 
 ### Pages
-- [ ] `apps/site/src/pages/signin.astro` — email input form; calls `supabase.auth.signInWithOtp()`; surfaces non-allowlisted email rejection as an explicit *"this email isn't on our member list — please contact the committee"* message
-- [ ] Add Turnstile CAPTCHA on the signin form
-- [ ] `apps/site/src/pages/signin/callback.astro` — exchanges the magic link token for a session cookie, then redirects to `/signin/terms` (if `principals.terms_accepted_at IS NULL`) or `/members`
-- [ ] `apps/site/src/pages/signin/terms.astro` — first-sign-in T&Cs acceptance page; on accept, writes `principals.terms_accepted_at = now()` and redirects to `/members`
-- [ ] `apps/site/src/pages/terms.astro` — public T&Cs (placeholder copy is fine for now; final wording is a separate task)
-- [ ] `apps/site/src/pages/privacy.astro` — public privacy notice describing what data is held and that deletion requests go to admins
-- [ ] `apps/site/src/pages/members/index.astro` — basic gated landing page showing the principal's display name and the list of members they manage; sign-out button
+- [x] `apps/site/src/pages/signin.astro` — email input form; calls `supabase.auth.signInWithOtp()`; surfaces non-allowlisted email rejection as an explicit *"this email isn't on our member list — please contact the committee"* message
+- [x] Add Turnstile CAPTCHA on the signin form
+- [x] `apps/site/src/pages/signin/callback.astro` — exchanges the magic link token for a session cookie, then redirects to `/signin/terms` (if `principals.terms_accepted_at IS NULL`) or `/members`
+- [x] `apps/site/src/pages/signin/terms.astro` — first-sign-in T&Cs acceptance page; on accept, writes `principals.terms_accepted_at = now()` and redirects to `/members`
+- [x] `apps/site/src/pages/terms.astro` — public T&Cs (placeholder copy is fine for now; final wording is a separate task)
+- [x] `apps/site/src/pages/privacy.astro` — public privacy notice describing what data is held and that deletion requests go to admins
+- [x] `apps/site/src/pages/members/index.astro` — basic gated landing page showing the principal's display name and the list of members they manage; sign-out button
 
 ### Middleware
-- [ ] Extend `apps/site/src/middleware.ts` (skeleton from PR 1):
+- [x] Extend `apps/site/src/middleware.ts` (skeleton from PR 1):
   - Intercept `/members/*`: redirect to `/signin` if no session or no matching `principals` row
   - After auth check on `/members/*`, redirect to `/signin/terms` if `terms_accepted_at IS NULL` (except for `/signin/terms` itself)
 
 ### Nav
-- [ ] Add a Members link to the site nav; renders as "Sign in" when unauthenticated and "Members area" when authenticated
+- [x] Add a Members link to the site nav; renders as "Sign in" when unauthenticated and "Members area" when authenticated
 
 ### Verification
-- [ ] Allowlisted email receives magic link and lands on `/members` (after first-time T&Cs acceptance), seeing all the members linked to their principal
+- [x] Allowlisted email receives magic link and lands on `/members` (after first-time T&Cs acceptance), seeing all the members linked to their principal
 - [ ] Non-allowlisted email gets the explicit "not on member list" message
 - [ ] First sign-in is gated by `/signin/terms`; second sign-in skips it
 - [ ] Sign-out clears the session and `/members` redirects to `/signin`

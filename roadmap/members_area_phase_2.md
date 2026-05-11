@@ -13,7 +13,7 @@ All four PRs land on the `members-area-phase-2` branch, then the whole phase mer
 | 1 | Supabase setup, principals/members schema, JWT role hook, middleware skeleton | ✅ committed |
 | 2 | Klubfunder sync core (pure fn) + CLI wrapper, initial seed run | ✅ committed |
 | 3 | Sign-in flow, T&Cs gate, members landing | ✅ committed |
-| 4 | Admin UI for principals/members + drag-and-drop Klubfunder upload (web wrapper around the same sync core) | after PR 3 |
+| 4 | Admin UI for principals/members + drag-and-drop Klubfunder upload (web wrapper around the same sync core) | ✅ committed |
 
 The Supabase project is live and seeded:
 - ~198 klubfunder-source principals + 287 members from the initial CSV import

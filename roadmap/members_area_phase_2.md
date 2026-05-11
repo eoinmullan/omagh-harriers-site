@@ -180,13 +180,16 @@ User-facing auth: principals can sign in via magic link, accept T&Cs on first si
   - After auth check on `/members/*`, redirect to `/signin/terms` if `terms_accepted_at IS NULL` (except for `/signin/terms` itself)
 
 ### Nav
-- [x] Add a Members link to the site nav; renders as "Sign in" when unauthenticated and "Members area" when authenticated
+- [x] Add a Members link to the site nav pointing to `/members` (middleware redirects unauthenticated users to `/signin`)
+
+### Fixes (unplanned)
+- [x] Migration `0004_jwt_role_claim_rename.sql` — renamed JWT claim `role` → `app_role` to avoid conflicting with PostgREST's reserved `role` claim, which caused all principals DB queries to fail with `role "admin" does not exist`
 
 ### Verification
 - [x] Allowlisted email receives magic link and lands on `/members` (after first-time T&Cs acceptance), seeing all the members linked to their principal
-- [ ] Non-allowlisted email gets the explicit "not on member list" message
-- [ ] First sign-in is gated by `/signin/terms`; second sign-in skips it
-- [ ] Sign-out clears the session and `/members` redirects to `/signin`
+- [x] Non-allowlisted email gets the explicit "not on member list" message
+- [x] First sign-in is gated by `/signin/terms`; second sign-in skips it
+- [x] Sign-out clears the session and `/members` redirects to `/signin`
 
 ---
 

@@ -20,11 +20,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const { pathname } = new URL(context.request.url);
 
-  if (pathname.startsWith('/members')) {
+  if (pathname.startsWith('/members') || pathname.startsWith('/admin')) {
     const {
       data: { user },
     } = await context.locals.supabase.auth.getUser();
-
 
     if (!user) {
       return context.redirect('/signin');
@@ -32,7 +31,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     const { data: principal } = await context.locals.supabase
       .from('principals')
-      .select('is_active, terms_accepted_at')
+      .select('is_active, terms_accepted_at, role')
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
@@ -43,6 +42,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     if (!principal.terms_accepted_at) {
       return context.redirect('/signin/terms');
+    }
+
+    if (
+      pathname.startsWith('/admin') &&
+      principal.role !== 'admin' &&
+      principal.role !== 'superuser'
+    ) {
+      return context.redirect('/members');
     }
   }
 

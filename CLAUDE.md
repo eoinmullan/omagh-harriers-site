@@ -18,6 +18,20 @@ GH_CONFIG_DIR="$(pwd)/.gh" gh <command>
 
 The roadmap for the members area lives at `roadmap/members_area_implementation_plan.md` — phases are shipped independently and each one's checkboxes are ticked as they land.
 
+## WIP feature flag
+
+Some pages are in progress and hidden from the nav in production. The flag is build-time (`import.meta.env.DEV`) — nav items are visible in dev, hidden in prod. The pages themselves are always accessible by direct URL regardless of the flag.
+
+Affected nav items are marked with `data-wip` in `apps/site/src/layouts/Layout.astro`. To add a new one, just add `data-wip` to its nav link(s).
+
+A runtime override is available from the browser console (useful for testing in prod/staging):
+
+```js
+wipNav.enable()   // show WIP nav items, persists to localStorage
+wipNav.disable()  // hide them, persists to localStorage
+wipNav.reset()    // clear override, reverts to build-time default
+```
+
 ## Klubfunder sync
 
 The membership data in `principals` and `members` is reconciled from a Klubfunder CSV export by `apps/site/scripts/sync-klubfunder.ts`. Run it from the repo root.

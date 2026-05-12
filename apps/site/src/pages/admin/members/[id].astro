@@ -1,6 +1,6 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
-import { createSupabaseAdminClient } from '../../../lib/supabase/admin';
+import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/members');
@@ -10,10 +10,7 @@ const {
 } = await Astro.locals.supabase.auth.getUser();
 if (!user) return Astro.redirect('/signin');
 
-const adminClient = createSupabaseAdminClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.SUPABASE_SECRET_KEY,
-);
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
 const { data: actingPrincipal } = await Astro.locals.supabase
   .from('principals')

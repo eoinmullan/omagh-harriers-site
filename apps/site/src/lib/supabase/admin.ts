@@ -17,3 +17,13 @@ export function createSupabaseAdminClient(
     },
   });
 }
+
+// Astro page variant: reads the secret key from the CF Pages runtime env
+// (Astro.locals.runtime.env) with a fallback to import.meta.env for local dev.
+export function createSupabaseAdminClientFromLocals(
+  locals: App.Locals,
+): SupabaseAdminClient {
+  const url = import.meta.env.PUBLIC_SUPABASE_URL;
+  const secretKey = locals.runtime?.env?.SUPABASE_SECRET_KEY ?? import.meta.env.SUPABASE_SECRET_KEY;
+  return createSupabaseAdminClient(url, secretKey);
+}

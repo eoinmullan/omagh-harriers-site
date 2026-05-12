@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { createSupabaseAdminClient } from '../lib/supabase/admin';
+import { createSupabaseAdminClientFromLocals } from '../lib/supabase/admin';
 
 let sent = false;
 let errorMessage: string | undefined;
@@ -14,9 +14,7 @@ if (Astro.request.method === 'POST') {
   if (!captchaOk) {
     errorMessage = 'Please complete the security check and try again.';
   } else {
-    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-    const supabaseSecretKey = Astro.locals.runtime?.env?.SUPABASE_SECRET_KEY ?? import.meta.env.SUPABASE_SECRET_KEY;
-    const admin = createSupabaseAdminClient(supabaseUrl, supabaseSecretKey);
+    const admin = createSupabaseAdminClientFromLocals(Astro.locals);
 
     const { data: principal, error: principalError } = await admin
       .from('principals')

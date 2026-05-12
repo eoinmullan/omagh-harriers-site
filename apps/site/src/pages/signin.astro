@@ -6,52 +6,57 @@ let sent = false;
 let errorMessage: string | undefined;
 
 if (Astro.request.method === 'POST') {
-  const formData = await Astro.request.formData();
-  const email = formData.get('email')?.toString().trim().toLowerCase() ?? '';
-  const turnstileToken = formData.get('cf-turnstile-response')?.toString() ?? '';
+  try {
+    const formData = await Astro.request.formData();
+    const email = formData.get('email')?.toString().trim().toLowerCase() ?? '';
+    const turnstileToken = formData.get('cf-turnstile-response')?.toString() ?? '';
 
-  const captchaOk = await verifyCaptcha(turnstileToken);
-  if (!captchaOk) {
-    errorMessage = 'Please complete the security check and try again.';
-  } else {
-    const admin = createSupabaseAdminClient(
-      import.meta.env.PUBLIC_SUPABASE_URL,
-      import.meta.env.SUPABASE_SECRET_KEY,
-    );
-
-    const { data: principal, error: principalError } = await admin
-      .from('principals')
-      .select('id, is_active')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (principalError) console.error('[signin] principals lookup failed:', principalError);
-
-    if (!principal || !principal.is_active) {
-      // Artificial delay so timing doesn't reveal whether the email exists.
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      errorMessage = !principal
-        ? "This email isn't on our member list — please contact the committee."
-        : 'Your membership is no longer active — please contact the committee.';
+    const captchaOk = await verifyCaptcha(turnstileToken);
+    if (!captchaOk) {
+      errorMessage = 'Please complete the security check and try again.';
     } else {
-      const callbackUrl = new URL('/signin/callback', Astro.url).href;
-      const { error } = await Astro.locals.supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: callbackUrl,
-        },
-      });
-      if (error) {
-        console.error('[signin] signInWithOtp failed:', error);
-        errorMessage =
-          error.status === 429
-            ? 'Too many sign-in attempts — please wait a few minutes and try again.'
-            : 'Something went wrong sending the sign-in link. Please try again.';
+      const admin = createSupabaseAdminClient(
+        import.meta.env.PUBLIC_SUPABASE_URL,
+        import.meta.env.SUPABASE_SECRET_KEY,
+      );
+
+      const { data: principal, error: principalError } = await admin
+        .from('principals')
+        .select('id, is_active')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (principalError) console.error('[signin] principals lookup failed:', principalError);
+
+      if (!principal || !principal.is_active) {
+        // Artificial delay so timing doesn't reveal whether the email exists.
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        errorMessage = !principal
+          ? "This email isn't on our member list — please contact the committee."
+          : 'Your membership is no longer active — please contact the committee.';
       } else {
-        sent = true;
+        const callbackUrl = new URL('/signin/callback', Astro.url).href;
+        const { error } = await Astro.locals.supabase.auth.signInWithOtp({
+          email,
+          options: {
+            shouldCreateUser: false,
+            emailRedirectTo: callbackUrl,
+          },
+        });
+        if (error) {
+          console.error('[signin] signInWithOtp failed:', error);
+          errorMessage =
+            error.status === 429
+              ? 'Too many sign-in attempts — please wait a few minutes and try again.'
+              : 'Something went wrong sending the sign-in link. Please try again.';
+        } else {
+          sent = true;
+        }
       }
     }
+  } catch (err) {
+    console.error('[signin] unhandled error:', err);
+    errorMessage = `[debug] ${err instanceof Error ? err.message : String(err)}`;
   }
 }
 

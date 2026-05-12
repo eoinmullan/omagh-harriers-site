@@ -18,6 +18,23 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
+    <style is:global>
+      html.wip-hidden [data-wip] { display: none; }
+    </style>
+    <script is:inline define:vars={{ devMode: import.meta.env.DEV }}>
+      (function () {
+        const KEY = 'wipNav';
+        const stored = localStorage.getItem(KEY);
+        const show = stored !== null ? stored === 'true' : devMode;
+        if (!show) document.documentElement.classList.add('wip-hidden');
+
+        window.wipNav = {
+          enable()  { localStorage.setItem(KEY, 'true');  document.documentElement.classList.remove('wip-hidden'); },
+          disable() { localStorage.setItem(KEY, 'false'); document.documentElement.classList.add('wip-hidden'); },
+          reset()   { localStorage.removeItem(KEY); devMode ? document.documentElement.classList.remove('wip-hidden') : document.documentElement.classList.add('wip-hidden'); },
+        };
+      })();
+    </script>
   </head>
   <body class="bg-white text-gray-900">
     <!-- SVG Filter for duotone effect -->
@@ -55,9 +72,9 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
               <a href="/" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Home</a>
               <a href="/half-marathon" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Half Marathon</a>
               <a href="/juniors" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Juniors</a>
-              <a href="/about" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">About</a>
+              <a data-wip href="/about" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">About</a>
               <a href="/policies" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Club Policies</a>
-              <a href="/members" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Members' area</a>
+              <a data-wip href="/members" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Members' area</a>
             </div>
           </div>
 
@@ -87,9 +104,9 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
           <a href="/" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Home</a>
           <a href="/half-marathon" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Half Marathon</a>
           <a href="/juniors" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Juniors</a>
-          <a href="/about" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">About</a>
+          <a data-wip href="/about" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">About</a>
           <a href="/policies" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Club Policies</a>
-          <a href="/members" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Members' area</a>
+          <a data-wip href="/members" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Members' area</a>
         </div>
       </div>
     </nav>

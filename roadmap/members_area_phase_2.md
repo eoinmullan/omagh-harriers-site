@@ -142,7 +142,7 @@ Sync logic lives in a pure core function so the same code can be driven from a C
 - [x] Drop the latest Klubfunder export at a known path (e.g. `~/Downloads/members.csv`)
 - [x] Run `pnpm sync-klubfunder <csv-path>` (dry run); review the plan
 - [x] Run `pnpm sync-klubfunder <csv-path> --apply`
-- [ ] In the Supabase dashboard, manually promote a small number of principals to `admin` and one or two to `superuser` (the script never sets roles other than `'member'`)
+- [x] In the Supabase dashboard, manually promote a small number of principals to `admin` and one or two to `superuser` (the script never sets roles other than `'member'`)
 
 ### Documentation
 - [x] Add a section to `CLAUDE.md` documenting the sync workflow: where to drop the CSV, how to run dry-run vs apply, and what each action means
@@ -198,22 +198,22 @@ User-facing auth: principals can sign in via magic link, accept T&Cs on first si
 Admin tooling for the cases the Klubfunder sync doesn't cover: ad-hoc additions, manual deactivations, role promotions, and viewing the membership at a glance. Two list views with cross-links, since each table answers different operational questions.
 
 ### Pages
-- [ ] `apps/site/src/pages/admin/principals.astro` — list principals (display_name, email, role, is_active, source, member count). Click through to a principal detail page showing all members under them.
-- [ ] `apps/site/src/pages/admin/principals/[id].astro` — principal detail: edit display_name, deactivate, promote/demote role (latter restricted per role rules below). Shows their members and links to each.
-- [ ] `apps/site/src/pages/admin/members.astro` — list all members (name, DOB, principal email, status, is_active, source). Click through to a member detail page.
-- [ ] `apps/site/src/pages/admin/members/[id].astro` — member detail: edit attributes, deactivate, link to their principal.
-- [ ] **Add principal** flow (admin form): email + display_name → server-side endpoint calls Supabase Admin API to create the auth user → inserts `principals` row with `source='manual'`, `role='member'`. Adding a member at the same time is optional (an admin without members is allowed).
-- [ ] **Add member** flow: select a principal → enter first_name, surname, DOB, optional gender/AAN → insert with `source='manual'`.
-- [ ] **Deactivate principal** flow: sets `is_active=false` and bans the Supabase auth user.
-- [ ] **Deactivate member** flow: sets `is_active=false`. Doesn't touch any auth state.
-- [ ] **Role changes** are scoped per role rules: admin/superuser can promote a principal between `member` and `admin`; only superusers can promote/demote the `superuser` role. Implement via a SECURITY DEFINER RPC (PostgreSQL RLS can't restrict per-column updates).
+- [x] `apps/site/src/pages/admin/principals.astro` — list principals (display_name, email, role, is_active, source, member count). Click through to a principal detail page showing all members under them.
+- [x] `apps/site/src/pages/admin/principals/[id].astro` — principal detail: edit display_name, deactivate, promote/demote role (latter restricted per role rules below). Shows their members and links to each.
+- [x] `apps/site/src/pages/admin/members.astro` — list all members (name, DOB, principal email, status, is_active, source). Click through to a member detail page.
+- [x] `apps/site/src/pages/admin/members/[id].astro` — member detail: edit attributes, deactivate, link to their principal.
+- [x] **Add principal** flow (admin form): email + display_name → server-side endpoint calls Supabase Admin API to create the auth user → inserts `principals` row with `source='manual'`, `role='member'`. Adding a member at the same time is optional (an admin without members is allowed).
+- [x] **Add member** flow: select a principal → enter first_name, surname, DOB, optional gender/AAN → insert with `source='manual'`.
+- [x] **Deactivate principal** flow: sets `is_active=false` and bans the Supabase auth user.
+- [x] **Deactivate member** flow: sets `is_active=false`. Doesn't touch any auth state.
+- [x] **Role changes** are scoped per role rules: admin/superuser can promote a principal between `member` and `admin`; only superusers can promote/demote the `superuser` role. Implement via a SECURITY DEFINER RPC (PostgreSQL RLS can't restrict per-column updates).
 
 ### Middleware
-- [ ] Extend middleware to gate `/admin/*` to `auth.jwt() ->> 'role' IN ('admin', 'superuser')`; redirect non-admins to `/members` with a flash message.
+- [x] Extend middleware to gate `/admin/*` to `auth.jwt() ->> 'role' IN ('admin', 'superuser')`; redirect non-admins to `/members` with a flash message.
 
 ### Verification
-- [ ] Admin adds a new principal → that email can immediately sign in via magic link
-- [ ] Admin adds a member under an existing principal → it appears in the principal's `/members` view
-- [ ] Admin deactivates a principal → that email can no longer sign in
-- [ ] A non-superuser admin cannot promote anyone to `superuser`
-- [ ] Manually-added principals/members have `source='manual'` and are **not** lapsed by the next Klubfunder sync
+- [x] Admin adds a new principal → that email can immediately sign in via magic link
+- [x] Admin adds a member under an existing principal → it appears in the principal's `/members` view
+- [x] Admin deactivates a principal → that email can no longer sign in
+- [x] A non-superuser admin cannot promote anyone to `superuser`
+- [x] Manually-added principals/members have `source='manual'` and are **not** lapsed by the next Klubfunder sync

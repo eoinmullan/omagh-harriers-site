@@ -108,7 +108,7 @@ Enable SSR on the existing Cloudflare Pages deployment so middleware and API rou
 
 Core auth infrastructure. Members can sign in via email magic link; the allowlist is enforced via Supabase's own user table (pre-provisioned auth users + sign-ups disabled). Klubfunder CSV exports are reconciled into the `members` table by a sync script that handles both the initial seed and ongoing weekly/monthly updates.
 
-- [ ] See [members_area_phase_2.md](./members_area_phase_2.md) for the detailed PR-by-PR breakdown
+- [x] See [members_area_phase_2.md](./members_area_phase_2.md) for the detailed PR-by-PR breakdown
 
 ---
 

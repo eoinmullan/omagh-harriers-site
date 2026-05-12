@@ -56,7 +56,7 @@ Wire up the Supabase project, create the `principals` and `members` tables, ship
 - [x] Add `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_PUBLISHABLE_KEY` to `apps/site/.env` (using the new `sb_publishable_...` key, not the legacy anon JWT)
 - [x] Add `SUPABASE_SECRET_KEY` to `apps/site/.env` (the new `sb_secret_...` key — server-side only, never bundled into client code)
 - [x] Add the same three env vars to Cloudflare Pages
-- [ ] Customise auth email templates (magic link, OTP) with Omagh Harriers branding and sender name
+- [x] Customise auth email templates (magic link, OTP) with Omagh Harriers branding and sender name
 
 ### Schema (`supabase/migrations/`)
 - [x] `0001_principals_and_members.sql`

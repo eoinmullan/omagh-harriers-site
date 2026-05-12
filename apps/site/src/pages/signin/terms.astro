@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 
 const {
   data: { user },
@@ -32,7 +33,8 @@ if (Astro.request.method === 'POST') {
   if (!accepted) {
     errorMessage = 'Please accept the terms and conditions to continue.';
   } else {
-    const { error } = await Astro.locals.supabase
+    const admin = createSupabaseAdminClientFromLocals(Astro.locals);
+    const { error } = await admin
       .from('principals')
       .update({ terms_accepted_at: new Date().toISOString() })
       .eq('id', principal.id);

@@ -14,7 +14,8 @@ const error = Astro.url.searchParams.get('error');
 if (error) {
   const errorCode = Astro.url.searchParams.get('error_code');
   console.error('[callback] Supabase auth error:', error, errorCode);
-  return Astro.redirect('/signin?error=invalid_link');
+  const errorParam = error === 'access_denied' ? 'access_denied' : 'invalid_link';
+  return Astro.redirect(`/signin?error=${errorParam}`);
 }
 
 const code = Astro.url.searchParams.get('code');

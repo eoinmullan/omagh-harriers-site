@@ -1,0 +1,313 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { createSupabaseAdminClient } from '../../../lib/supabase/admin';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/principals');
+
+const {
+  data: { user },
+} = await Astro.locals.supabase.auth.getUser();
+if (!user) return Astro.redirect('/signin');
+
+const adminClient = createSupabaseAdminClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.SUPABASE_SECRET_KEY,
+);
+
+const { data: actingPrincipal } = await Astro.locals.supabase
+  .from('principals')
+  .select('id, role')
+  .eq('auth_user_id', user.id)
+  .maybeSingle();
+
+if (!actingPrincipal) return Astro.redirect('/signin');
+
+const isSuperuser = actingPrincipal.role === 'superuser';
+
+let error: string | null = null;
+let success: string | null = null;
+
+if (Astro.request.method === 'POST' && isSuperuser) {
+  const formData = await Astro.request.formData();
+  const action = formData.get('action') as string;
+
+  if (action === 'update_name') {
+    const displayName = (formData.get('display_name') as string)?.trim();
+    if (!displayName) {
+      error = 'Display name is required.';
+    } else {
+      const { error: e } = await adminClient
+        .from('principals')
+        .update({ display_name: displayName })
+        .eq('id', id);
+      if (e) error = e.message;
+      else success = 'Display name updated.';
+    }
+  } else if (action === 'set_role') {
+    const newRole = formData.get('role') as string;
+    if (!['member', 'admin', 'superuser'].includes(newRole)) {
+      error = 'Invalid role.';
+    } else if (newRole === 'superuser' && actingPrincipal.role !== 'superuser') {
+      error = 'Only superusers can assign the superuser role.';
+    } else {
+      const { error: e } = await adminClient
+        .from('principals')
+        .update({ role: newRole as 'member' | 'admin' | 'superuser' })
+        .eq('id', id);
+      if (e) error = e.message;
+      else success = `Role updated to ${newRole}.`;
+    }
+  } else if (action === 'deactivate') {
+    const { data: target } = await adminClient
+      .from('principals')
+      .select('auth_user_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (target?.auth_user_id) {
+      await adminClient.auth.admin.updateUserById(target.auth_user_id, {
+        ban_duration: '876000h',
+      });
+    }
+    const { error: e } = await adminClient
+      .from('principals')
+      .update({ is_active: false })
+      .eq('id', id);
+    if (e) error = e.message;
+    else success = 'Principal deactivated.';
+  } else if (action === 'reactivate') {
+    const { data: target } = await adminClient
+      .from('principals')
+      .select('auth_user_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (target?.auth_user_id) {
+      await adminClient.auth.admin.updateUserById(target.auth_user_id, {
+        ban_duration: 'none',
+      });
+    }
+    const { error: e } = await adminClient
+      .from('principals')
+      .update({ is_active: true })
+      .eq('id', id);
+    if (e) error = e.message;
+    else success = 'Principal reactivated.';
+  }
+}
+
+const { data: principal } = await adminClient
+  .from('principals')
+  .select('*')
+  .eq('id', id)
+  .maybeSingle();
+
+if (!principal) return Astro.redirect('/admin/principals');
+
+const { data: members } = await adminClient
+  .from('members')
+  .select('id, first_name, surname, date_of_birth, status, is_active, gender')
+  .eq('principal_id', id)
+  .order('first_name');
+
+function formatDob(dob: string): string {
+  return new Date(dob).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+---
+
+<Layout title={`${principal.display_name} — Admin — Omagh Harriers AC`}>
+  <div class="max-w-3xl mx-auto px-4 py-12">
+    <p class="text-sm text-gray-500 mb-6">
+      <a href="/members" class="hover:underline">Members' area</a> /
+      <a href="/admin/principals" class="hover:underline">Principals</a> /
+      {principal.display_name}
+    </p>
+
+    {
+      error && (
+        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
+          {error}
+        </div>
+      )
+    }
+    {
+      success && (
+        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
+          {success}
+        </div>
+      )
+    }
+
+    <div class="bg-gray-50 border border-gray-200 rounded-lg px-6 py-5 mb-8">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">{principal.display_name}</h1>
+          <p class="text-gray-500 mt-1">{principal.email}</p>
+        </div>
+        <div class="flex gap-2">
+          <span
+            class={`text-xs font-medium px-2 py-1 rounded-full ${
+              principal.role === 'superuser'
+                ? 'bg-purple-100 text-purple-700'
+                : principal.role === 'admin'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600'
+            }`}>{principal.role}</span
+          >
+          <span
+            class={`text-xs font-medium px-2 py-1 rounded-full ${
+              principal.is_active
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 text-gray-500'
+            }`}>{principal.is_active ? 'Active' : 'Inactive'}</span
+          >
+        </div>
+      </div>
+      <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <div>
+          <dt class="text-gray-500">Source</dt>
+          <dd>{principal.source}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Terms accepted</dt>
+          <dd>
+            {
+              principal.terms_accepted_at
+                ? new Date(principal.terms_accepted_at).toLocaleDateString(
+                    'en-GB',
+                  )
+                : 'Not yet'
+            }
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    {isSuperuser && (
+      <>
+        <!-- Edit display name -->
+        <section class="mb-8">
+          <h2 class="text-lg font-semibold mb-3">Display name</h2>
+          <form method="POST" class="flex gap-3">
+            <input type="hidden" name="action" value="update_name" />
+            <input
+              type="text"
+              name="display_name"
+              value={principal.display_name}
+              required
+              class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+              >Save</button
+            >
+          </form>
+        </section>
+
+        <!-- Role -->
+        <section class="mb-8">
+          <h2 class="text-lg font-semibold mb-3">Role</h2>
+          <form method="POST" class="flex gap-3 items-center">
+            <input type="hidden" name="action" value="set_role" />
+            <select
+              name="role"
+              class="border border-gray-300 rounded px-3 py-2 text-sm"
+            >
+              <option value="member" selected={principal.role === 'member'}>member</option>
+              <option value="admin" selected={principal.role === 'admin'}>admin</option>
+              <option value="superuser" selected={principal.role === 'superuser'}>superuser</option>
+            </select>
+            <button
+              type="submit"
+              class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+              >Update</button
+            >
+          </form>
+        </section>
+
+        <!-- Deactivate / Reactivate -->
+        <section class="mb-10">
+          <h2 class="text-lg font-semibold mb-3">Account status</h2>
+          {
+            principal.is_active ? (
+              <form method="POST">
+                <input type="hidden" name="action" value="deactivate" />
+                <button
+                  type="submit"
+                  class="border border-red-300 text-red-600 rounded px-4 py-2 text-sm hover:bg-red-50 transition-colors"
+                  onclick="return confirm('Deactivate this principal? They will no longer be able to sign in.')"
+                >
+                  Deactivate
+                </button>
+              </form>
+            ) : (
+              <form method="POST">
+                <input type="hidden" name="action" value="reactivate" />
+                <button
+                  type="submit"
+                  class="border border-green-300 text-green-700 rounded px-4 py-2 text-sm hover:bg-green-50 transition-colors"
+                >
+                  Reactivate
+                </button>
+              </form>
+            )
+          }
+        </section>
+      </>
+    )}
+
+    <!-- Members -->
+    <section>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">
+          Members ({members?.length ?? 0})
+        </h2>
+      </div>
+
+      {
+        members && members.length > 0 ? (
+          <ul class="space-y-2">
+            {members.map((m) => (
+              <li
+                class={`border border-gray-200 rounded-lg px-5 py-3 flex items-center justify-between ${!m.is_active ? 'opacity-50' : ''}`}
+              >
+                <div>
+                  <p class="font-medium">
+                    {m.first_name} {m.surname}
+                  </p>
+                  <p class="text-sm text-gray-500">
+                    {formatDob(m.date_of_birth)}
+                    {m.gender ? ` · ${m.gender}` : ''}
+                  </p>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span
+                    class={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      m.status === 'paid'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {m.status === 'paid' ? 'Active' : 'Lapsed'}
+                  </span>
+                  <a
+                    href={`/admin/members/${m.id}`}
+                    class="text-xs underline hover:text-gray-600"
+                  >
+                    {isSuperuser ? 'Edit →' : 'View →'}
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-gray-500 text-sm">No members linked to this principal.</p>
+        )
+      }
+    </section>
+  </div>
+</Layout>

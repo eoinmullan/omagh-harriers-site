@@ -1,0 +1,65 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+async function redirectForUser(userId: string) {
+  const { data: principal } = await Astro.locals.supabase
+    .from('principals')
+    .select('terms_accepted_at')
+    .eq('auth_user_id', userId)
+    .maybeSingle();
+  return principal?.terms_accepted_at ? '/members' : '/signin/terms';
+}
+
+const error = Astro.url.searchParams.get('error');
+if (error) {
+  const errorCode = Astro.url.searchParams.get('error_code');
+  console.error('[callback] Supabase auth error:', error, errorCode);
+  return Astro.redirect('/signin?error=invalid_link');
+}
+
+const code = Astro.url.searchParams.get('code');
+const tokenHash = Astro.url.searchParams.get('token_hash');
+const type = Astro.url.searchParams.get('type') as 'email' | 'magiclink' | null;
+
+if (code) {
+  const { data, error } = await Astro.locals.supabase.auth.exchangeCodeForSession(code);
+  if (error) console.error('[callback] exchangeCodeForSession failed:', error);
+  if (error || !data.user) return Astro.redirect('/signin?error=invalid_link');
+  return Astro.redirect(await redirectForUser(data.user.id));
+}
+
+if (tokenHash && (type === 'email' || type === 'magiclink')) {
+  const { error } = await Astro.locals.supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+  if (error) console.error('[callback] verifyOtp failed:', error);
+  if (error) return Astro.redirect('/signin?error=invalid_link');
+  const { data: { user } } = await Astro.locals.supabase.auth.getUser();
+  if (user) return Astro.redirect(await redirectForUser(user.id));
+}
+
+// Fallback: implicit flow sends tokens as URL hash fragment — handled client-side.
+---
+
+<Layout title="Signing in — Omagh Harriers AC">
+  <div class="max-w-md mx-auto px-4 py-16 text-center">
+    <p class="text-gray-500">Signing you in&hellip;</p>
+  </div>
+</Layout>
+
+<script>
+  import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
+
+  const supabase = createSupabaseBrowserClient();
+
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      const { data: principal } = await supabase
+        .from('principals')
+        .select('terms_accepted_at')
+        .eq('auth_user_id', session.user.id)
+        .maybeSingle();
+      window.location.href = principal?.terms_accepted_at ? '/members' : '/signin/terms';
+    } else if (event === 'INITIAL_SESSION' && !session) {
+      window.location.href = '/signin?error=invalid_link';
+    }
+  });
+</script>

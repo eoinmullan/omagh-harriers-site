@@ -1,0 +1,163 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { createSupabaseAdminClient } from '../lib/supabase/admin';
+
+let sent = false;
+let errorMessage: string | undefined;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const email = formData.get('email')?.toString().trim().toLowerCase() ?? '';
+  const turnstileToken = formData.get('cf-turnstile-response')?.toString() ?? '';
+
+  const captchaOk = await verifyCaptcha(turnstileToken);
+  if (!captchaOk) {
+    errorMessage = 'Please complete the security check and try again.';
+  } else {
+    const admin = createSupabaseAdminClient(
+      import.meta.env.PUBLIC_SUPABASE_URL,
+      import.meta.env.SUPABASE_SECRET_KEY,
+    );
+
+    const { data: principal, error: principalError } = await admin
+      .from('principals')
+      .select('id, is_active')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (principalError) console.error('[signin] principals lookup failed:', principalError);
+
+    if (!principal || !principal.is_active) {
+      // Artificial delay so timing doesn't reveal whether the email exists.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      errorMessage = !principal
+        ? "This email isn't on our member list — please contact the committee."
+        : 'Your membership is no longer active — please contact the committee.';
+    } else {
+      const callbackUrl = new URL('/signin/callback', Astro.url).href;
+      const { error } = await Astro.locals.supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: callbackUrl,
+        },
+      });
+      if (error) {
+        console.error('[signin] signInWithOtp failed:', error);
+        errorMessage =
+          error.status === 429
+            ? 'Too many sign-in attempts — please wait a few minutes and try again.'
+            : 'Something went wrong sending the sign-in link. Please try again.';
+      } else {
+        sent = true;
+      }
+    }
+  }
+}
+
+async function verifyCaptcha(token: string): Promise<boolean> {
+  if (import.meta.env.DEV) return true;
+  if (!import.meta.env.TURNSTILE_SECRET_KEY) return true;
+
+  const res = await fetch(
+    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: import.meta.env.TURNSTILE_SECRET_KEY,
+        response: token,
+      }),
+    },
+  );
+  const { success } = (await res.json()) as { success: boolean };
+  return success;
+}
+
+const urlError = Astro.url.searchParams.get('error');
+const invalidLinkMessage =
+  urlError === 'invalid_link'
+    ? 'That sign-in link is invalid or has expired. Please request a new one.'
+    : undefined;
+
+const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
+---
+
+<Layout title="Sign in — Omagh Harriers AC">
+  <div class="max-w-md mx-auto px-4 py-16">
+    <h1 class="text-3xl font-bold mb-2">Members sign in</h1>
+    <p class="text-gray-600 mb-8">
+      Enter the email address used with your Klubfunder registration and we'll send you a sign-in link.
+    </p>
+
+    {
+      sent ? (
+        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+          <h2 class="font-semibold text-green-800 mb-1">Check your email</h2>
+          <p class="text-green-700 text-sm">
+            We've sent a sign-in link to your email address. Click the link in
+            the email to continue.
+          </p>
+        </div>
+      ) : (
+        <form method="POST" class="space-y-4">
+          {(errorMessage || invalidLinkMessage) && (
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+              {errorMessage ?? invalidLinkMessage}
+            </div>
+          )}
+
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+              Email address
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autocomplete="email"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          {siteKey && (
+            <div class="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
+          )}
+
+          <button
+            id="signin-btn"
+            type="submit"
+            class="w-full bg-black text-yellow font-semibold py-2 px-4 rounded-md hover:bg-gray-900 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg id="signin-spinner" class="hidden animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span id="signin-btn-label">Send sign-in link</span>
+          </button>
+        </form>
+      )
+    }
+
+    <p class="mt-6 text-sm text-gray-500">
+      Not a member yet? Find out more about{' '}
+      <a href="/juniors" class="underline hover:text-gray-700">junior</a> and{' '}
+      <a href="/about" class="underline hover:text-gray-700">senior</a> membership.
+    </p>
+  </div>
+
+  {siteKey && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
+
+  <script>
+    document.querySelector('form')?.addEventListener('submit', () => {
+      const btn = document.getElementById('signin-btn') as HTMLButtonElement;
+      const spinner = document.getElementById('signin-spinner');
+      const label = document.getElementById('signin-btn-label');
+      btn.disabled = true;
+      spinner?.classList.remove('hidden');
+      if (label) label.textContent = 'Sending…';
+    });
+  </script>
+</Layout>

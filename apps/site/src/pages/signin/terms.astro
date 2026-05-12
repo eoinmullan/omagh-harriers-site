@@ -1,0 +1,105 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const {
+  data: { user },
+} = await Astro.locals.supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect('/signin');
+}
+
+const { data: principal } = await Astro.locals.supabase
+  .from('principals')
+  .select('id, display_name, terms_accepted_at')
+  .eq('auth_user_id', user.id)
+  .maybeSingle();
+
+if (!principal) {
+  return Astro.redirect('/signin');
+}
+
+if (principal.terms_accepted_at) {
+  return Astro.redirect('/members');
+}
+
+let errorMessage: string | undefined;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const accepted = formData.get('accepted') === 'true';
+
+  if (!accepted) {
+    errorMessage = 'Please accept the terms and conditions to continue.';
+  } else {
+    const { error } = await Astro.locals.supabase
+      .from('principals')
+      .update({ terms_accepted_at: new Date().toISOString() })
+      .eq('id', principal.id);
+
+    if (error) console.error('[terms] failed to write terms_accepted_at:', error);
+    return Astro.redirect('/members');
+  }
+}
+---
+
+<Layout title="Terms & Conditions — Omagh Harriers AC">
+  <div class="max-w-2xl mx-auto px-4 py-16">
+    <h1 class="text-3xl font-bold mb-2">Before you continue</h1>
+    <p class="text-gray-600 mb-8">
+      Welcome, {principal.display_name}. Please read and accept our terms and
+      conditions to access the members' area.
+    </p>
+
+    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8 prose prose-sm max-w-none">
+      <p>
+        By accessing the Omagh Harriers AC members' area you agree to our{' '}
+        <a href="/terms" target="_blank" class="underline">terms and conditions</a>{' '}
+        and{' '}
+        <a href="/privacy" target="_blank" class="underline">privacy notice</a>.
+      </p>
+      <p class="mt-3">
+        The members' area gives you access to information about your household's
+        training account. This information is shared only with the principal
+        contact for your household. Please do not share your sign-in link with
+        anyone.
+      </p>
+    </div>
+
+    {
+      errorMessage && (
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm mb-4">
+          {errorMessage}
+        </div>
+      )
+    }
+
+    <form method="POST" class="space-y-4">
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          name="accepted"
+          value="true"
+          class="mt-1 h-4 w-4 rounded border-gray-300 accent-amber-400"
+        />
+        <span class="text-sm text-gray-700">
+          I have read and agree to the{' '}
+          <a href="/terms" target="_blank" class="underline hover:text-gray-900">
+            terms and conditions
+          </a>{' '}
+          and{' '}
+          <a href="/privacy" target="_blank" class="underline hover:text-gray-900">
+            privacy notice
+          </a>.
+        </span>
+      </label>
+
+      <button
+        type="submit"
+        class="bg-black text-yellow font-semibold py-2 px-6 rounded-md hover:bg-gray-900 transition-colors"
+      >
+        Accept and continue
+      </button>
+    </form>
+  </div>
+</Layout>

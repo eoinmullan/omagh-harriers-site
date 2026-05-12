@@ -1,0 +1,115 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// Middleware guarantees auth + active principal + terms accepted before we get here.
+// Defensive fallback only.
+const {
+  data: { user },
+} = await Astro.locals.supabase.auth.getUser();
+if (!user) return Astro.redirect('/signin');
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  if (formData.get('action') === 'signout') {
+    await Astro.locals.supabase.auth.signOut();
+    return Astro.redirect('/');
+  }
+}
+
+const { data: principal } = await Astro.locals.supabase
+  .from('principals')
+  .select('id, display_name, role')
+  .eq('auth_user_id', user.id)
+  .maybeSingle();
+
+if (!principal) return Astro.redirect('/signin');
+
+function formatDob(dob: string): string {
+  return new Date(dob).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+const { data: members } = await Astro.locals.supabase
+  .from('members')
+  .select('id, first_name, surname, date_of_birth, status, gender')
+  .eq('principal_id', principal.id)
+  .eq('is_active', true)
+  .order('first_name');
+---
+
+<Layout title="Members' Area — Omagh Harriers AC">
+  <div class="max-w-3xl mx-auto px-4 py-12">
+    <div class="flex items-start justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-bold">Members' area</h1>
+        <p class="text-gray-500 mt-1">Welcome back, {principal.display_name}</p>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="action" value="signout" />
+        <button
+          type="submit"
+          class="text-sm text-gray-500 hover:text-gray-800 underline transition-colors"
+        >
+          Sign out
+        </button>
+      </form>
+    </div>
+
+    <section>
+      <h2 class="text-xl font-semibold mb-4">
+        {members && members.length > 0 ? 'Your household' : 'No members found'}
+      </h2>
+
+      {
+        members && members.length > 0 ? (
+          <ul class="space-y-3">
+            {members.map((member) => (
+              <li class="bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 flex items-center justify-between">
+                <div>
+                  <p class="font-medium">
+                    {member.first_name} {member.surname}
+                  </p>
+                  <p class="text-sm text-gray-500">
+                    {formatDob(member.date_of_birth)}
+                    {member.gender ? ` · ${member.gender}` : ''}
+                  </p>
+                </div>
+                <span
+                  class={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                    member.status === 'paid'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {member.status === 'paid' ? 'Active' : 'Lapsed'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-gray-500 text-sm">
+            No active members are linked to your account. Please contact the
+            committee if you believe this is incorrect.
+          </p>
+        )
+      }
+    </section>
+
+    {
+      (principal.role === 'admin' || principal.role === 'superuser') && (
+        <section class="mt-10 pt-8 border-t border-gray-200">
+          <h2 class="text-lg font-semibold mb-3">Admin</h2>
+          <a
+            href="/admin/principals"
+            class="inline-block text-sm underline hover:text-gray-600"
+          >
+            Manage principals & members →
+          </a>
+        </section>
+      )
+    }
+  </div>
+</Layout>

@@ -106,50 +106,9 @@ Enable SSR on the existing Cloudflare Pages deployment so middleware and API rou
 
 ## Phase 2 — Auth: Magic Link + Members Table
 
-Core auth infrastructure. Members can sign in via email magic link; the allowlist is enforced via Supabase's own user table (pre-provisioned auth users + sign-ups disabled).
+Core auth infrastructure. Members can sign in via email magic link; the allowlist is enforced via Supabase's own user table (pre-provisioned auth users + sign-ups disabled). Klubfunder CSV exports are reconciled into the `members` table by a sync script that handles both the initial seed and ongoing weekly/monthly updates.
 
-### Supabase setup
-- [ ] Create a free Supabase project
-- [ ] Add `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` to env (and Cloudflare Pages env vars)
-- [ ] Add `SUPABASE_SERVICE_ROLE_KEY` to server-side env (for Admin API calls — never exposed to client)
-- [ ] Install `@supabase/supabase-js`
-- [ ] Toggle **"Disable new sign-ups"** in Supabase Auth settings — Supabase will then reject any sign-in attempt from an email that doesn't already have an auth user
-- [ ] Enable "Link accounts with same email" in Supabase Auth settings (so magic link and OAuth identities for the same email become one user)
-
-### Members table (the allowlist)
-- [ ] Create `members` table — `id`, `email` (unique, lowercased), `name`, `phone`, `auth_user_id`, `role` (`'member' | 'admin' | 'superuser'`, default `'member'`), `is_active`, `terms_accepted_at`, `created_at`
-- [ ] Schema changes are tracked informally as SQL files in `supabase/migrations/` checked into the repo (run manually against the project)
-- [ ] Export the current member list from Klubfunder (CSV)
-- [ ] Seed members: for each row in the Klubfunder export, call the Supabase Admin API to create the auth user and write `auth_user_id` back to the `members` row at seed time. Mark a small number of seed rows as `admin` and one or two as `superuser`.
-- [ ] Add a `custom_access_token_hook` Postgres function that injects `role` from `members` into the JWT on every token issue
-- [ ] RLS: members can read their own row; policies for admin-or-superuser writes reference `auth.jwt() ->> 'role' IN ('admin', 'superuser')`; superuser-only policies reference `auth.jwt() ->> 'role' = 'superuser'`
-
-### Auth pages and middleware
-- [ ] Create `src/middleware.ts` — intercept `/members/*` and `/admin/*`, check Supabase session, look up `auth.uid()` against `members.auth_user_id`, redirect to `/signin` on missing/expired session
-- [ ] Create `src/pages/signin.astro` — email input form; calls `supabase.auth.signInWithOtp()` directly (Supabase rejects non-allowlisted emails because sign-ups are disabled). Surface the rejection as an explicit "this email isn't on our member list — please contact the committee" message
-- [ ] Add Turnstile CAPTCHA on the signin form (optional but recommended); rely on Supabase's per-email rate limit as a backstop
-- [ ] Create `src/pages/signin/callback.astro` — exchange magic link token for session cookie
-- [ ] Create `src/pages/signin/terms.astro` — first-sign-in T&Cs acceptance page; on accept, write `members.terms_accepted_at = now()` and redirect to `/members`
-- [ ] Create `src/pages/terms.astro` and `src/pages/privacy.astro` — public T&Cs and privacy notice (privacy notice describes what data is held and that deletion requests go to admins)
-- [ ] Middleware: after auth check, if `members.terms_accepted_at IS NULL`, redirect to `/signin/terms`
-- [ ] Customise Supabase auth email templates (magic link, OTP) with Omagh Harriers branding and sender name — Supabase Auth → Email Templates
-- [ ] Create `src/pages/members/index.astro` — basic gated landing page
-- [ ] Add a sign-out button (calls `supabase.auth.signOut()` then redirects to `/`)
-- [ ] Add Members link to nav (redirects to `/signin` when unauthenticated)
-- [ ] Test: allowlisted email receives link and lands on `/members`
-- [ ] Test: non-allowlisted email gets the explicit "not on member list" message
-- [ ] Test: first sign-in is gated by `/signin/terms`; second sign-in skips it
-- [ ] Test: sign-out clears the session and `/members` redirects to `/signin`
-
-### Member management UI (admin)
-- [ ] Create `src/pages/admin/members.astro` — list members (name, email, role, is_active), add new member, deactivate existing member
-- [ ] "Add member" flow: form takes name + email + phone → server-side endpoint calls Supabase Admin API to create the auth user → writes the `members` row with the returned `auth_user_id` and role `'member'` → returns success
-- [ ] "Deactivate member" flow: flips `is_active = false` on the row and revokes the Supabase auth user so they can no longer sign in
-- [ ] Gate `/admin/*` to `role IN ('admin', 'superuser')` in middleware (using the JWT claim)
-- [ ] Create `src/pages/admin/members/roles.astro` — superuser-only page to promote members to `admin` (or back to `member`); promoting/demoting `superuser` itself is gated to existing superusers
-- [ ] Test: admin adds a new member → that email can immediately sign in via magic link
-- [ ] Test: admin deactivates a member → that email can no longer sign in
-- [ ] Test: a non-superuser admin cannot access `/admin/members/roles`
+- [ ] See [members_area_phase_2.md](./members_area_phase_2.md) for the detailed PR-by-PR breakdown
 
 ---
 
@@ -167,12 +126,12 @@ One-click sign-in for the ~65%+ of members with a Google or Microsoft account. A
 
 ## Phase 4 — Training Credits
 
-Session balance tracking, top-up history, Stripe online top-up via Astro API route, and admin tools for cash payments and session deductions.
+Session balance tracking, top-up history, Stripe online top-up via Astro API route, and admin tools for cash payments and session deductions. Balances are held **per principal** (the household), not per member — one parent tops up once and any of their members can draw from it. An admin credit-transfer feature also belongs here, used to move a stranded balance when a household's contact email changes in Klubfunder.
 
 ### Data model
-- [ ] Create `credit_transactions` table — `id`, `member_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund'`), `attendance_id` (nullable, FK → `attendance`, set when `type = 'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`
-- [ ] RLS: members can read their own transactions; admin/superuser role can read/write all
-- [ ] Create a `member_balances` view that sums `credit_transactions.amount_pence` per member
+- [ ] Create `credit_transactions` table — `id`, `principal_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund' | 'transfer_in' | 'transfer_out'`), `member_id` (nullable, set when the transaction is tied to a specific member — typically `'session'`), `attendance_id` (nullable, FK → `attendance`, set when `type = 'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`
+- [ ] RLS: principals can read transactions for their own household; admin/superuser role can read/write all
+- [ ] Create a `principal_balances` view that sums `credit_transactions.amount_pence` per principal
 
 ### Member-facing (transparency)
 - [ ] Create `src/pages/members/credits.astro` — current balance + full transaction history with each row clearly labelled by method (Stripe vs cash) and, for session debits, the session name and date (joined via `attendance` → `training_sessions`)
@@ -182,7 +141,7 @@ Session balance tracking, top-up history, Stripe online top-up via Astro API rou
 ### Stripe top-up
 - [ ] Retrieve API keys from existing club Stripe dashboard (Standard account)
 - [ ] Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to env
-- [ ] Create `src/pages/members/topup.astro` — fixed amount buttons (£10 / £20 / £40, pending final stakeholder confirmation), creates Stripe Checkout session with `member_id` in metadata
+- [ ] Create `src/pages/members/topup.astro` — fixed amount buttons (£10 / £20 / £40, pending final stakeholder confirmation), creates Stripe Checkout session with `principal_id` in metadata
 - [ ] Create `src/pages/members/topup/success.astro` — post-payment confirmation page
 - [ ] Create `src/pages/api/stripe/webhook.ts` — Astro API route, verifies Stripe signature with the service-role Supabase client, writes `top_up_stripe` transaction using the Stripe event ID as `idempotency_key`
 - [ ] Register webhook endpoint in Stripe dashboard
@@ -190,9 +149,11 @@ Session balance tracking, top-up history, Stripe online top-up via Astro API rou
 - [ ] Test: replay the same webhook event → no duplicate transaction (idempotency)
 
 ### Admin tools
-- [ ] Create `src/pages/admin/credits.astro` — select member, record `top_up_cash` (with note) or `manual_adjustment` (with required note explaining the adjustment)
+- [ ] Create `src/pages/admin/credits.astro` — select principal, record `top_up_cash` (with note) or `manual_adjustment` (with required note explaining the adjustment)
+- [ ] **Credit transfer** — select a source principal and a target principal, optional amount (defaults to the full source balance), required note. Writes paired `transfer_out` (negative) and `transfer_in` (positive) rows referencing each other via `notes`. Used when a household's contact email changes in Klubfunder and the balance needs to follow them.
 - [ ] Gate `/admin/*` to `role IN ('admin', 'superuser')` in middleware
-- [ ] Test: admin records a cash payment → member balance updates and the transaction is labelled "paid by cash" on the member's credits page
+- [ ] Test: admin records a cash payment → principal balance updates and the transaction is labelled "paid by cash" on the credits page
+- [ ] Test: admin transfers a balance from principal A to principal B → both balances update, both transactions appear in each principal's history
 
 ---
 

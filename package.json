@@ -6,6 +6,8 @@
     "dev": "pnpm --filter @omagh/site dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "preview": "pnpm --filter @omagh/site preview"
+    "test": "pnpm -r test",
+    "preview": "pnpm --filter @omagh/site preview",
+    "sync-klubfunder": "pnpm --filter @omagh/site sync-klubfunder"
   }
 }

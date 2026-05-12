@@ -15,5 +15,12 @@ interface ImportMeta {
 declare namespace App {
   interface Locals {
     supabase: import('./lib/supabase/server').SupabaseServerClient;
+    runtime?: {
+      env?: {
+        SUPABASE_SECRET_KEY?: string;
+        TURNSTILE_SECRET_KEY?: string;
+        [key: string]: string | undefined;
+      };
+    };
   }
 }

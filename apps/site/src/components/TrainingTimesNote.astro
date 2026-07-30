@@ -1,0 +1,25 @@
+---
+import { monthAndYear, type ActiveTraining } from '../lib/training/schedule';
+
+interface Props {
+  active: ActiveTraining;
+  class?: string;
+}
+
+const { active, class: className = '' } = Astro.props;
+const lastPublishedFor = active.status === 'stale' ? monthAndYear(active.period.end) : undefined;
+---
+
+<div id="training-times-note" class={`text-center text-sm ${className}`}>
+  <p class="text-gray-500">
+    *Training times may vary week-to-week &mdash; check with a member or on the WhatsApp group
+    if you're not sure.
+  </p>
+  {
+    lastPublishedFor && (
+      <p class="text-gray-700 font-semibold mt-2">
+        These times were last published for {lastPublishedFor} and may have changed since.
+      </p>
+    )
+  }
+</div>

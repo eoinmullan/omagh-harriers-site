@@ -1,0 +1,56 @@
+---
+import type { ActiveTraining } from '../lib/training/schedule';
+import TrainingCard from './TrainingCard.astro';
+import TrainingTimesNote from './TrainingTimesNote.astro';
+
+interface Props {
+  label: string;
+  active: ActiveTraining;
+}
+
+const { label, active } = Astro.props;
+const period = active.status === 'none' ? undefined : active.period;
+
+const seniorEntries =
+  period?.senior.sessions.map(({ when, where }) => ({ when, detail: where })) ?? [];
+
+const juniorEntries =
+  period?.junior.sessions.map(({ when, group, where }) => ({
+    when,
+    detail: `${group} — ${where}`,
+  })) ?? [];
+---
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <h2 class="text-4xl font-bold text-center mb-4">
+    {label} Training Times<a href="#training-times-note" class="text-gray-500">*</a>
+  </h2>
+  <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+    Join us for our regular training sessions. All abilities welcome!
+  </p>
+  <TrainingTimesNote active={active} class="-mt-10 mb-12" />
+
+  {
+    !period ? (
+      <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber text-center">
+        <p class="text-lg">
+          We don't have training times listed at the moment &mdash; please get in touch or check
+          the club WhatsApp group.
+        </p>
+      </div>
+    ) : (
+      <div class="grid md:grid-cols-2 gap-8">
+        <TrainingCard
+          title="Senior Training"
+          notice={period.senior.notice}
+          entries={seniorEntries}
+        />
+        <TrainingCard
+          title="Junior Academy"
+          notice={period.junior.notice}
+          entries={juniorEntries}
+        />
+      </div>
+    )
+  }
+</div>

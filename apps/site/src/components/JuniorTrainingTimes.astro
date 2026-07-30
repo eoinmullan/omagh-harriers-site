@@ -1,0 +1,68 @@
+---
+import type { ActiveTraining } from '../lib/training/schedule';
+
+interface Props {
+  active: ActiveTraining;
+}
+
+const { active } = Astro.props;
+const junior = active.status === 'none' ? undefined : active.period.junior;
+---
+
+{
+  junior?.notice && (
+    <div class="mb-8 bg-amber/10 border border-amber rounded-lg px-5 py-4 text-center">
+      <p class="text-gray-800">{junior.notice}</p>
+    </div>
+  )
+}
+
+{
+  !junior ? (
+    <div class="bg-white rounded-lg border border-gray-200 px-5 py-6 text-center">
+      <p class="text-gray-800">
+        We don't have junior training times listed at the moment &mdash; please get in touch or
+        check the club WhatsApp group.
+      </p>
+    </div>
+  ) : (
+    <Fragment>
+      {/* Mobile: stacked cards */}
+      <div class="space-y-3 sm:hidden">
+        {junior.sessions.map((session) => (
+          <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
+            <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">
+              {session.group}
+            </p>
+            <p class="text-gray-800 font-semibold">{session.when}</p>
+            <p class="text-gray-500 text-sm">{session.where}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      {junior.sessions.length > 0 && (
+        <div class="hidden sm:block bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <table class="w-full text-sm sm:text-base">
+            <thead>
+              <tr class="border-b border-gray-200 bg-gray-50">
+                <th class="text-left py-3 px-5 font-semibold">Session</th>
+                <th class="text-left py-3 px-5 font-semibold">Day &amp; Time</th>
+                <th class="text-left py-3 px-5 font-semibold">Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              {junior.sessions.map((session) => (
+                <tr class="border-b border-gray-100 last:border-b-0">
+                  <td class="py-3 px-5 font-medium">{session.group}</td>
+                  <td class="py-3 px-5 text-gray-700">{session.when}</td>
+                  <td class="py-3 px-5 text-gray-600">{session.where}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Fragment>
+  )
+}

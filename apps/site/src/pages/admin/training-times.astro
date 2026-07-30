@@ -1,0 +1,57 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import TrainingTimesSection from '../../components/TrainingTimesSection.astro';
+import { trainingSchedule } from '../../data/training-schedule';
+import { seasonLabel, seasonSegments } from '../../lib/training/season';
+import { dayAfter, formatDate, type ActiveTraining } from '../../lib/training/schedule';
+
+interface Preview {
+  caption: string;
+  label: string;
+  active: ActiveTraining;
+}
+
+const periodPreviews: Preview[] = trainingSchedule.flatMap((period) =>
+  seasonSegments(period.start, period.end).map((segment) => ({
+    caption: `${formatDate(segment.start)} to ${formatDate(segment.end)}`,
+    label: segment.label,
+    active: { status: 'current', period } as ActiveTraining,
+  })),
+);
+
+const lastPeriod = trainingSchedule.at(-1);
+
+const stalePreview: Preview | undefined = lastPeriod && {
+  caption: `After ${formatDate(lastPeriod.end)}`,
+  label: seasonLabel(dayAfter(lastPeriod.end)),
+  active: { status: 'stale', period: lastPeriod },
+};
+
+const previews = [...periodPreviews, ...(stalePreview ? [stalePreview] : [])];
+---
+
+<Layout title="Training times | Omagh Harriers AC">
+  <section class="py-10 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-bold mb-2">Training times</h1>
+      <p class="text-gray-600">
+        How the home page looks for each period in the training schedule, and what visitors see
+        once the schedule is left to lapse. Changing the times themselves is a code change to
+        <code class="text-sm">src/data/training-schedule.ts</code>.
+      </p>
+    </div>
+  </section>
+
+  {
+    previews.map((preview) => (
+      <section class="py-8 border-t-4 border-gray-200 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+          <p class="font-mono text-sm text-amber bg-black inline-block px-3 py-1 rounded">
+            {preview.caption}
+          </p>
+        </div>
+        <TrainingTimesSection label={preview.label} active={preview.active} />
+      </section>
+    ))
+  }
+</Layout>

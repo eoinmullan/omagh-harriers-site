@@ -1,6 +1,13 @@
 ---
 import Layout from '../layouts/Layout.astro';
-export const prerender = true;
+import JuniorTrainingTimes from '../components/JuniorTrainingTimes.astro';
+import TrainingTimesNote from '../components/TrainingTimesNote.astro';
+import { trainingSchedule } from '../data/training-schedule';
+import { resolveToday, selectTraining } from '../lib/training/schedule';
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=300');
+
+const active = selectTraining(trainingSchedule, resolveToday(Astro.url, import.meta.env.DEV));
 ---
 
 <Layout
@@ -49,64 +56,8 @@ export const prerender = true;
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <h2 class="text-2xl sm:text-3xl font-bold text-center mb-8">Training Times</h2>
 
-      <!-- Mobile: stacked cards -->
-      <div class="space-y-3 sm:hidden">
-        <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
-          <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">Development Squad</p>
-          <p class="text-gray-800 font-semibold">Monday, 4:30pm</p>
-          <p class="text-gray-500 text-sm">OLC Track</p>
-        </div>
-        <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
-          <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">Main Group</p>
-          <p class="text-gray-800 font-semibold">Monday, 6:00pm</p>
-          <p class="text-gray-500 text-sm">OLC Track</p>
-        </div>
-        <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
-          <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">All Juniors</p>
-          <p class="text-gray-800 font-semibold">Thursday, 6:00pm</p>
-          <p class="text-gray-500 text-sm">Youth Sport Omagh</p>
-        </div>
-        <div class="bg-white rounded-lg border border-gray-200 px-5 py-4">
-          <p class="font-bold text-sm text-amber uppercase tracking-wider mb-1">Track &amp; Field Group</p>
-          <p class="text-gray-800 font-semibold">Monday &amp; Thursday, 6:00pm</p>
-          <p class="text-gray-500 text-sm">Youth Sport Omagh</p>
-        </div>
-      </div>
-
-      <!-- Desktop: table -->
-      <div class="hidden sm:block bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table class="w-full text-sm sm:text-base">
-          <thead>
-            <tr class="border-b border-gray-200 bg-gray-50">
-              <th class="text-left py-3 px-5 font-semibold">Session</th>
-              <th class="text-left py-3 px-5 font-semibold">Day &amp; Time</th>
-              <th class="text-left py-3 px-5 font-semibold">Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="border-b border-gray-100">
-              <td class="py-3 px-5 font-medium">Development Squad</td>
-              <td class="py-3 px-5 text-gray-700">Monday, 4:30pm</td>
-              <td class="py-3 px-5 text-gray-600">OLC Track</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-3 px-5 font-medium">Main Group</td>
-              <td class="py-3 px-5 text-gray-700">Monday, 6:00pm</td>
-              <td class="py-3 px-5 text-gray-600">OLC Track</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-3 px-5 font-medium">All Juniors</td>
-              <td class="py-3 px-5 text-gray-700">Thursday, 6:00pm</td>
-              <td class="py-3 px-5 text-gray-600">Youth Sport Omagh</td>
-            </tr>
-            <tr>
-              <td class="py-3 px-5 font-medium">Track &amp; Field Group</td>
-              <td class="py-3 px-5 text-gray-700">Monday &amp; Thursday, 6:00pm</td>
-              <td class="py-3 px-5 text-gray-600">Youth Sport Omagh</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <JuniorTrainingTimes active={active} />
+      <TrainingTimesNote active={active} class="mt-6" />
     </div>
   </section>
 

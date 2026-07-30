@@ -102,12 +102,14 @@ const { data: members } = await Astro.locals.supabase
       (principal.role === 'admin' || principal.role === 'superuser') && (
         <section class="mt-10 pt-8 border-t border-gray-200">
           <h2 class="text-lg font-semibold mb-3">Admin</h2>
-          <a
-            href="/admin/principals"
-            class="inline-block text-sm underline hover:text-gray-600"
-          >
-            Manage principals & members →
-          </a>
+          <div class="flex flex-col items-start gap-2">
+            <a href="/admin/principals" class="text-sm underline hover:text-gray-600">
+              Manage principals & members →
+            </a>
+            <a href="/admin/training-times" class="text-sm underline hover:text-gray-600">
+              Preview training times →
+            </a>
+          </div>
         </section>
       )
     }

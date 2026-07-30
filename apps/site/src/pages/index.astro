@@ -1,6 +1,14 @@
 ---
 import Layout from '../layouts/Layout.astro';
-export const prerender = true;
+import TrainingTimesSection from '../components/TrainingTimesSection.astro';
+import { trainingSchedule } from '../data/training-schedule';
+import { resolveToday, selectTraining } from '../lib/training/schedule';
+import { seasonLabel } from '../lib/training/season';
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=300');
+
+const today = resolveToday(Astro.url, import.meta.env.DEV);
+const active = selectTraining(trainingSchedule, today);
 ---
 
 <Layout title="Omagh Harriers AC - Home">
@@ -39,70 +47,9 @@ export const prerender = true;
     <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto block sm:hidden">
       Vibrant running club in Omagh, County Tyrone. From beginners to experienced athletes, everyone is welcome.
     </p>
+    <TrainingTimesSection label={seasonLabel(today)} active={active} />
+
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-4xl font-bold text-center mb-4">Spring/Summer 2026 Training Times</h2>
-      <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-        Join us for our regular training sessions. All abilities welcome!
-      </p>
-
-      <div class="grid md:grid-cols-2 gap-8">
-        <!-- Senior Training -->
-        <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber">
-          <div class="flex items-center mb-6">
-            <div class="bg-amber w-12 h-12 rounded-full flex items-center justify-center mr-4">
-              <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 class="text-2xl font-bold">Senior Training</h3>
-          </div>
-          <ul class="space-y-4 divide-y divide-gray-200">
-            <li class="pt-4 first:pt-0">
-              <p class="font-semibold text-gray-800">Tuesday, 6:30pm</p>
-              <p class="text-gray-600 text-sm mt-0.5">Omagh Leisure Complex</p>
-            </li>
-            <li class="pt-4">
-              <p class="font-semibold text-gray-800">Thursday, 6:30pm</p>
-              <p class="text-gray-600 text-sm mt-0.5">Youth Sport Omagh</p>
-            </li>
-            <li class="pt-4">
-              <p class="font-semibold text-gray-800">Sunday mornings</p>
-              <p class="text-gray-600 text-sm mt-0.5">Group long runs</p>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Junior Academy -->
-        <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber">
-          <div class="flex items-center mb-6">
-            <div class="bg-amber w-12 h-12 rounded-full flex items-center justify-center mr-4">
-              <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 class="text-2xl font-bold">Junior Academy</h3>
-          </div>
-          <ul class="space-y-4 divide-y divide-gray-200">
-            <li class="pt-4 first:pt-0">
-              <p class="font-semibold text-gray-800">Monday, 4:30pm</p>
-              <p class="text-gray-600 text-sm mt-0.5">Development squad &mdash; OLC Track</p>
-            </li>
-            <li class="pt-4">
-              <p class="font-semibold text-gray-800">Monday, 6:00pm</p>
-              <p class="text-gray-600 text-sm mt-0.5">Main group &mdash; OLC Track</p>
-            </li>
-            <li class="pt-4">
-              <p class="font-semibold text-gray-800">Thursday, 6:00pm</p>
-              <p class="text-gray-600 text-sm mt-0.5">All juniors &mdash; Youth Sport Omagh</p>
-            </li>
-            <li class="pt-4">
-              <p class="font-semibold text-gray-800">Monday &amp; Thursday, 6:00pm</p>
-              <p class="text-gray-600 text-sm mt-0.5">Track &amp; field group &mdash; Youth Sport Omagh</p>
-            </li>
-          </ul>
-        </div>
-      </div>
-
       <div class="mt-12 bg-amber/10 border border-amber rounded-lg p-6 text-center">
         <p class="text-lg">
           <strong>New members welcome!</strong> Come along to any session and introduce yourself to our friendly group.

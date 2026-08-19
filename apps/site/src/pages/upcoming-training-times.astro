@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro';
+import TrainingTimesSection from '../components/TrainingTimesSection.astro';
+import { trainingSchedule } from '../data/training-schedule';
+import { resolveToday, selectTraining } from '../lib/training/schedule';
+import { seasonLabel } from '../lib/training/season';
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=300');
+
+const today = resolveToday(Astro.url, import.meta.env.DEV);
+const active = selectTraining(trainingSchedule, today);
+---
+
+<Layout title="Training times | Omagh Harriers AC">
+  <section class="py-10 sm:py-14 bg-white">
+    <TrainingTimesSection label={seasonLabel(today)} active={active} />
+  </section>
+</Layout>

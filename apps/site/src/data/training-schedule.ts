@@ -37,8 +37,8 @@ export const trainingSchedule: TrainingSchedule = [
     },
     junior: {
       sessions: [
-        { group: 'All Juniors', when: 'Monday, 6:00pm', where: 'Donnelly\'s Holm' },
-        { group: 'All Juniors', when: 'Wednesday, 6:00pm', where: 'Arelston Park, meet at OLC to walk over together' },
+        { group: 'All Juniors', when: 'Monday, 6:00pm', where: 'OLC, Donnelly\'s Holm or Arelston Park' },
+        { group: 'All Juniors', when: 'Wednesday, 6:00pm', where: 'OLC, Donnelly\'s Holm or Arelston Park' },
       ],
     },
   },

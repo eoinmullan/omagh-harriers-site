@@ -1,13 +1,16 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import JuniorTrainingTimes from '../components/JuniorTrainingTimes.astro';
 import TrainingTimesNote from '../components/TrainingTimesNote.astro';
+import TrainingCalendar from '../components/TrainingCalendar.astro';
 import { trainingSchedule } from '../data/training-schedule';
 import { resolveToday, selectTraining } from '../lib/training/schedule';
 
+const today = resolveToday(Astro.url, import.meta.env.DEV);
+
 Astro.response.headers.set('Cache-Control', 'public, max-age=300');
 
-const active = selectTraining(trainingSchedule, resolveToday(Astro.url, import.meta.env.DEV));
+const active = selectTraining(trainingSchedule, today);
+const juniorNotice = active.status === 'none' ? undefined : active.period.junior.notice;
 ---
 
 <Layout
@@ -53,12 +56,20 @@ const active = selectTraining(trainingSchedule, resolveToday(Astro.url, import.m
 
   <!-- Training Times -->
   <section class="py-10 sm:py-14 bg-gray-50">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
       <h2 class="text-2xl sm:text-3xl font-bold text-center mb-8">Training Times</h2>
 
-      <JuniorTrainingTimes active={active} />
-      <TrainingTimesNote active={active} class="mt-6" />
+      {
+        juniorNotice && (
+          <div class="mb-6 bg-amber/10 border border-amber rounded-lg px-5 py-4 text-center">
+            <p class="text-gray-800">{juniorNotice}</p>
+          </div>
+        )
+      }
+      <TrainingTimesNote active={active} />
     </div>
+
+    <TrainingCalendar today={today} audience="junior" idPrefix="juniors" />
   </section>
 
   <!-- What We Offer -->

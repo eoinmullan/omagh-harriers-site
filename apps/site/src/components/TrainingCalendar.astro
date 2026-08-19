@@ -1,0 +1,185 @@
+---
+import { trainingSchedule } from '../data/training-schedule';
+import { races } from '../data/races';
+import {
+  addMonths,
+  buildMonthCalendar,
+  dayLabel,
+  startOfMonth,
+  type CalendarAudience,
+  type CalendarEntry,
+} from '../lib/training/calendar';
+
+interface Props {
+  today: string;
+  audience: CalendarAudience;
+  idPrefix: string;
+}
+
+const { today, audience, idPrefix } = Astro.props;
+
+const thisMonthStart = startOfMonth(today);
+const nextMonthStart = addMonths(thisMonthStart, 1);
+
+const months = [
+  { id: 'this', ...buildMonthCalendar(thisMonthStart, trainingSchedule, races, audience) },
+  { id: 'next', ...buildMonthCalendar(nextMonthStart, trainingSchedule, races, audience) },
+] as const;
+
+const weekdayHeadings = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const categoryStyles: Record<CalendarEntry['category'], { dot: string; chip: string; label: string }> = {
+  senior: { dot: 'bg-senior', chip: 'bg-senior/10 border-senior', label: 'Senior' },
+  junior: { dot: 'bg-amber', chip: 'bg-amber/10 border-amber', label: 'Junior' },
+  race: { dot: 'bg-race', chip: 'bg-race/10 border-race', label: 'Race' },
+};
+
+function uniqueCategories(entries: readonly CalendarEntry[]): CalendarEntry['category'][] {
+  return [...new Set(entries.map((entry) => entry.category))];
+}
+---
+
+<div class="training-calendar max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+  <div class="flex flex-wrap justify-center gap-x-5 gap-y-2 mb-6 text-sm text-gray-600">
+    {
+      Object.values(categoryStyles).map((style) => (
+        <span class="flex items-center gap-1.5">
+          <span class={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
+          {style.label}
+        </span>
+      ))
+    }
+  </div>
+
+  <input type="radio" id={`${idPrefix}-tab-this`} name={`${idPrefix}-tab`} class="peer/this sr-only" checked />
+  <input type="radio" id={`${idPrefix}-tab-next`} name={`${idPrefix}-tab`} class="peer/next sr-only" />
+
+  <div class="flex justify-center gap-2 mb-6">
+    <label
+      for={`${idPrefix}-tab-this`}
+      class="cursor-pointer px-4 py-2 rounded-full text-sm font-semibold bg-gray-100 text-gray-700 peer-checked/this:bg-black peer-checked/this:text-white"
+    >
+      {months[0].label}
+    </label>
+    <label
+      for={`${idPrefix}-tab-next`}
+      class="cursor-pointer px-4 py-2 rounded-full text-sm font-semibold bg-gray-100 text-gray-700 peer-checked/next:bg-black peer-checked/next:text-white"
+    >
+      {months[1].label}
+    </label>
+  </div>
+
+  {
+    months.map((month) => {
+      const days = month.weeks.flat();
+      const activeDays = days.filter((day) => day.inMonth && day.entries.length > 0);
+
+      return (
+        <div class={month.id === 'this' ? 'hidden peer-checked/this:block' : 'hidden peer-checked/next:block'}>
+          <div class="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[11px] sm:text-xs font-semibold text-gray-500 mb-1">
+            {weekdayHeadings.map((heading) => (
+              <div>{heading}</div>
+            ))}
+          </div>
+
+          <div class="grid grid-cols-7 gap-1 sm:gap-2" data-calendar-panel-anchor>
+            {days.map((day) =>
+              day.inMonth && day.entries.length > 0 ? (
+                <button
+                  type="button"
+                  data-calendar-day
+                  data-date={day.date}
+                  data-label={dayLabel(day.date)}
+                  data-entries={JSON.stringify(day.entries)}
+                  class="training-calendar-day w-full rounded-md border border-gray-200 p-1 sm:p-2 text-center sm:cursor-default"
+                >
+                  <span class="block text-xs sm:text-sm font-semibold">{day.dayNumber}</span>
+                  <span class="flex justify-center gap-0.5 mt-1 sm:hidden">
+                    {uniqueCategories(day.entries).map((category) => (
+                      <span class={`w-1.5 h-1.5 rounded-full ${categoryStyles[category].dot}`} />
+                    ))}
+                  </span>
+                  <div class="hidden sm:block mt-1 space-y-0.5 text-left">
+                    {day.entries.map((entry) => (
+                      <p class={`text-[10px] leading-snug rounded px-1 py-0.5 border-l-2 text-gray-800 ${categoryStyles[entry.category].chip}`}>
+                        {entry.text}
+                      </p>
+                    ))}
+                  </div>
+                </button>
+              ) : (
+                <div class={`rounded-md border p-1 sm:p-2 text-center ${day.inMonth ? 'border-gray-100' : 'border-transparent'}`}>
+                  <span class={`block text-xs sm:text-sm ${day.inMonth ? 'font-semibold' : 'text-gray-300'}`}>
+                    {day.dayNumber}
+                  </span>
+                </div>
+              ),
+            )}
+          </div>
+
+          <div class="mt-4 sm:hidden rounded-lg border border-gray-200 bg-gray-50 p-4" data-calendar-panel>
+            <p class="text-sm text-gray-500" data-panel-empty>
+              {activeDays.length === 0 ? 'Nothing on this month.' : "Tap a day to see what's on."}
+            </p>
+            <p class="font-semibold text-gray-800 mb-2 hidden" data-panel-date />
+            <ul class="space-y-1.5" data-panel-list />
+          </div>
+        </div>
+      );
+    })
+  }
+</div>
+
+<script>
+  const CHIP_CLASSES: Record<string, string> = {
+    senior: 'bg-senior/10 border-senior',
+    junior: 'bg-amber/10 border-amber',
+    race: 'bg-race/10 border-race',
+  };
+
+  document.querySelectorAll('.training-calendar').forEach((calendar) => {
+    calendar.querySelectorAll('[data-calendar-panel]').forEach((panel) => {
+      const monthSection = panel.parentElement;
+      const grid = monthSection?.querySelector('[data-calendar-panel-anchor]');
+      if (!grid) return;
+
+      const empty = panel.querySelector<HTMLElement>('[data-panel-empty]');
+      const dateEl = panel.querySelector<HTMLElement>('[data-panel-date]');
+      const list = panel.querySelector<HTMLElement>('[data-panel-list]');
+
+      grid.querySelectorAll<HTMLButtonElement>('[data-calendar-day]').forEach((button) => {
+        button.addEventListener('click', () => {
+          grid.querySelectorAll('[data-calendar-day]').forEach((b) => b.classList.remove('training-calendar-day--selected'));
+          button.classList.add('training-calendar-day--selected');
+
+          const entries = JSON.parse(button.dataset.entries ?? '[]') as { category: string; text: string }[];
+
+          if (dateEl) {
+            dateEl.textContent = button.dataset.label ?? '';
+            dateEl.classList.remove('hidden');
+          }
+          if (list) {
+            list.innerHTML = '';
+            for (const entry of entries) {
+              const item = document.createElement('li');
+              item.className = `text-sm rounded px-2 py-1.5 border-l-2 text-gray-800 ${CHIP_CLASSES[entry.category] ?? ''}`;
+              item.textContent = entry.text;
+              list.appendChild(item);
+            }
+          }
+          empty?.classList.add('hidden');
+        });
+      });
+    });
+  });
+</script>
+
+<style>
+  @media (max-width: 39.9975rem) {
+    .training-calendar-day--selected {
+      border-color: var(--color-amber);
+      background-color: color-mix(in srgb, var(--color-amber) 20%, white);
+      box-shadow: 0 0 0 2px var(--color-amber);
+    }
+  }
+</style>

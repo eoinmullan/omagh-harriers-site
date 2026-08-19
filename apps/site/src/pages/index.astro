@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import TrainingTimesSection from '../components/TrainingTimesSection.astro';
+import TrainingCalendar from '../components/TrainingCalendar.astro';
 import { trainingSchedule } from '../data/training-schedule';
 import { resolveToday, selectTraining } from '../lib/training/schedule';
 import { seasonLabel } from '../lib/training/season';
@@ -56,6 +57,17 @@ const active = selectTraining(trainingSchedule, today);
         </p>
       </div>
     </div>
+  </section>
+
+  <!-- Training Calendar Section -->
+  <section class="py-8 sm:py-14 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+      <h2 class="text-3xl sm:text-4xl font-bold text-center">Calendar</h2>
+      <p class="text-center text-gray-600 mt-2 max-w-2xl mx-auto">
+        Training sessions and upcoming races, senior and junior, in one place.
+      </p>
+    </div>
+    <TrainingCalendar today={today} audience="combined" idPrefix="home" />
   </section>
 
   <!-- About Section -->

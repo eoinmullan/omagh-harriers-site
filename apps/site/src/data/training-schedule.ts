@@ -9,6 +9,8 @@ import type { TrainingSchedule } from '../lib/training/schedule';
  *
  * A group with no sessions must say why, via `notice`.
  */
+export const juniorAgeRequirement = 'Juniors must be aged 8+.';
+
 export const trainingSchedule: TrainingSchedule = [
   {
     start: '2026-07-01',

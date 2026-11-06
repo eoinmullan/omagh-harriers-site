@@ -49,7 +49,7 @@ export const trainingSchedule: TrainingSchedule = [
     end: '2026-12-31',
     senior: {
       sessions: [
-        { when: 'Tuesday, 6:30pm', where: 'Omagh Leisure Complex' },
+        { when: 'Tuesday, 6:45pm', where: 'Omagh Leisure Complex' },
         { when: 'Thursday, 6:45pm', where: 'Youth Sport' },
         { when: 'Sunday mornings', where: 'Group long runs, various locations, check WhatsApp' },
       ],

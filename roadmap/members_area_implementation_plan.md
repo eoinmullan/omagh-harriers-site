@@ -118,7 +118,7 @@ One-click sign-in for the ~65%+ of members with a Google or Microsoft account. A
 
 - [ ] Register Google OAuth app in Google Cloud Console, enable in Supabase dashboard, register the Supabase OAuth callback URL
 - [ ] Register Microsoft OAuth app in Azure AD (personal accounts tenant for consumer use), enable in Supabase dashboard, register the Supabase OAuth callback URL
-- [ ] Add Sign in with Google / Microsoft buttons to `signin.astro`
+- [x] Add Sign in with Google / Microsoft buttons to `signin.astro`
 - [ ] Test each provider end-to-end with an allowlisted account
 - [ ] Test that an unrecognised email from OAuth is rejected (Supabase should refuse the sign-up automatically)
 

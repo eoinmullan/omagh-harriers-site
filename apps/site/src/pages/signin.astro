@@ -71,13 +71,16 @@ async function verifyCaptcha(token: string): Promise<boolean> {
   return success;
 }
 
-const urlError = Astro.url.searchParams.get('error');
-const invalidLinkMessage =
-  urlError === 'invalid_link'
-    ? 'That sign-in link is invalid or has expired. Please request a new one.'
-    : urlError === 'access_denied'
-      ? "This email isn't registered for members' access — please contact the committee if you think this is an error."
-      : undefined;
+const notRegisteredMessage =
+  "That account isn't registered for members' access. Sign in with the email address used for your Klubfunder registration, or contact the committee if you think this is an error.";
+
+const urlErrorMessages: Record<string, string> = {
+  invalid_link: 'That sign-in link is invalid or has expired. Please request a new one.',
+  access_denied: notRegisteredMessage,
+  not_registered: notRegisteredMessage,
+};
+
+const urlErrorMessage = urlErrorMessages[Astro.url.searchParams.get('error') ?? ''];
 
 const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 ---
@@ -100,6 +103,12 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
         </div>
       ) : (
         <>
+          {(errorMessage || urlErrorMessage) && (
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm mb-6">
+              {errorMessage ?? urlErrorMessage}
+            </div>
+          )}
+
           <div class="space-y-3">
             <button
               id="google-btn"
@@ -140,12 +149,6 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
           </div>
 
           <form method="POST" class="space-y-4">
-            {(errorMessage || invalidLinkMessage) && (
-              <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-                {errorMessage ?? invalidLinkMessage}
-              </div>
-            )}
-
             <div>
               <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
                 Email address
@@ -205,36 +208,51 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
       spinner?.classList.remove('hidden');
       if (label) label.textContent = 'Sending…';
     });
+
     const supabase = createSupabaseBrowserClient();
     const callbackUrl = `${window.location.origin}/signin/callback`;
 
-    async function signInWithProvider(provider: 'google' | 'azure') {
-      const btn = document.getElementById(`${provider === 'google' ? 'google' : 'microsoft'}-btn`) as HTMLButtonElement;
-      btn.disabled = true;
-      await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: callbackUrl },
+    const providers = [
+      {
+        name: 'Google',
+        supabaseProvider: 'google' as const,
+        buttonId: 'google-btn',
+        emailDomains: ['gmail.com', 'googlemail.com'],
+      },
+      {
+        name: 'Microsoft',
+        supabaseProvider: 'azure' as const,
+        buttonId: 'microsoft-btn',
+        emailDomains: ['outlook.com', 'outlook.ie', 'hotmail.com', 'hotmail.co.uk', 'live.com', 'live.co.uk', 'msn.com'],
+      },
+    ];
+
+    for (const provider of providers) {
+      const button = document.getElementById(provider.buttonId) as HTMLButtonElement | null;
+      button?.addEventListener('click', async () => {
+        button.disabled = true;
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: provider.supabaseProvider,
+          options: { redirectTo: callbackUrl, scopes: 'email' },
+        });
+        if (error) {
+          button.disabled = false;
+          window.location.href = '/signin?error=invalid_link';
+        }
       });
     }
 
-    document.getElementById('google-btn')?.addEventListener('click', () => signInWithProvider('google'));
-    document.getElementById('microsoft-btn')?.addEventListener('click', () => signInWithProvider('azure'));
-    const googleDomains = new Set(['gmail.com', 'googlemail.com']);
-    const microsoftDomains = new Set(['outlook.com', 'hotmail.com', 'hotmail.co.uk', 'live.com', 'live.co.uk', 'msn.com']);
+    function providerForEmail(email: string) {
+      const domain = email.split('@')[1]?.toLowerCase();
+      return domain ? providers.find((p) => p.emailDomains.includes(domain)) : undefined;
+    }
 
-    document.getElementById('email')?.addEventListener('input', (e) => {
+    document.getElementById('email')?.addEventListener('input', (event) => {
       const hint = document.getElementById('oauth-hint');
       if (!hint) return;
-      const domain = (e.target as HTMLInputElement).value.split('@')[1]?.toLowerCase() ?? '';
-      if (googleDomains.has(domain)) {
-        hint.innerHTML = 'Looks like a Gmail address — try <strong>Sign in with Google</strong> above.';
-        hint.classList.remove('hidden');
-      } else if (microsoftDomains.has(domain)) {
-        hint.innerHTML = 'Looks like a Microsoft address — try <strong>Sign in with Microsoft</strong> above.';
-        hint.classList.remove('hidden');
-      } else {
-        hint.classList.add('hidden');
-      }
+      const provider = providerForEmail((event.target as HTMLInputElement).value);
+      hint.textContent = provider ? `Tip: you can sign in with ${provider.name} above instead.` : '';
+      hint.classList.toggle('hidden', !provider);
     });
   </script>
 </Layout>

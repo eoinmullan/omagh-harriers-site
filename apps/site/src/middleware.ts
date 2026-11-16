@@ -37,7 +37,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     if (!principal || !principal.is_active) {
       await context.locals.supabase.auth.signOut();
-      return context.redirect('/signin');
+      return context.redirect('/signin?error=not_registered');
     }
 
     if (!principal.terms_accepted_at) {

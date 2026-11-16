@@ -17,7 +17,8 @@ const { data: principal } = await Astro.locals.supabase
   .maybeSingle();
 
 if (!principal) {
-  return Astro.redirect('/signin');
+  await Astro.locals.supabase.auth.signOut();
+  return Astro.redirect('/signin?error=not_registered');
 }
 
 if (principal.terms_accepted_at) {

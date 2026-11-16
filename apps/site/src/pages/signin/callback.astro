@@ -14,8 +14,11 @@ const error = Astro.url.searchParams.get('error');
 if (error) {
   const errorCode = Astro.url.searchParams.get('error_code');
   console.error('[callback] Supabase auth error:', error, errorCode);
-  const errorParam = error === 'access_denied' ? 'access_denied' : 'invalid_link';
-  return Astro.redirect(`/signin?error=${errorParam}`);
+  if (errorCode === 'signup_disabled') return Astro.redirect('/signin?error=not_registered');
+  // The provider itself refused or the member backed out of the consent screen —
+  // nothing went wrong, so send them back to a clean sign-in page.
+  if (error === 'access_denied') return Astro.redirect('/signin');
+  return Astro.redirect('/signin?error=invalid_link');
 }
 
 const code = Astro.url.searchParams.get('code');

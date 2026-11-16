@@ -86,7 +86,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
   <div class="max-w-md mx-auto px-4 py-16">
     <h1 class="text-3xl font-bold mb-2">Members sign in</h1>
     <p class="text-gray-600 mb-8">
-      Enter the email address used with your Klubfunder registration and we'll send you a sign-in link.
+      Sign in to your Omagh Harriers members' area.
     </p>
 
     {
@@ -99,83 +99,89 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
           </p>
         </div>
       ) : (
-        <form method="POST" class="space-y-4">
-          {(errorMessage || invalidLinkMessage) && (
-            <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-              {errorMessage ?? invalidLinkMessage}
+        <>
+          <div class="space-y-3">
+            <button
+              id="google-btn"
+              type="button"
+              class="w-full border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-3"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Sign in with Google
+            </button>
+
+            <button
+              id="microsoft-btn"
+              type="button"
+              class="w-full border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-3"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11.4 2H2v9.4h9.4V2z" fill="#F25022"/>
+                <path d="M22 2h-9.4v9.4H22V2z" fill="#7FBA00"/>
+                <path d="M11.4 12.6H2V22h9.4v-9.4z" fill="#00A4EF"/>
+                <path d="M22 12.6h-9.4V22H22v-9.4z" fill="#FFB900"/>
+              </svg>
+              Sign in with Microsoft
+            </button>
+          </div>
+
+          <div class="relative my-6">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-gray-200" />
             </div>
-          )}
-
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autocomplete="email"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
-              placeholder="you@example.com"
-            />
+            <div class="relative flex justify-center text-sm">
+              <span class="bg-white px-3 text-gray-400">or use your email instead</span>
+            </div>
           </div>
 
-          {siteKey && (
-            <div class="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
-          )}
+          <form method="POST" class="space-y-4">
+            {(errorMessage || invalidLinkMessage) && (
+              <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+                {errorMessage ?? invalidLinkMessage}
+              </div>
+            )}
 
-          <button
-            id="signin-btn"
-            type="submit"
-            class="w-full bg-black text-yellow font-semibold py-2 px-4 rounded-md hover:bg-gray-900 transition-colors flex items-center justify-center gap-2"
-          >
-            <svg id="signin-spinner" class="hidden animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-            <span id="signin-btn-label">Send sign-in link</span>
-          </button>
-        </form>
+            <div>
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                Email address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                autocomplete="email"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+                placeholder="you@example.com"
+              />
+              <div
+                id="oauth-hint"
+                class="hidden mt-2 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-amber-800 text-sm"
+              />
+            </div>
 
-        <div class="relative my-6">
-          <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-gray-200" />
-          </div>
-          <div class="relative flex justify-center text-sm">
-            <span class="bg-white px-3 text-gray-400">or sign in with</span>
-          </div>
-        </div>
+            {siteKey && (
+              <div class="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
+            )}
 
-        <div class="space-y-3">
-          <button
-            id="google-btn"
-            type="button"
-            class="w-full border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-3"
-          >
-            <svg class="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
-            Sign in with Google
-          </button>
-
-          <button
-            id="microsoft-btn"
-            type="button"
-            class="w-full border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-3"
-          >
-            <svg class="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M11.4 2H2v9.4h9.4V2z" fill="#F25022"/>
-              <path d="M22 2h-9.4v9.4H22V2z" fill="#7FBA00"/>
-              <path d="M11.4 12.6H2V22h9.4v-9.4z" fill="#00A4EF"/>
-              <path d="M22 12.6h-9.4V22H22v-9.4z" fill="#FFB900"/>
-            </svg>
-            Sign in with Microsoft
-          </button>
-        </div>
+            <button
+              id="signin-btn"
+              type="submit"
+              class="w-full bg-black text-yellow font-semibold py-2 px-4 rounded-md hover:bg-gray-900 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg id="signin-spinner" class="hidden animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              <span id="signin-btn-label">Send sign-in link</span>
+            </button>
+          </form>
+        </>
       )
     }
 
@@ -199,7 +205,6 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
       spinner?.classList.remove('hidden');
       if (label) label.textContent = 'Sending…';
     });
-
     const supabase = createSupabaseBrowserClient();
     const callbackUrl = `${window.location.origin}/signin/callback`;
 
@@ -214,5 +219,22 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
 
     document.getElementById('google-btn')?.addEventListener('click', () => signInWithProvider('google'));
     document.getElementById('microsoft-btn')?.addEventListener('click', () => signInWithProvider('azure'));
+    const googleDomains = new Set(['gmail.com', 'googlemail.com']);
+    const microsoftDomains = new Set(['outlook.com', 'hotmail.com', 'hotmail.co.uk', 'live.com', 'live.co.uk', 'msn.com']);
+
+    document.getElementById('email')?.addEventListener('input', (e) => {
+      const hint = document.getElementById('oauth-hint');
+      if (!hint) return;
+      const domain = (e.target as HTMLInputElement).value.split('@')[1]?.toLowerCase() ?? '';
+      if (googleDomains.has(domain)) {
+        hint.innerHTML = 'Looks like a Gmail address — try <strong>Sign in with Google</strong> above.';
+        hint.classList.remove('hidden');
+      } else if (microsoftDomains.has(domain)) {
+        hint.innerHTML = 'Looks like a Microsoft address — try <strong>Sign in with Microsoft</strong> above.';
+        hint.classList.remove('hidden');
+      } else {
+        hint.classList.add('hidden');
+      }
+    });
   </script>
 </Layout>

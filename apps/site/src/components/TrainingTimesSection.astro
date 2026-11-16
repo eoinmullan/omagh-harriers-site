@@ -1,4 +1,5 @@
 ---
+import { juniorAgeRequirement } from '../data/training-schedule';
 import type { ActiveTraining } from '../lib/training/schedule';
 import TrainingCard from './TrainingCard.astro';
 import TrainingTimesNote from './TrainingTimesNote.astro';
@@ -48,6 +49,7 @@ const juniorEntries =
         <TrainingCard
           title="Junior Academy"
           notice={period.junior.notice}
+          subtitle={juniorAgeRequirement}
           entries={juniorEntries}
         />
       </div>

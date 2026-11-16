@@ -9,6 +9,8 @@ import type { TrainingSchedule } from '../lib/training/schedule';
  *
  * A group with no sessions must say why, via `notice`.
  */
+export const juniorAgeRequirement = 'Juniors must be aged 8+.';
+
 export const trainingSchedule: TrainingSchedule = [
   {
     start: '2026-07-01',
@@ -27,7 +29,7 @@ export const trainingSchedule: TrainingSchedule = [
   },
   {
     start: '2026-08-01',
-    end: '2026-12-31',
+    end: '2026-09-30',
     senior: {
       sessions: [
         { when: 'Tuesday, 6:30pm', where: 'Omagh Leisure Complex' },
@@ -37,8 +39,27 @@ export const trainingSchedule: TrainingSchedule = [
     },
     junior: {
       sessions: [
-        { group: 'All Juniors', when: 'Monday, 6:00pm', where: 'Donnelly\'s Holm' },
-        { group: 'All Juniors', when: 'Wednesday, 6:00pm', where: 'Arelston Park, meet at OLC to walk over together' },
+        { group: 'All Juniors', when: 'Monday, 6:00pm', where: 'OLC, Donnelly\'s Holm or Arelston Park' },
+        { group: 'All Juniors', when: 'Wednesday, 6:00pm', where: 'OLC, Donnelly\'s Holm or Arelston Park' },
+      ],
+    },
+  },
+  {
+    start: '2026-10-01',
+    end: '2026-12-31',
+    senior: {
+      sessions: [
+        { when: 'Tuesday, 6:45pm', where: 'Omagh Leisure Complex' },
+        { when: 'Thursday, 6:45pm', where: 'Youth Sport' },
+        { when: 'Sunday mornings', where: 'Group long runs, various locations, check WhatsApp' },
+      ],
+    },
+    junior: {
+      sessions: [
+        { group: 'Endurance Group', when: 'Monday, 6:00pm - 7:00pm', where: 'OLC' },
+        { group: 'Track & Field', when: 'Monday, 6:00pm - 7:30pm', where: 'Youth Sport' },
+        { group: 'Endurance Group', when: 'Thursday, 6:00pm - 7:00pm', where: 'Youth Sport' },
+        { group: 'Track & Field', when: 'Thursday, 6:00pm - 7:00pm', where: 'Youth Sport' },
       ],
     },
   },

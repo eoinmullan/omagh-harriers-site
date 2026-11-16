@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import JuniorTrainingTimes from '../components/JuniorTrainingTimes.astro';
 import TrainingTimesNote from '../components/TrainingTimesNote.astro';
-import { trainingSchedule } from '../data/training-schedule';
+import { juniorAgeRequirement, trainingSchedule } from '../data/training-schedule';
 import { resolveToday, selectTraining } from '../lib/training/schedule';
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=300');
@@ -45,8 +45,11 @@ const active = selectTraining(trainingSchedule, resolveToday(Astro.url, import.m
       <p class="text-gray-700 text-base sm:text-lg leading-relaxed mb-4">
         Omagh Harriers AC is committed to developing young athletes and fostering a love of running, track &amp; field from an early age. Our Junior Academy provides coaching and training opportunities for young runners, helping them build their skills and confidence in a welcoming club environment.
       </p>
-      <p class="text-gray-700 text-base sm:text-lg leading-relaxed">
+      <p class="text-gray-700 text-base sm:text-lg leading-relaxed mb-4">
         We cater for a range of age groups and abilities. Whether your child is taking their first steps in athletics or looking to compete at Ulster and national level, there is a place for them at Omagh Harriers.
+      </p>
+      <p class="text-gray-700 text-base sm:text-lg leading-relaxed">
+        {juniorAgeRequirement}
       </p>
     </div>
   </section>

@@ -213,13 +213,15 @@ not in scope.
 - **Guests pay at the time and hold no credit.** A non-member is a name and an attendance row — no principal, no auth user, no balance that could go negative
 - **Session price is a constant in code, £2.** It has been £2 for years; a one-line edit and a deploy beats a settings table nobody opens
 - **Sessions are not generated from the published schedule.** Publishing the timetable and running training are two different jobs done by two different people in the club, and the plan deliberately keeps them apart
+- **The attendance screen is a list**, decided by prototype on 17 Nov 2026. Three screens were built and clicked through on `prototype/registrar-screen`: a list, a one-runner-at-a-time search, and a board that moved names out of "expected" and into "here". The list won. The other two both put a runner's state somewhere other than the row the registrar is looking at, and the board moved names under the thumb as it emptied, which produced a mis-tap within a minute of use
+- **Nothing on the screen has an undo button.** Every control shows its own state and is reversed by using it again — a ticked box unticks, a recorded payment can be taken back from the cell that shows it. See *Registrar experience* below
 - **Weekly summary emails are parked**, possibly for later. They would need an email provider the club does not pay for, as Cloudflare Email Routing is inbound-only
 
 ### Supabase additions
 - [ ] Create `groups` table — `id`, `name`, `is_active`, `created_at`. The squads the club actually trains in — sprints, middle distance, endurance, seniors, juniors, and whatever is added next. Admins add them through the UI, so the list is never a deploy away
 - [ ] Create `training_sessions` table — `id`, `name`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `location` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`
 - [ ] `price_pence` is set from a **£2** constant in code at creation time. The session keeps its own copy, so changing the constant never rewrites a session that has already run, and never touches the ledger, which records what was actually charged
-- [ ] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the shortlist useful on day one, before any attendance history exists
+- [ ] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the Usuals list useful on day one, before any attendance history exists
 - [ ] Create `guests` table — `id`, `first_name`, `surname`, `created_at`, `created_by`. A returning guest is picked from this list rather than retyped, which also stops one person becoming three through spelling
 - [ ] Create `attendance` table — `id`, `session_id` (FK → `training_sessions`), `member_id` (nullable), `guest_id` (nullable), `amount_paid_pence` (nullable, guests only — they pay instead of drawing on credit), `recorded_by`, `idempotency_key` (unique), `created_at`, with a CHECK that exactly one of `member_id` and `guest_id` is set
 - [ ] Add `session_id` (nullable FK) to `credit_transactions` — a cash top-up taken at the track belongs to that session. `attendance_id` covers session debits, but without this, "cash taken tonight" cannot be computed and the tin cannot be checked against anything
@@ -232,7 +234,7 @@ not in scope.
 ### Admin: session management (in the main site)
 - [ ] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2)
 - [ ] Manage groups from the same area — add one, rename one, retire one. A retired group keeps its history
-- [ ] Assign members to groups, so a new session's shortlist is populated before anyone has attended anything
+- [ ] Assign members to groups, so a new session's Usuals list is populated before anyone has attended anything
 - [ ] Allow editing name/location/price; cancellation is a soft-disable, not a row drop, so attendance history stays intact. A session that has attendance against it keeps its price — editing it would contradict the ledger
 - [ ] Past sessions are a first-class view, not a by-product: headcount, cash taken, and who recorded each entry
 - [ ] Add a `registrar` role — today the only role that can write is `admin`, which can also reassign roles, deactivate households and move balances. A volunteer signing runners in on a borrowed phone needs none of that
@@ -249,29 +251,39 @@ not in scope.
 
 - [ ] Training history in the members' area — which sessions each member of the household attended and when. The original goal for this area was a member checking their credit *and* when they trained; Phase 4 shipped the credit half, and the RLS planned above already allows the other, but no page was ever listed for it
 
-### The shortlist — who the registrar actually sees
+### The Usuals — who the registrar actually sees
 
 300 members are in the database and 10 to 20 turn up to any given session. Juniors are
 never at a senior session, sprinters never at an endurance one. The group on the session
 is what makes that knowable, which is the real reason groups are worth having — the
 reporting value is a bonus.
 
-- [ ] Default view is the shortlist for this session's group, ordered by how often each member has attended sessions of that group
-- [ ] Seed the shortlist from `member_groups`, then let attendance history refine the order. History alone starts empty, which on the first night would be worse than no feature at all
+They are **the Usuals** on screen and in the code. "Shortlist" named the mechanism;
+"Usuals" is what the people running the session already call them.
+
+- [ ] Default view is the Usuals for this session's group
+- [ ] **Attendance frequency decides who is on the list. Surname decides the order it is read in.** The plan previously asked for both as the ordering, which cannot hold at once. Frequency is a filter, not a sort: ordering by it would scatter siblings, and finding a name is the job the registrar actually has
+- [ ] Seed the Usuals from `member_groups`, then let attendance history refine who makes the cut. History alone starts empty, which on the first night would be worse than no feature at all
 - [ ] The registrar can add somebody to the list or drop them from it by hand. The system suggests; the person holding the phone decides
 - [ ] Second toggle: the full member list. Third toggle: guests seen before, so a returning non-member is a tap rather than a retype
 - [ ] **Order everyone by surname, everywhere.** Siblings arrive together, so the next two people the registrar needs are adjacent
-- [ ] Getting around 300 names: an A–Z index down the edge of the list, jumping to a surname initial. Worth revisiting once the shortlist is real, because reaching for the full list should be the exception
+- [ ] **Who is here so far** is a filter over whichever list is open, reached by tapping the signed-in count in the header — the number and the names behind it are the same control. Taken from the rejected board prototype, where watching the night fill up was the one thing it did better
+- [ ] Getting around 300 names: an A–Z index down the edge of the list, jumping to a surname initial. Worth revisiting once the Usuals list is real, because reaching for the full list should be the exception
 
 ### Registrar experience
 
-- [ ] **Undo.** The ledger is append-only and a pressured registrar will mis-tap. A visible undo on the last action, writing the compensating row itself, is the difference between a system that heals itself and one that needs an admin found afterwards. Apply it to everything that marks attendance or moves money
+- [ ] **No undo button — every control carries its own state.** The ledger is append-only and a pressured registrar will mis-tap, so the recovery has to be as obvious as the mistake. A floating undo is a second affordance with its own timeout, pointing at an action that has already scrolled away. Instead the control that did the thing is the thing that shows it, and using it again reverses it
+- [ ] **Attendance is a checkbox.** Ticked means here, and £2 charged. Unticked means not signed in yet. Current state is on the row being looked at, nowhere else, and correcting a mis-tap is the same gesture again
+- [ ] **Cash works the same way, which is harder, because an amount is not a yes or no.** The cash cell on a row is both control and display: it reads `+ £` when nothing has been taken from that runner tonight, and the amount itself once something has. Tapping an empty cell offers the amounts; tapping a filled one offers to change it or take it back. There is no state the registrar has to carry in their head
+- [ ] Quick amounts cover the common cases, but **an arbitrary amount must be enterable**. Digits shift in from the right, cash-machine style, so there is no decimal point to place in the cold and the dark
+- [ ] The row shows **one figure per runner — what they have handed over tonight.** Changing £10 to £15, or taking it back entirely, writes the compensating `refund` described below. The screen shows where it landed; the ledger keeps every step that got there
+- [ ] Cash is recorded against **the member whose row was tapped** and credited to their household. A parent handing over £10 lands on one row, not smeared across three siblings — the balance is already shared, so showing the payment three times would read as three payments
 - [ ] **Household balance, not member balance.** Credit belongs to the household, so signing in the second of three siblings must show the pot draining, not three copies of the same number
 - [ ] **Guests.** Record a name, mark them in, take the money at the time. No account, no credit, no balance that can go negative
 - [ ] **Cash reconciliation, informational only.** A running total of what has been taken tonight, there to be glanced at so the tin can be checked against it. No confirmation step and nothing to tap — the registrar is told, not asked to sign for it
 - [ ] Cash for a session is `top_up_cash` plus `refund` from `credit_transactions` carrying that `session_id`, plus `amount_paid_pence` on the session's guest attendance rows. Session debits are excluded — they move credit, not money. Grouping by `created_by` gives the same figure per registrar, which is the one that matters when two phones are open
-- [ ] **Undoing a cash top-up writes a `refund`, not a negative top-up.** The sign CHECK forbids a negative `top_up_cash`, and a `manual_adjustment` would be both unattached to the session and misleading on the member's page. `refund` is already constrained negative and already means money going back out, so the running total nets out on its own
-- [ ] Undoing a guest's attendance deletes the row. Guests have no ledger to compensate against, and attendance is not append-only — only `credit_transactions` is
+- [ ] **Taking a cash payment back writes a `refund`, not a negative top-up.** The sign CHECK forbids a negative `top_up_cash`, and a `manual_adjustment` would be both unattached to the session and misleading on the member's page. `refund` is already constrained negative and already means money going back out, so the running total nets out on its own
+- [ ] Unticking a guest deletes the attendance row. Guests have no ledger to compensate against, and attendance is not append-only — only `credit_transactions` is
 - [ ] `describeEntry` should surface a refund's note the way it does for an adjustment. *"£10.00 deducted — refunded"* does not say why, and a keying slip corrected in front of the member deserves a reason
 - [ ] The total is only complete once every device has synced. A registrar working offline sees what their own phone has taken, not the session's — say so on screen rather than showing a confident wrong number
 - [ ] **Two registrars at once.** A busy track will have more than one phone open on the same session. Idempotency keys stop a double charge; the view should also not fight itself when somebody else's sign-in arrives
@@ -281,14 +293,14 @@ reporting value is a bonus.
 ### PWA core features
 - [ ] Registrar sign-in (Supabase auth, role `registrar`, `admin` or `superuser`)
 - [ ] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one
-- [ ] Creating a session is the admin site's job, but the app keeps a fallback for the night nobody got round to it — a registrar blocked at the track by a missing row is exactly the failure this phase exists to avoid. The fallback asks for a group, since the shortlist is useless without one
-- [ ] Attendance view — the shortlist described above, not the full membership. One tap to mark attendance: writes an `attendance` row and a paired `credit_transactions` row of `type = 'session'` with `attendance_id` and `session_id` set, in a single transaction
-- [ ] Record cash payment — pick a runner, enter the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared
+- [ ] Creating a session is the admin site's job, but the app keeps a fallback for the night nobody got round to it — a registrar blocked at the track by a missing row is exactly the failure this phase exists to avoid. The fallback asks for a group, since the Usuals list is useless without one
+- [ ] Attendance view — the Usuals described above, not the full membership. One tap of the checkbox marks attendance: writes an `attendance` row and a paired `credit_transactions` row of `type = 'session'` with `attendance_id` and `session_id` set, in a single transaction
+- [ ] Record cash payment — tap the runner's cash cell, pick or key in the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared
 - [ ] Household balance visible inline against each name, so the registrar can see who needs to pay without opening anything
 
 ### Idempotency
 - [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{member_id}:{session_id}` for the paired debit, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
-- [ ] An undo is keyed off what it reverses — `refund:{original_key}` — so a retried or double-tapped undo refunds once, which matters most on the flaky connection that prompted the retry
+- [ ] A take-back is keyed off what it reverses — `refund:{original_key}` — so a retried or double-tapped undo refunds once, which matters most on the flaky connection that prompted the retry
 - [ ] Write with `ON CONFLICT (idempotency_key) DO NOTHING` so retries / offline-then-sync never double-write
 - [ ] Test: queue an attendance write offline → bring app online → exactly one row appears
 - [ ] Test: trigger sync twice in rapid succession → no duplicate

@@ -13,6 +13,8 @@
 
     let tab = 'usuals';
     let filter = null;
+    let letter = null;
+    let search = '';
     let sheetFor = null;
     let keypadFor = null;
     let keypadTitle = '';
@@ -186,12 +188,35 @@
         </button>`;
     }
 
-    function alphabetRail(people) {
-      const letters = [...new Set(people.map((p) => (p.surname[0] || '?').toUpperCase()))].sort();
+    function initialOf(person) {
+      return (person.surname[0] || '?').toUpperCase();
+    }
+
+    // Only the initials somebody actually has. Nine to a row gives a target
+    // about as wide as a thumb, and two rows cover the club — nothing to swipe
+    // and nothing to aim at.
+    function letterPicker() {
+      const letters = [...new Set(model.everyone.map(initialOf))].sort();
       return `
-        <nav class="fixed right-0 top-44 bottom-24 w-7 flex flex-col justify-center text-[11px] text-amber z-20">
-          ${letters.map((l) => `<button data-jump="${l}" class="py-0.5 font-semibold">${l}</button>`).join('')}
-        </nav>`;
+        <div class="grid grid-cols-9 gap-1 px-2 pb-2">
+          ${letters
+            .map(
+              (key) =>
+                `<button data-letter="${key}" class="py-3 rounded-lg font-bold ${
+                  letter === key ? 'bg-amber text-black' : 'bg-neutral-900 text-amber'
+                }">${key}</button>`,
+            )
+            .join('')}
+        </div>`;
+    }
+
+    function searchBox() {
+      return `
+        <div class="px-2 pb-2">
+          <input id="a-search" type="search" autocomplete="off" enterkeyhint="search"
+            value="${search}" placeholder="…or type a surname"
+            class="w-full bg-neutral-900 rounded-xl px-4 py-4 text-lg outline-none focus:ring-2 focus:ring-amber placeholder-neutral-600" />
+        </div>`;
     }
 
     function matchesFilter(person) {
@@ -200,19 +225,36 @@
       return true;
     }
 
+    function matchesSearch(person) {
+      const term = search.trim().toLowerCase();
+      if (!term) return true;
+      return (
+        person.surname.toLowerCase().startsWith(term) ||
+        person.firstName.toLowerCase().startsWith(term)
+      );
+    }
+
     // A filter answers for the whole night, not just for the list that happens
     // to be open — somebody found through All and signed in still belongs in
     // "who is here", or the number in the header would be describing a list
     // the registrar cannot see.
     function visiblePeople() {
-      const base = tab === 'usuals' ? model.expected : model.everyone;
+      if (tab === 'all') {
+        if (filter) return model.everyone.filter(matchesFilter).sort(bySurname);
+        if (search.trim()) return model.everyone.filter(matchesSearch).sort(bySurname);
+        if (letter) return model.everyone.filter((p) => initialOf(p) === letter).sort(bySurname);
+        return [];
+      }
+      const base = model.expected;
       if (!filter) return base;
       const extras = model.everyone.filter(
         (person) => matchesFilter(person) && !base.some((p) => p.id === person.id),
       );
-      return [...base, ...extras]
-        .filter(matchesFilter)
-        .sort((a, b) => a.surname.localeCompare(b.surname));
+      return [...base, ...extras].filter(matchesFilter).sort(bySurname);
+    }
+
+    function bySurname(a, b) {
+      return a.surname.localeCompare(b.surname) || a.firstName.localeCompare(b.firstName);
     }
 
     function visibleGuests() {
@@ -235,13 +277,14 @@
       ];
 
       root.innerHTML = `
+        <div class="px-4 pt-4 pb-3">
+          <p class="text-amber text-xs uppercase tracking-widest">${model.session.startsAt}</p>
+          <h1 class="text-2xl font-bold">${model.session.name}</h1>
+          <p class="text-neutral-400 text-sm">${model.session.location}</p>
+        </div>
+
         <header class="sticky top-0 z-20 bg-black border-b border-neutral-800">
-          <div class="px-4 pt-4 pb-3">
-            <p class="text-amber text-xs uppercase tracking-widest">${model.session.startsAt}</p>
-            <h1 class="text-2xl font-bold">${model.session.name}</h1>
-            <p class="text-neutral-400 text-sm">${model.session.location}</p>
-          </div>
-          <div class="flex divide-x divide-neutral-800 border-t border-neutral-800 text-center">
+          <div class="flex divide-x divide-neutral-800 border-y border-neutral-800 text-center">
             ${tile('here', window.proto.headcount(), 'here', 'showing who is here')}
             ${tile('paid', formatPounds(window.proto.cashTotalPence()), 'money collected', 'showing who paid')}
           </div>
@@ -255,21 +298,30 @@
               )
               .join('')}
           </div>
+          ${tab === 'all' && !filter ? searchBox() : ''}
+          ${tab === 'all' && !filter && !search.trim() ? letterPicker() : ''}
         </header>
 
-        <ul class="flex-1">${list}</ul>
         ${
           list === ''
-            ? `<p class="px-4 py-10 text-center text-neutral-500">${
-                filter === 'paid' ? 'Nobody has handed anything over yet.' : 'Nobody is here yet.'
-              }</p>`
-            : ''
+            ? `<p class="px-4 py-10 text-center text-neutral-500">${emptyMessage()}</p>`
+            : `<ul class="flex-1">${list}</ul>`
         }
-        ${tab === 'all' && !filter ? alphabetRail(people) : ''}
         ${sheetFor ? sheet(sheetFor.who, sheetFor.paid, sheetFor.isGuest) : ''}
         ${keypadFor ? keypad() : ''}
       `;
       wire();
+    }
+
+    // 313 names is not a list, it is a scroll. The full tab asks for a letter
+    // or a few characters before it shows anything, so what comes back is
+    // always short enough to read standing up.
+    function emptyMessage() {
+      if (filter === 'paid') return 'Nobody has handed anything over yet.';
+      if (filter === 'here') return 'Nobody is here yet.';
+      if (tab === 'all' && search.trim()) return `Nobody whose name starts with “${search.trim()}”.`;
+      if (tab === 'all') return 'Pick a letter, or type a surname.';
+      return 'Nobody is here yet.';
     }
 
     function findPerson(id) {
@@ -292,6 +344,8 @@
       root.querySelectorAll('[data-tab]').forEach((button) =>
         button.addEventListener('click', () => {
           tab = button.dataset.tab;
+          letter = null;
+          search = '';
           render();
         }),
       );
@@ -361,15 +415,22 @@
       root.querySelector('[data-key-confirm]')?.addEventListener('click', () =>
         applyAmount(keypadPence),
       );
-      root.querySelectorAll('[data-jump]').forEach((button) =>
+      root.querySelectorAll('[data-letter]').forEach((button) =>
         button.addEventListener('click', () => {
-          const letter = button.dataset.jump;
-          const target = [...root.querySelectorAll('[data-toggle]')].find((el) =>
-            findPerson(el.dataset.toggle).surname.toUpperCase().startsWith(letter),
-          );
-          target?.scrollIntoView({ block: 'center' });
+          letter = letter === button.dataset.letter ? null : button.dataset.letter;
+          search = '';
+          render();
         }),
       );
+      const searchInput = root.querySelector('#a-search');
+      searchInput?.addEventListener('input', () => {
+        search = searchInput.value;
+        letter = null;
+        render();
+        const restored = root.querySelector('#a-search');
+        restored?.focus();
+        restored?.setSelectionRange(search.length, search.length);
+      });
     }
 
     window.proto.onChange(render);

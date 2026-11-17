@@ -59,8 +59,8 @@ omagh-harriers-site/
 | Domain (existing) | — |
 | Cloudflare Pages | £0 (free tier covers a 40-member club many times over) |
 | Supabase | £0 (free tier: 500MB DB, 50k MAU, plenty for this) |
-| Stripe top-up fees | ~1.4% + 20p per transaction (e.g. 34p on a £10 top-up — paid by club, not member) |
-| **Total ongoing** | **~£0/year + Stripe transaction fees** |
+| Stripe top-up fees | ~1.4% + 20p per transaction (e.g. 34p on a £10 top-up — paid by club, not member). Not being incurred: card payment is parked, see Phase 4 |
+| **Total ongoing** | **~£0/year** |
 
 One-off setup: only your time. No per-seat costs, no monthly subscriptions.
 
@@ -142,19 +142,30 @@ second principal, which is how this was found.
 
 ## Phase 4 — Training Credits
 
-Session balance tracking, top-up history, Stripe online top-up via Astro API route, and admin tools for cash payments and session deductions. Balances are held **per principal** (the household), not per member — one parent tops up once and any of their members can draw from it. An admin credit-transfer feature also belongs here, used to move a stranded balance when a household's contact email changes in Klubfunder.
+Session balance tracking, top-up history, and admin tools for cash payments and session deductions. Balances are held **per principal** (the household), not per member — one parent tops up once and any of their members can draw from it. An admin credit-transfer feature also belongs here, used to move a stranded balance when a household's contact email changes in Klubfunder.
+
+**The club starts out on cash in, sessions out.** The committee decided on 17 Nov 2026 not to take card payments yet, so the Stripe section below is parked rather than pending — see it for what is already in place for when that changes.
 
 ### Data model
-- [ ] Create `credit_transactions` table — `id`, `principal_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund' | 'transfer_in' | 'transfer_out'`), `member_id` (nullable, set when the transaction is tied to a specific member — typically `'session'`), `attendance_id` (nullable, FK → `attendance`, set when `type = 'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`
-- [ ] RLS: principals can read transactions for their own household; admin/superuser role can read/write all
-- [ ] Create a `principal_balances` view that sums `credit_transactions.amount_pence` per principal
+- [x] Create `credit_transactions` table — `id`, `principal_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund' | 'transfer_in' | 'transfer_out'`), `member_id` (nullable, set when the transaction is tied to a specific member — typically `'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`. A CHECK ties the sign of the amount to the type, and a trigger makes the table append-only — a mistake is corrected with a compensating row, not an edit. `attendance_id` waits for Phase 5, which creates the table it points at
+- [x] RLS: principals can read transactions for their own household; admin/superuser role can read/write all
+- [x] Create a `principal_balances` view that sums `credit_transactions.amount_pence` per principal
 
 ### Member-facing (transparency)
-- [ ] Create `src/pages/members/credits.astro` — current balance + full transaction history with each row clearly labelled by method (Stripe vs cash) and, for session debits, the session name and date (joined via `attendance` → `training_sessions`)
-- [ ] Use human-readable line formats, e.g. *"£10.00 added — paid by card via Stripe"*, *"£10.00 added — paid by cash at training, recorded by Eoin Mullan"*, *"£2.00 deducted — Monday Track Speed"*
-- [ ] Link credits page from `/members` dashboard
+- [x] Create `src/pages/members/credits.astro` — current balance + full transaction history with each row clearly labelled by method (Stripe vs cash). Session debits name the member; the session name and date follow in Phase 5, when `training_sessions` exists
+- [x] Use human-readable line formats, e.g. *"£10.00 added — paid by card via Stripe"*, *"£10.00 added — paid by cash at training, recorded by Eoin Mullan"*, *"£2.00 deducted — Monday Track Speed"* (`src/lib/credits/transactions.ts`)
+- [x] Link credits page from `/members` dashboard — the dashboard shows the balance itself
 
-### Stripe top-up
+### Stripe top-up — parked (committee decision, 17 Nov 2026)
+
+Not being built. Cash is recorded by an admin instead. Nothing in the shipped code
+promises card payment: there is no top-up button and no dead route. What is already
+in place for the day it is wanted — the `top_up_stripe` transaction type, its CHECK
+constraint, and the *"paid by card via Stripe"* line format with its test — costs
+nothing to leave standing.
+
+The boxes below are kept as the plan, not as outstanding work.
+
 - [ ] Retrieve API keys from existing club Stripe dashboard (Standard account)
 - [ ] Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to env
 - [ ] Create `src/pages/members/topup.astro` — fixed amount buttons (£10 / £20 / £40, pending final stakeholder confirmation), creates Stripe Checkout session with `principal_id` in metadata
@@ -165,46 +176,119 @@ Session balance tracking, top-up history, Stripe online top-up via Astro API rou
 - [ ] Test: replay the same webhook event → no duplicate transaction (idempotency)
 
 ### Admin tools
-- [ ] Create `src/pages/admin/credits.astro` — select principal, record `top_up_cash` (with note) or `manual_adjustment` (with required note explaining the adjustment)
-- [ ] **Credit transfer** — select a source principal and a target principal, optional amount (defaults to the full source balance), required note. Writes paired `transfer_out` (negative) and `transfer_in` (positive) rows referencing each other via `notes`. Used when a household's contact email changes in Klubfunder and the balance needs to follow them.
-- [ ] Gate `/admin/*` to `role IN ('admin', 'superuser')` in middleware
-- [ ] Test: admin records a cash payment → principal balance updates and the transaction is labelled "paid by cash" on the credits page
-- [ ] Test: admin transfers a balance from principal A to principal B → both balances update, both transactions appear in each principal's history
+- [x] Create `src/pages/admin/credits.astro` — club float plus every household's balance, filterable, each linking to `/admin/credits/[id]` where the cash payment or adjustment is recorded. Two pages rather than one, mirroring `/admin/principals`: the household you are recording against is the household you are looking at
+- [x] **Credit transfer** — the source is the household you are on; pick the target, optionally an amount (defaults to the full source balance), required note. Writes paired `transfer_out` (negative) and `transfer_in` (positive) rows naming each other in `notes`, as **one multi-row insert** so neither side can land alone — the ledger is append-only, so a stranded half could not be taken back. Used when a household's contact email changes in Klubfunder and the balance needs to follow them.
+- [x] Gate `/admin/*` to `role IN ('admin', 'superuser')` in middleware — landed in Phase 2
+- [x] Test: admin records a cash payment → principal balance updates and the transaction is labelled "paid by cash" on the credits page
+- [x] Test: admin charges a training session → balance falls and the member's own page reads "training session for ..."
+- [x] Test: the append-only trigger refuses a DELETE — proven by having to disable it to clean up the test rows, which is the only way to exercise it without leaving a row behind forever
+- [x] Test: admin transfers a balance from principal A to principal B → both balances update, both transactions appear in each principal's history
+- [x] **Record a session debit** — with card payment parked, this is how credit leaves an account until the Phase 5 PWA exists. Writes a `session` row against a household, optionally naming the member, so it reads as *"£2.00 deducted — training session for ..."* rather than as an unexplained adjustment. Charge defaults to the £2 constant; the member is resolved from the household's own members, so a crafted post cannot charge one household's session to another's child
 
 ---
 
 ## Phase 5 — Training Sessions, Attendance & Sign-in PWA
 
-Introduces training sessions as first-class entities, attendance recording against them, and the standalone sign-in PWA at `signin.omaghharriers.com`. Used by club admins at training to mark attendance and record cash payments. Shares the same Supabase project. Built with offline-first idempotent writes so flaky leisure-centre wifi can't double-charge anyone.
+Introduces training sessions as first-class entities, attendance recording against them, and the standalone sign-in PWA at `signin.omaghharriers.com`. Used by club registrars at training to mark attendance and record cash payments. Shares the same Supabase project. Built with offline-first idempotent writes so flaky leisure-centre wifi can't double-charge anyone.
+
+**Usability comes before every other consideration in this phase.** The registrar is
+standing at the track with a queue of runners in front of them, often in the cold and
+the dark, frequently holding something else. Every design argument is settled by asking
+which option costs that person fewer seconds and less thought. A feature that is correct
+but fiddly is the wrong feature here.
+
+The club currently uses Spond, whose mobile experience is generally well liked. Spond is
+the bar: anything slower or more confusing than it is a regression the club will rightly
+refuse. Where the chance exists to beat it — fewer taps to sign someone in, a balance
+visible without drilling in, a mis-tap that can be undone on the spot — take it.
+
+This ships as a **trial replacement** for Spond, for the committee to judge. The thing
+being tested is credit: a runner holding £10 rather than finding £2 every week. Spond's
+other features — availability, RSVPs, messaging — are not fully used by the club and are
+not in scope.
+
+### Decisions taken
+
+- **A runner with no credit is signed in anyway**, and the balance goes negative. The registrar never adjudicates at the track
+- **Guests pay at the time and hold no credit.** A non-member is a name and an attendance row — no principal, no auth user, no balance that could go negative
+- **Session price is a constant in code, £2.** It has been £2 for years; a one-line edit and a deploy beats a settings table nobody opens
+- **Sessions are not generated from the published schedule.** Publishing the timetable and running training are two different jobs done by two different people in the club, and the plan deliberately keeps them apart
+- **Weekly summary emails are parked**, possibly for later. They would need an email provider the club does not pay for, as Cloudflare Email Routing is inbound-only
 
 ### Supabase additions
-- [ ] Create `training_sessions` table — `id`, `name`, `starts_at` (timestamptz), `location` (nullable), `created_by`, `created_at`
-- [ ] Create `attendance` table — `id`, `member_id`, `session_id` (FK → `training_sessions`), `recorded_by`, `idempotency_key` (unique), `created_at`
+- [ ] Create `groups` table — `id`, `name`, `is_active`, `created_at`. The squads the club actually trains in — sprints, middle distance, endurance, seniors, juniors, and whatever is added next. Admins add them through the UI, so the list is never a deploy away
+- [ ] Create `training_sessions` table — `id`, `name`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `location` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`
+- [ ] `price_pence` is set from a **£2** constant in code at creation time. The session keeps its own copy, so changing the constant never rewrites a session that has already run, and never touches the ledger, which records what was actually charged
+- [ ] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the shortlist useful on day one, before any attendance history exists
+- [ ] Create `guests` table — `id`, `first_name`, `surname`, `created_at`, `created_by`. A returning guest is picked from this list rather than retyped, which also stops one person becoming three through spelling
+- [ ] Create `attendance` table — `id`, `session_id` (FK → `training_sessions`), `member_id` (nullable), `guest_id` (nullable), `amount_paid_pence` (nullable, guests only — they pay instead of drawing on credit), `recorded_by`, `idempotency_key` (unique), `created_at`, with a CHECK that exactly one of `member_id` and `guest_id` is set
+- [ ] Add `session_id` (nullable FK) to `credit_transactions` — a cash top-up taken at the track belongs to that session. `attendance_id` covers session debits, but without this, "cash taken tonight" cannot be computed and the tin cannot be checked against anything
+- [ ] **The registrar app always sets it; the admin site never does.** The app cannot show a list of names without a session being chosen first, so the link is free — there is no screen where a registrar could record a top-up and leave it unattached. A top-up away from the track is the admin site's job, where `session_id` stays null. Both are supported, and which one happened is then a fact rather than a guess
+- [ ] Session-linked top-ups read as *"£10.00 added — paid by cash at Middle Distance Group, recorded by Eoin Mullan"* in `credits/transactions.ts`. The session name only: `/members/credits` already prints the date on its own line beneath each entry, so repeating it would read as a stutter. An unlinked top-up keeps today's wording, *"paid by cash at training"*
 - [ ] Add `attendance_id` FK from `credit_transactions` (added in Phase 4 schema; if not yet added, add it here) so `session` debits can be joined back to the originating attendance row
-- [ ] RLS: admin/superuser role can insert/read all attendance and sessions; members can read their own attendance and any session they attended
-- [ ] Members can be on multiple sessions on the same day — uniqueness is `(member_id, session_id)`, not `(member_id, date)`
+- [ ] RLS: `registrar`, `admin` and `superuser` can insert and read all attendance, sessions, groups and guests; members can read their own attendance and any session they attended. Guests have no login and so no read path of their own
+- [ ] Members can be on multiple sessions on the same day — uniqueness is `(member_id, session_id)`, not `(member_id, date)`. Guests get the same treatment on `(guest_id, session_id)`
 
 ### Admin: session management (in the main site)
-- [ ] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, starts_at, location)
-- [ ] Allow editing name/location; deletion is a soft-disable, not a row drop, so attendance history stays intact
+- [ ] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2)
+- [ ] Manage groups from the same area — add one, rename one, retire one. A retired group keeps its history
+- [ ] Assign members to groups, so a new session's shortlist is populated before anyone has attended anything
+- [ ] Allow editing name/location/price; cancellation is a soft-disable, not a row drop, so attendance history stays intact. A session that has attendance against it keeps its price — editing it would contradict the ledger
+- [ ] Past sessions are a first-class view, not a by-product: headcount, cash taken, and who recorded each entry
+- [ ] Add a `registrar` role — today the only role that can write is `admin`, which can also reassign roles, deactivate households and move balances. A volunteer signing runners in on a borrowed phone needs none of that
 
 ### PWA setup
 - [ ] Add `apps/signin` package to the existing pnpm monorepo (created in Phase 0) — Vite + React
 - [ ] Share Supabase types via a `packages/supabase` workspace package consumed by both `apps/site` and `apps/signin`
 - [ ] Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it
-- [ ] Connect to the same Supabase project — admin/superuser role required
+- [ ] Connect to the same Supabase project — `registrar`, `admin` or `superuser` required
 - [ ] Add Web App Manifest and service worker (PWA installable on iOS and Android)
 - [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns
 
+### Member-facing
+
+- [ ] Training history in the members' area — which sessions each member of the household attended and when. The original goal for this area was a member checking their credit *and* when they trained; Phase 4 shipped the credit half, and the RLS planned above already allows the other, but no page was ever listed for it
+
+### The shortlist — who the registrar actually sees
+
+300 members are in the database and 10 to 20 turn up to any given session. Juniors are
+never at a senior session, sprinters never at an endurance one. The group on the session
+is what makes that knowable, which is the real reason groups are worth having — the
+reporting value is a bonus.
+
+- [ ] Default view is the shortlist for this session's group, ordered by how often each member has attended sessions of that group
+- [ ] Seed the shortlist from `member_groups`, then let attendance history refine the order. History alone starts empty, which on the first night would be worse than no feature at all
+- [ ] The registrar can add somebody to the list or drop them from it by hand. The system suggests; the person holding the phone decides
+- [ ] Second toggle: the full member list. Third toggle: guests seen before, so a returning non-member is a tap rather than a retype
+- [ ] **Order everyone by surname, everywhere.** Siblings arrive together, so the next two people the registrar needs are adjacent
+- [ ] Getting around 300 names: an A–Z index down the edge of the list, jumping to a surname initial. Worth revisiting once the shortlist is real, because reaching for the full list should be the exception
+
+### Registrar experience
+
+- [ ] **Undo.** The ledger is append-only and a pressured registrar will mis-tap. A visible undo on the last action, writing the compensating row itself, is the difference between a system that heals itself and one that needs an admin found afterwards. Apply it to everything that marks attendance or moves money
+- [ ] **Household balance, not member balance.** Credit belongs to the household, so signing in the second of three siblings must show the pot draining, not three copies of the same number
+- [ ] **Guests.** Record a name, mark them in, take the money at the time. No account, no credit, no balance that can go negative
+- [ ] **Cash reconciliation, informational only.** A running total of what has been taken tonight, there to be glanced at so the tin can be checked against it. No confirmation step and nothing to tap — the registrar is told, not asked to sign for it
+- [ ] Cash for a session is `top_up_cash` plus `refund` from `credit_transactions` carrying that `session_id`, plus `amount_paid_pence` on the session's guest attendance rows. Session debits are excluded — they move credit, not money. Grouping by `created_by` gives the same figure per registrar, which is the one that matters when two phones are open
+- [ ] **Undoing a cash top-up writes a `refund`, not a negative top-up.** The sign CHECK forbids a negative `top_up_cash`, and a `manual_adjustment` would be both unattached to the session and misleading on the member's page. `refund` is already constrained negative and already means money going back out, so the running total nets out on its own
+- [ ] Undoing a guest's attendance deletes the row. Guests have no ledger to compensate against, and attendance is not append-only — only `credit_transactions` is
+- [ ] `describeEntry` should surface a refund's note the way it does for an adjustment. *"£10.00 deducted — refunded"* does not say why, and a keying slip corrected in front of the member deserves a reason
+- [ ] The total is only complete once every device has synced. A registrar working offline sees what their own phone has taken, not the session's — say so on screen rather than showing a confident wrong number
+- [ ] **Two registrars at once.** A busy track will have more than one phone open on the same session. Idempotency keys stop a double charge; the view should also not fight itself when somebody else's sign-in arrives
+- [ ] **Built for the conditions.** Large targets, high contrast, legible under floodlights and in rain, usable one-handed and with cold fingers. No small text, no long presses, no precision gestures
+- [ ] Paper fallback — a printable session list, for the night a phone dies
+
 ### PWA core features
-- [ ] Admin sign-in (Supabase auth, role `admin` or `superuser` required)
-- [ ] Session selector — first screen after sign-in. Lists today's sessions; admin picks one. Also offers a "Create session" shortcut for sessions that weren't pre-created
-- [ ] Attendance view — list of active members for the selected session, with attendance status. One tap to mark attendance: writes an `attendance` row and a paired `credit_transactions` row of `type = 'session'` with `attendance_id` set, in a single transaction
-- [ ] Record cash payment — select member, enter amount, writes a `top_up_cash` row to `credit_transactions`
-- [ ] Member balance visible inline so admin knows if a member is in credit or needs to pay
+- [ ] Registrar sign-in (Supabase auth, role `registrar`, `admin` or `superuser`)
+- [ ] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one
+- [ ] Creating a session is the admin site's job, but the app keeps a fallback for the night nobody got round to it — a registrar blocked at the track by a missing row is exactly the failure this phase exists to avoid. The fallback asks for a group, since the shortlist is useless without one
+- [ ] Attendance view — the shortlist described above, not the full membership. One tap to mark attendance: writes an `attendance` row and a paired `credit_transactions` row of `type = 'session'` with `attendance_id` and `session_id` set, in a single transaction
+- [ ] Record cash payment — pick a runner, enter the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared
+- [ ] Household balance visible inline against each name, so the registrar can see who needs to pay without opening anything
 
 ### Idempotency
-- [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}` and `cash:{member_id}:{client_uuid}`
+- [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{member_id}:{session_id}` for the paired debit, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
+- [ ] An undo is keyed off what it reverses — `refund:{original_key}` — so a retried or double-tapped undo refunds once, which matters most on the flaky connection that prompted the retry
 - [ ] Write with `ON CONFLICT (idempotency_key) DO NOTHING` so retries / offline-then-sync never double-write
 - [ ] Test: queue an attendance write offline → bring app online → exactly one row appears
 - [ ] Test: trigger sync twice in rapid succession → no duplicate
@@ -214,14 +298,17 @@ Introduces training sessions as first-class entities, attendance recording again
 
 ## Phase 6 — Admin Reporting
 
-A read-only reporting area inside `/admin` for committee operational needs. No new tables — these are queries and views over `members`, `credit_transactions`, `training_sessions`, and `attendance`.
+A read-only reporting area inside `/admin` for committee operational needs. No new tables — these are queries and views over `members`, `credit_transactions`, `training_sessions`, `groups`, `guests`, and `attendance`.
 
 - [ ] Create `src/pages/admin/reports.astro` — index page linking to the reports below
 - [ ] Attendance by session — pick a session, see who attended and who didn't
+- [ ] Attendance by group — headcounts and trends per squad, which is the question the group field makes answerable
 - [ ] Attendance by member — pick a member + date range, see all sessions attended
 - [ ] Member balances — current snapshot, with a sub-list of members in arrears (negative balance)
-- [ ] Top-up summary — totals over a date range, split by method (Stripe vs cash)
+- [ ] Top-up summary — totals over a date range, split by method (cash only until card payment is unparked)
 - [ ] Session summary — sessions per week, headcounts, trends over time
+- [ ] **Session report** — one session on a page: who attended, what was charged, what cash was taken, and who recorded each entry
+- [ ] **Day report** — every session on a given date rolled together, which is how a committee member actually asks the question ("how did Monday go?")
 - [ ] CSV export on each report
 - [ ] Gate `/admin/reports` to `role IN ('admin', 'superuser')` in middleware (already covered by `/admin/*` rule)
 
@@ -235,6 +322,6 @@ A read-only reporting area inside `/admin` for committee operational needs. No n
 | 1 | SSR foundation on Cloudflare Pages | Phase 0 |
 | 2 | Magic link auth + Supabase members table (3-tier roles: member / admin / superuser) | Supabase project |
 | 3 | Google / Microsoft OAuth | OAuth app registrations |
-| 4 | Training credits, Stripe top-up, admin credit tools, member transparency view | Stripe API keys |
-| 5 | Training sessions, attendance, sign-in PWA | Phase 4 schema |
+| 4 | Training credits, admin credit tools, member transparency view | — |
+| 5 | Training sessions, groups, guests, attendance, registrar role, sign-in PWA | Phase 4 schema |
 | 6 | Admin reporting area | Phase 5 schema |

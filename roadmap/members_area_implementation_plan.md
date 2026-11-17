@@ -269,7 +269,10 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [ ] **Order everyone by surname, everywhere.** Siblings arrive together, so the next two people the registrar needs are adjacent
 - [ ] **Both figures in the header are filters.** Tapping the headcount shows who is here; tapping **Money collected** shows who has handed something over. A number and the names behind it are one control, so when the tin does not match there is nothing to go hunting for. One filter at a time — tapping either clears the other — and both answer for the whole night, not just the list that happens to be open, or the number would be describing people the registrar cannot see
 - [ ] The here filter is taken from the rejected board prototype, where watching the night fill up was the one thing it did better than a list
-- [ ] Getting around 300 names: an A–Z index down the edge of the list, jumping to a surname initial. Worth revisiting once the Usuals list is real, because reaching for the full list should be the exception
+- [ ] **The full list never renders whole.** 313 rows is a scroll, not a list, so the All tab opens on a prompt — pick a letter or type a surname — and shows nobody until it gets one. Reaching for it should be the exception anyway, now that the Usuals cover the ordinary night
+- [ ] **A–Z across the top, not down the edge.** Only the initials somebody actually has, nine to a row, each target about a thumb wide. The first attempt was an 11px column against the bezel, which is precisely the precision gesture the conditions below rule out
+- [ ] **Tapping a letter filters rather than scrolls.** Scrolling to M leaves the registrar still inside 313 rows with the alphabet now off screen behind them. Filtering leaves fifteen names with the letters still in view, so a wrong letter costs one tap. Tapping the letter again clears it, like every other control here
+- [ ] **Type-to-filter sits alongside it**, matching the start of either name. The alphabet is for cold hands and no keyboard; typing is for when the name is already known and the keyboard is worth the seconds. Typing clears the letter and the letter clears the typing — two routes to the same place, never both at once
 
 ### Registrar experience
 

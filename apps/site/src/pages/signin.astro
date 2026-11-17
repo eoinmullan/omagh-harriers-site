@@ -64,7 +64,7 @@ async function membershipProblem(email: string): Promise<string | undefined> {
   await new Promise((resolve) => setTimeout(resolve, 2000));
   return principal
     ? 'Your membership is no longer active — please contact the committee.'
-    : "We couldn't find that email on our member list. Check it for typos, and that it's the address you gave when you registered with the club — it may not be the one you use day to day. If it still doesn't work, contact the committee.";
+    : "We couldn't find that email on our member list. Check it for typos, and check that it's the address you gave when you registered with the club on Klubfunder. If it still doesn't work, contact the committee.";
 }
 
 async function sendSignInLink(email: string): Promise<string | undefined> {
@@ -160,6 +160,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
                 id="provider-btn"
                 type="button"
                 data-provider={providerChoice.provider.supabaseProvider}
+                data-email={providerChoice.email}
                 class="w-full border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-3"
               >
                 {providerChoice.provider.supabaseProvider === 'google' ? (
@@ -272,11 +273,14 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
     providerButton?.addEventListener('click', async () => {
       providerButton.disabled = true;
       const supabase = createSupabaseBrowserClient();
+      // login_hint spares the member typing the address they just gave us.
+      const loginHint = providerButton.dataset.email;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: providerButton.dataset.provider as 'google' | 'azure',
         options: {
           redirectTo: `${window.location.origin}/signin/callback`,
           scopes: 'email',
+          queryParams: loginHint ? { login_hint: loginHint } : undefined,
         },
       });
       if (error) {

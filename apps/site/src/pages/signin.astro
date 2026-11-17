@@ -6,6 +6,7 @@ import { createSupabaseAdminClientFromLocals } from '../lib/supabase/admin';
 const INTENDED_EMAIL_COOKIE = 'oauth_intended_email';
 
 let linkSent = false;
+let enteredEmail = '';
 let errorMessage: string | undefined;
 let providerChoice: { email: string; provider: OAuthProvider } | undefined;
 
@@ -14,6 +15,7 @@ if (Astro.request.method === 'POST') {
   const email = formData.get('email')?.toString().trim().toLowerCase() ?? '';
   const emailLinkRequested = formData.get('email_link') === 'true';
   const turnstileToken = formData.get('cf-turnstile-response')?.toString() ?? '';
+  enteredEmail = email;
 
   const captchaOk = await verifyCaptcha(turnstileToken);
   if (!captchaOk) {
@@ -62,7 +64,7 @@ async function membershipProblem(email: string): Promise<string | undefined> {
   await new Promise((resolve) => setTimeout(resolve, 2000));
   return principal
     ? 'Your membership is no longer active — please contact the committee.'
-    : "This email isn't on our member list — please contact the committee.";
+    : "We couldn't find that email on our member list. Check it for typos, and that it's the address you gave when you registered with the club — it may not be the one you use day to day. If it still doesn't work, contact the committee.";
 }
 
 async function sendSignInLink(email: string): Promise<string | undefined> {
@@ -219,6 +221,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
                   required
                   autocomplete="email"
                   autofocus
+                  value={enteredEmail}
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
                   placeholder="you@example.com"
                 />

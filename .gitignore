@@ -28,3 +28,6 @@ CLAUDE.local.md
 
 # Per-project gh CLI auth dir (set GH_CONFIG_DIR=$(pwd)/.gh when running gh)
 .gh/
+
+# Supabase CLI link state (project ref, pooler URL) — local only
+supabase/.temp/

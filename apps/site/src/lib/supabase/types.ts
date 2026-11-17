@@ -104,6 +104,49 @@ export type MemberUpdate = {
   updated_at?: string;
 };
 
+export type CreditTransactionType =
+  | 'top_up_stripe'
+  | 'top_up_cash'
+  | 'session'
+  | 'manual_adjustment'
+  | 'refund'
+  | 'transfer_in'
+  | 'transfer_out';
+
+export type CreditTransactionRow = {
+  id: string;
+  principal_id: string;
+  member_id: string | null;
+  amount_pence: number;
+  type: CreditTransactionType;
+  idempotency_key: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type CreditTransactionInsert = {
+  id?: string;
+  principal_id: string;
+  member_id?: string | null;
+  amount_pence: number;
+  type: CreditTransactionType;
+  idempotency_key: string;
+  notes?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+};
+
+// The ledger is append-only — the table refuses updates and deletes — so there
+// is no Update shape to speak of. Postgrest still wants the key present.
+export type CreditTransactionUpdate = Record<string, never>;
+
+export type PrincipalBalanceRow = {
+  principal_id: string;
+  balance_pence: number;
+  last_transaction_at: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -126,9 +169,44 @@ export type Database = {
           },
         ];
       };
+      credit_transactions: {
+        Row: CreditTransactionRow;
+        Insert: CreditTransactionInsert;
+        Update: CreditTransactionUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'credit_transactions_principal_id_fkey';
+            columns: ['principal_id'];
+            referencedRelation: 'principals';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'credit_transactions_member_id_fkey';
+            columns: ['member_id'];
+            referencedRelation: 'members';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'credit_transactions_created_by_fkey';
+            columns: ['created_by'];
+            referencedRelation: 'principals';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
-      [_ in never]: never;
+      principal_balances: {
+        Row: PrincipalBalanceRow;
+        Relationships: [
+          {
+            foreignKeyName: 'principal_balances_principal_id_fkey';
+            columns: ['principal_id'];
+            referencedRelation: 'principals';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Functions: {
       [_ in never]: never;

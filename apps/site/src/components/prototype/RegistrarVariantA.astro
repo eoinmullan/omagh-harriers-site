@@ -12,7 +12,7 @@
     const { model, formatBalance, formatPounds, balanceFor, isIn, cashFor } = window.proto;
 
     let tab = 'usuals';
-    let hereOnly = false;
+    let filter = null;
     let sheetFor = null;
     let keypadFor = null;
     let keypadTitle = '';
@@ -172,6 +172,20 @@
         </div>`;
     }
 
+    // Both figures are also the way to see what is behind them. The number and
+    // the names it counts are one control, so there is nothing to go looking
+    // for when the tin does not match.
+    function tile(key, figure, label, activeLabel) {
+      const on = filter === key;
+      return `
+        <button data-filter="${key}" class="flex-1 py-2 ${on ? 'bg-amber text-black' : ''}">
+          <p class="text-2xl font-bold ${on ? '' : key === 'paid' ? 'text-amber' : ''}">${figure}</p>
+          <p class="text-[11px] uppercase tracking-wider ${on ? 'text-black/70' : 'text-neutral-500'}">
+            ${on ? activeLabel : `${label} ▾`}
+          </p>
+        </button>`;
+    }
+
     function alphabetRail(people) {
       const letters = [...new Set(people.map((p) => (p.surname[0] || '?').toUpperCase()))].sort();
       return `
@@ -180,17 +194,31 @@
         </nav>`;
     }
 
+    function matchesFilter(person) {
+      if (filter === 'here') return isIn(person);
+      if (filter === 'paid') return cashFor(person) > 0;
+      return true;
+    }
+
+    // A filter answers for the whole night, not just for the list that happens
+    // to be open — somebody found through All and signed in still belongs in
+    // "who is here", or the number in the header would be describing a list
+    // the registrar cannot see.
     function visiblePeople() {
-      const people = tab === 'usuals' ? model.expected : model.everyone;
-      if (!hereOnly) return people;
+      const base = tab === 'usuals' ? model.expected : model.everyone;
+      if (!filter) return base;
       const extras = model.everyone.filter(
-        (person) => isIn(person) && !people.some((p) => p.id === person.id),
+        (person) => matchesFilter(person) && !base.some((p) => p.id === person.id),
       );
-      return [...people, ...extras].filter(isIn).sort((a, b) => a.surname.localeCompare(b.surname));
+      return [...base, ...extras]
+        .filter(matchesFilter)
+        .sort((a, b) => a.surname.localeCompare(b.surname));
     }
 
     function visibleGuests() {
-      return hereOnly ? model.guests.filter(window.proto.guestEntry) : model.guests;
+      if (!filter) return model.guests;
+      if (filter === 'here') return model.guests.filter(window.proto.guestEntry);
+      return model.guests.filter((guest) => (window.proto.guestEntry(guest)?.pence ?? 0) > 0);
     }
 
     function render() {
@@ -214,16 +242,8 @@
             <p class="text-neutral-400 text-sm">${model.session.location}</p>
           </div>
           <div class="flex divide-x divide-neutral-800 border-t border-neutral-800 text-center">
-            <button data-here class="flex-1 py-2 ${hereOnly ? 'bg-amber text-black' : ''}">
-              <p class="text-2xl font-bold">${window.proto.headcount()}</p>
-              <p class="text-[11px] uppercase tracking-wider ${hereOnly ? 'text-black/70' : 'text-neutral-500'}">
-                ${hereOnly ? 'showing who is here' : 'here — tap to show'}
-              </p>
-            </button>
-            <div class="flex-1 py-2">
-              <p class="text-2xl font-bold text-amber">${formatPounds(window.proto.cashTotalPence())}</p>
-              <p class="text-[11px] uppercase tracking-wider text-neutral-500">cash on this phone</p>
-            </div>
+            ${tile('here', window.proto.headcount(), 'here', 'showing who is here')}
+            ${tile('paid', formatPounds(window.proto.cashTotalPence()), 'money collected', 'showing who paid')}
           </div>
           <div class="flex gap-1 p-2 border-t border-neutral-800">
             ${tabs
@@ -240,10 +260,12 @@
         <ul class="flex-1">${list}</ul>
         ${
           list === ''
-            ? '<p class="px-4 py-10 text-center text-neutral-500">Nobody here yet from this list.</p>'
+            ? `<p class="px-4 py-10 text-center text-neutral-500">${
+                filter === 'paid' ? 'Nobody has handed anything over yet.' : 'Nobody is here yet.'
+              }</p>`
             : ''
         }
-        ${tab === 'all' && !hereOnly ? alphabetRail(people) : ''}
+        ${tab === 'all' && !filter ? alphabetRail(people) : ''}
         ${sheetFor ? sheet(sheetFor.who, sheetFor.paid, sheetFor.isGuest) : ''}
         ${keypadFor ? keypad() : ''}
       `;
@@ -273,10 +295,12 @@
           render();
         }),
       );
-      root.querySelector('[data-here]')?.addEventListener('click', () => {
-        hereOnly = !hereOnly;
-        render();
-      });
+      root.querySelectorAll('[data-filter]').forEach((button) =>
+        button.addEventListener('click', () => {
+          filter = filter === button.dataset.filter ? null : button.dataset.filter;
+          render();
+        }),
+      );
       root.querySelectorAll('[data-toggle]').forEach((button) =>
         button.addEventListener('click', () => {
           const person = findPerson(button.dataset.toggle);

@@ -80,6 +80,15 @@ The script always uses `source='klubfunder'` for the rows it creates and **never
 
 No emails are sent: auth users are created with `email_confirm: true`, which skips Supabase's confirmation-email step.
 
+## Members area layout
+
+Every signed-in page frames itself with `apps/site/src/components/PageContainer.astro`
+rather than its own `max-w-* mx-auto` div, so the gutters line up with the nav and
+footer and the page doesn't resize as you click around. Three widths, by role:
+`form` for the sign-in card, `wide` for pages listing records, `page` for everything
+else. `/admin/training-times` is the exception — it mirrors the public home page, so
+it keeps that page's own full-width container.
+
 ## Sign-in flow
 
 `/signin` asks for the membership email first, checks it against `principals`, then

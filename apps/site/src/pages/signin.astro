@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
 import { providerForEmail, type OAuthProvider } from '../lib/auth/oauth-providers';
 import { createSupabaseAdminClientFromLocals } from '../lib/supabase/admin';
 
@@ -120,7 +121,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
 ---
 
 <Layout title="Sign in — Omagh Harriers AC">
-  <div class="max-w-md mx-auto px-4 py-16">
+  <PageContainer width="form">
     <h1 class="text-3xl font-bold mb-2">Members sign in</h1>
     <p class="text-gray-600 mb-8">
       {
@@ -263,7 +264,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
       <a href="/juniors" class="underline hover:text-gray-700">junior</a> and{' '}
       <a href="/about" class="underline hover:text-gray-700">senior</a> membership.
     </p>
-  </div>
+  </PageContainer>
 
   {siteKey && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
 

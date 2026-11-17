@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 
 const {
@@ -78,7 +79,7 @@ function formatDob(dob: string): string {
 ---
 
 <Layout title="Members — Admin — Omagh Harriers AC">
-  <div class="max-w-5xl mx-auto px-4 py-12">
+  <PageContainer width="wide">
     <div class="flex items-center justify-between mb-8">
       <div>
         <p class="text-sm text-gray-500 mb-1">
@@ -268,7 +269,7 @@ function formatDob(dob: string): string {
         )
       }
     </div>
-  </div>
+  </PageContainer>
 </Layout>
 
 <script>

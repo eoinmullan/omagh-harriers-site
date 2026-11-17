@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 
 const {
@@ -47,7 +48,7 @@ if (Astro.request.method === 'POST') {
 ---
 
 <Layout title="Terms & Conditions — Omagh Harriers AC">
-  <div class="max-w-2xl mx-auto px-4 py-16">
+  <PageContainer width="page">
     <h1 class="text-3xl font-bold mb-2">Before you continue</h1>
     <p class="text-gray-600 mb-8">
       Welcome, {principal.display_name}. Please read and accept our terms and
@@ -104,5 +105,5 @@ if (Astro.request.method === 'POST') {
         Accept and continue
       </button>
     </form>
-  </div>
+  </PageContainer>
 </Layout>

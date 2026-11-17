@@ -1,0 +1,17 @@
+---
+const containerWidths = {
+  form: 'max-w-md',
+  page: 'max-w-3xl',
+  wide: 'max-w-5xl',
+} as const;
+
+interface Props {
+  width?: keyof typeof containerWidths;
+}
+
+const { width = 'page' } = Astro.props;
+---
+
+<div class:list={[containerWidths[width], 'mx-auto px-4 sm:px-6 lg:px-8 py-12']}>
+  <slot />
+</div>

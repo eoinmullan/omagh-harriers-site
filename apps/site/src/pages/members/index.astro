@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
 
 // Middleware guarantees auth + active principal + terms accepted before we get here.
 // Defensive fallback only.
@@ -41,7 +42,7 @@ const { data: members } = await Astro.locals.supabase
 ---
 
 <Layout title="Members' Area — Omagh Harriers AC">
-  <div class="max-w-3xl mx-auto px-4 py-12">
+  <PageContainer width="page">
     <div class="flex items-start justify-between mb-8">
       <div>
         <h1 class="text-3xl font-bold">Members' area</h1>
@@ -114,5 +115,5 @@ const { data: members } = await Astro.locals.supabase
         </section>
       )
     }
-  </div>
+  </PageContainer>
 </Layout>

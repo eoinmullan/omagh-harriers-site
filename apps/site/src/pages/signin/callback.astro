@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
 
 const INTENDED_EMAIL_COOKIE = 'oauth_intended_email';
 
@@ -64,9 +65,9 @@ if (tokenHash && (type === 'email' || type === 'magiclink')) {
 ---
 
 <Layout title="Signing in — Omagh Harriers AC">
-  <div class="max-w-md mx-auto px-4 py-16 text-center">
-    <p class="text-gray-500">Signing you in&hellip;</p>
-  </div>
+  <PageContainer width="form">
+    <p class="text-gray-500 text-center">Signing you in&hellip;</p>
+  </PageContainer>
 </Layout>
 
 <script>

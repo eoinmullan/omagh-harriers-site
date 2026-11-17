@@ -147,7 +147,7 @@ Session balance tracking, top-up history, and admin tools for cash payments and 
 **The club starts out on cash in, sessions out.** The committee decided on 17 Nov 2026 not to take card payments yet, so the Stripe section below is parked rather than pending — see it for what is already in place for when that changes.
 
 ### Data model
-- [x] Create `credit_transactions` table — `id`, `principal_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund' | 'transfer_in' | 'transfer_out'`), `member_id` (nullable, set when the transaction is tied to a specific member — typically `'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`. A CHECK ties the sign of the amount to the type, and a trigger makes the table append-only — a mistake is corrected with a compensating row, not an edit. `attendance_id` waits for Phase 5, which creates the table it points at
+- [x] Create `credit_transactions` table — `id`, `principal_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund' | 'transfer_in' | 'transfer_out'`), `member_id` (nullable, set when the transaction is tied to a specific member — typically `'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`. A CHECK ties the sign of the amount to the type, and a trigger makes the table append-only — a mistake is corrected with a compensating row, not an edit. An `attendance_id` was pencilled in for Phase 5; Phase 5 decided against it, for the reason recorded there
 - [x] RLS: principals can read transactions for their own household; admin/superuser role can read/write all
 - [x] Create a `principal_balances` view that sums `credit_transactions.amount_pence` per principal
 
@@ -215,21 +215,53 @@ not in scope.
 - **Sessions are not generated from the published schedule.** Publishing the timetable and running training are two different jobs done by two different people in the club, and the plan deliberately keeps them apart
 - **The attendance screen is a list**, decided by prototype on 17 Nov 2026. Three screens were built and clicked through on `prototype/registrar-screen`: a list, a one-runner-at-a-time search, and a board that moved names out of "expected" and into "here". The list won. The other two both put a runner's state somewhere other than the row the registrar is looking at, and the board moved names under the thumb as it emptied, which produced a mis-tap within a minute of use
 - **Nothing on the screen has an undo button.** Every control shows its own state and is reversed by using it again — a ticked box unticks, a recorded payment can be taken back from the cell that shows it. See *Registrar experience* below
+- **The registrar role reads the whole club and writes only the night.** It can see every
+  principal, member and ledger row, because a household balance beside a name is the sum of
+  that ledger and the app holds no service-role key. It can add sessions, attendance, guests
+  and cash, and change nothing else: not a name, not a role, not a session's price once set.
+  Proved against a throwaway Postgres rather than asserted — a registrar's attempts to edit a
+  member, promote themselves, retitle a group or re-price a session all come back having
+  touched no rows
 - **Weekly summary emails are parked**, possibly for later. They would need an email provider the club does not pay for, as Cloudflare Email Routing is inbound-only
 
 ### Supabase additions
-- [ ] Create `groups` table — `id`, `name`, `is_active`, `created_at`. The squads the club actually trains in — sprints, middle distance, endurance, seniors, juniors, and whatever is added next. Admins add them through the UI, so the list is never a deploy away
-- [ ] Create `training_sessions` table — `id`, `name`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `location` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`
+- [x] Create `groups` table — `id`, `name`, `is_active`, `created_at`. The squads the club actually trains in — sprints, middle distance, endurance, seniors, juniors, and whatever is added next. Admins add them through the UI, so the list is never a deploy away
+- [x] Create `training_sessions` table — `id`, `name`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `location` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`
 - [ ] `price_pence` is set from a **£2** constant in code at creation time. The session keeps its own copy, so changing the constant never rewrites a session that has already run, and never touches the ledger, which records what was actually charged
-- [ ] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the Usuals list useful on day one, before any attendance history exists
-- [ ] Create `guests` table — `id`, `first_name`, `surname`, `created_at`, `created_by`. A returning guest is picked from this list rather than retyped, which also stops one person becoming three through spelling
-- [ ] Create `attendance` table — `id`, `session_id` (FK → `training_sessions`), `member_id` (nullable), `guest_id` (nullable), `amount_paid_pence` (nullable, guests only — they pay instead of drawing on credit), `recorded_by`, `idempotency_key` (unique), `created_at`, with a CHECK that exactly one of `member_id` and `guest_id` is set
-- [ ] Add `session_id` (nullable FK) to `credit_transactions` — a cash top-up taken at the track belongs to that session. `attendance_id` covers session debits, but without this, "cash taken tonight" cannot be computed and the tin cannot be checked against anything
+- [x] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the Usuals list useful on day one, before any attendance history exists
+- [x] Create `guests` table — `id`, `first_name`, `surname`, `created_at`, `created_by`. A returning guest is picked from this list rather than retyped, which also stops one person becoming three through spelling
+- [x] Create `attendance` table — `id`, `session_id` (FK → `training_sessions`), `member_id` (nullable), `guest_id` (nullable), `amount_paid_pence` (nullable, guests only — they pay instead of drawing on credit), `recorded_by`, `idempotency_key` (unique), `created_at`, with a CHECK that exactly one of `member_id` and `guest_id` is set
+- [x] Add `session_id` (nullable FK) to `credit_transactions` — a cash top-up taken at the track belongs to that session. Without it, "cash taken tonight" cannot be computed and the tin cannot be checked against anything
 - [ ] **The registrar app always sets it; the admin site never does.** The app cannot show a list of names without a session being chosen first, so the link is free — there is no screen where a registrar could record a top-up and leave it unattached. A top-up away from the track is the admin site's job, where `session_id` stays null. Both are supported, and which one happened is then a fact rather than a guess
 - [ ] Session-linked top-ups read as *"£10.00 added — paid by cash at Middle Distance Group, recorded by Eoin Mullan"* in `credits/transactions.ts`. The session name only: `/members/credits` already prints the date on its own line beneath each entry, so repeating it would read as a stutter. An unlinked top-up keeps today's wording, *"paid by cash at training"*
-- [ ] Add `attendance_id` FK from `credit_transactions` (added in Phase 4 schema; if not yet added, add it here) so `session` debits can be joined back to the originating attendance row
-- [ ] RLS: `registrar`, `admin` and `superuser` can insert and read all attendance, sessions, groups and guests; members can read their own attendance and any session they attended. Guests have no login and so no read path of their own
-- [ ] Members can be on multiple sessions on the same day — uniqueness is `(member_id, session_id)`, not `(member_id, date)`. Guests get the same treatment on `(guest_id, session_id)`
+- [x] **No `attendance_id` on `credit_transactions`** — the plan asked for one and the schema deliberately does without it. See *Unticking a sign-in* below
+- [x] RLS: `registrar`, `admin` and `superuser` can insert and read all attendance, sessions, groups and guests; members can read their own attendance and any session they attended. Guests have no login and so no read path of their own
+- [x] Members can be on multiple sessions on the same day — uniqueness is `(member_id, session_id)`, not `(member_id, date)`. Guests get the same treatment on `(guest_id, session_id)`
+
+#### Unticking a sign-in
+
+Both of these were settled by running the migrations against a throwaway Postgres and trying
+to untick somebody, which is the only reason they were caught before the first night.
+
+- **`credit_transactions` carries no `attendance_id`.** A foreign key to `attendance` is the
+  tidier way to join a debit back to the sign-in that caused it, but it is also a RESTRICT
+  reference pinning that attendance row in place — and unticking a member has to remove it.
+  `ON DELETE SET NULL` is no way out either: the nulling is an UPDATE, which the append-only
+  trigger refuses by name. The column was convenience and the untick is the feature, so the
+  column went
+- **The join goes the other way, through `(member_id, session_id)`**, which `attendance`
+  already indexes uniquely and `credit_transactions` is now indexed for. Nothing is lost
+  except the foreign key's own guarantee
+- **A session debit is keyed `session:{attendance_id}`**, not
+  `session:{member_id}:{session_id}`. The deterministic pairing cannot tell a re-tick from a
+  retry: tick, untick, re-tick presents the same key a third time, `ON CONFLICT DO NOTHING`
+  swallows it, and the runner finishes the night marked present and never charged. Naming the
+  attendance row instead — the id minted on the phone, so it survives a retry — stays
+  idempotent while telling two ticks apart
+- **What stops two phones double-signing somebody is the unique index on
+  `(member_id, session_id)`**, not the ledger key, so moving the key costs nothing
+- **Guests were never affected.** No ledger row references a guest's attendance, so unticking
+  one removes the row and the cash with it, exactly as the registrar screen promises
 
 ### Admin: session management (in the main site)
 - [ ] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2)
@@ -300,12 +332,12 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [ ] Registrar sign-in (Supabase auth, role `registrar`, `admin` or `superuser`)
 - [ ] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one
 - [ ] Creating a session is the admin site's job, but the app keeps a fallback for the night nobody got round to it — a registrar blocked at the track by a missing row is exactly the failure this phase exists to avoid. The fallback asks for a group, since the Usuals list is useless without one
-- [ ] Attendance view — the Usuals described above, not the full membership. One tap of the checkbox marks attendance: writes an `attendance` row and a paired `credit_transactions` row of `type = 'session'` with `attendance_id` and `session_id` set, in a single transaction
+- [ ] Attendance view — the Usuals described above, not the full membership. One tap of the checkbox marks attendance: writes an `attendance` row and a paired `credit_transactions` row of `type = 'session'` with `session_id` set and keyed `session:{attendance_id}`, in a single transaction
 - [ ] Record cash payment — tap the runner's cash cell, pick or key in the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared
 - [ ] Household balance visible inline against each name, so the registrar can see who needs to pay without opening anything
 
 ### Idempotency
-- [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{member_id}:{session_id}` for the paired debit, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
+- [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
 - [ ] A take-back is keyed off what it reverses — `refund:{original_key}` — so a retried or double-tapped undo refunds once, which matters most on the flaky connection that prompted the retry
 - [ ] Write with `ON CONFLICT (idempotency_key) DO NOTHING` so retries / offline-then-sync never double-write
 - [ ] Test: queue an attendance write offline → bring app online → exactly one row appears

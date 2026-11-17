@@ -7,7 +7,7 @@
 // type alias (not interface), Relationships is present per table, and
 // Views/Functions/Enums/CompositeTypes use the empty-mapped-type pattern.
 
-export type PrincipalRole = 'member' | 'admin' | 'superuser';
+export type PrincipalRole = 'member' | 'registrar' | 'admin' | 'superuser';
 export type RecordSource = 'klubfunder' | 'manual';
 export type MemberStatus = 'paid' | 'lapsed';
 
@@ -122,6 +122,7 @@ export type CreditTransactionRow = {
   idempotency_key: string;
   notes: string | null;
   created_by: string | null;
+  session_id: string | null;
   created_at: string;
 };
 
@@ -134,12 +135,142 @@ export type CreditTransactionInsert = {
   idempotency_key: string;
   notes?: string | null;
   created_by?: string | null;
+  session_id?: string | null;
   created_at?: string;
 };
 
 // The ledger is append-only — the table refuses updates and deletes — so there
 // is no Update shape to speak of. Postgrest still wants the key present.
 export type CreditTransactionUpdate = Record<string, never>;
+
+export type GroupRow = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type GroupInsert = {
+  id?: string;
+  name: string;
+  is_active?: boolean;
+  created_at?: string;
+};
+
+export type GroupUpdate = {
+  id?: string;
+  name?: string;
+  is_active?: boolean;
+  created_at?: string;
+};
+
+export type TrainingSessionRow = {
+  id: string;
+  name: string;
+  group_id: string;
+  starts_at: string;
+  location: string | null;
+  price_pence: number;
+  is_cancelled: boolean;
+  created_by: string;
+  created_at: string;
+};
+
+export type TrainingSessionInsert = {
+  id?: string;
+  name: string;
+  group_id: string;
+  starts_at: string;
+  location?: string | null;
+  price_pence: number;
+  is_cancelled?: boolean;
+  created_by: string;
+  created_at?: string;
+};
+
+export type TrainingSessionUpdate = {
+  id?: string;
+  name?: string;
+  group_id?: string;
+  starts_at?: string;
+  location?: string | null;
+  price_pence?: number;
+  is_cancelled?: boolean;
+  created_by?: string;
+  created_at?: string;
+};
+
+export type MemberGroupRow = {
+  member_id: string;
+  group_id: string;
+  created_at: string;
+};
+
+export type MemberGroupInsert = {
+  member_id: string;
+  group_id: string;
+  created_at?: string;
+};
+
+export type MemberGroupUpdate = {
+  member_id?: string;
+  group_id?: string;
+  created_at?: string;
+};
+
+export type GuestRow = {
+  id: string;
+  first_name: string;
+  surname: string;
+  created_by: string;
+  created_at: string;
+};
+
+export type GuestInsert = {
+  id?: string;
+  first_name: string;
+  surname: string;
+  created_by: string;
+  created_at?: string;
+};
+
+export type GuestUpdate = {
+  id?: string;
+  first_name?: string;
+  surname?: string;
+  created_by?: string;
+  created_at?: string;
+};
+
+// `amount_paid_pence` is a guest's cash for the session. A member's £2 comes
+// out of the household pot, so it lives in credit_transactions instead, and
+// the table refuses a member row that carries an amount.
+export type AttendanceRow = {
+  id: string;
+  session_id: string;
+  member_id: string | null;
+  guest_id: string | null;
+  amount_paid_pence: number | null;
+  recorded_by: string;
+  idempotency_key: string;
+  created_at: string;
+};
+
+export type AttendanceInsert = {
+  id?: string;
+  session_id: string;
+  member_id?: string | null;
+  guest_id?: string | null;
+  amount_paid_pence?: number | null;
+  recorded_by: string;
+  idempotency_key: string;
+  created_at?: string;
+};
+
+// Unticking somebody removes the row rather than amending it, and a guest's
+// payment figure states what they handed over. Nothing updates attendance, so
+// there are no policies permitting it.
+export type AttendanceUpdate = Record<string, never>;
 
 export type PrincipalBalanceRow = {
   principal_id: string;
@@ -189,6 +320,100 @@ export type Database = {
           {
             foreignKeyName: 'credit_transactions_created_by_fkey';
             columns: ['created_by'];
+            referencedRelation: 'principals';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'credit_transactions_session_id_fkey';
+            columns: ['session_id'];
+            referencedRelation: 'training_sessions';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      groups: {
+        Row: GroupRow;
+        Insert: GroupInsert;
+        Update: GroupUpdate;
+        Relationships: [];
+      };
+      training_sessions: {
+        Row: TrainingSessionRow;
+        Insert: TrainingSessionInsert;
+        Update: TrainingSessionUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'training_sessions_group_id_fkey';
+            columns: ['group_id'];
+            referencedRelation: 'groups';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'training_sessions_created_by_fkey';
+            columns: ['created_by'];
+            referencedRelation: 'principals';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      member_groups: {
+        Row: MemberGroupRow;
+        Insert: MemberGroupInsert;
+        Update: MemberGroupUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'member_groups_member_id_fkey';
+            columns: ['member_id'];
+            referencedRelation: 'members';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'member_groups_group_id_fkey';
+            columns: ['group_id'];
+            referencedRelation: 'groups';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      guests: {
+        Row: GuestRow;
+        Insert: GuestInsert;
+        Update: GuestUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'guests_created_by_fkey';
+            columns: ['created_by'];
+            referencedRelation: 'principals';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      attendance: {
+        Row: AttendanceRow;
+        Insert: AttendanceInsert;
+        Update: AttendanceUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'attendance_session_id_fkey';
+            columns: ['session_id'];
+            referencedRelation: 'training_sessions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'attendance_member_id_fkey';
+            columns: ['member_id'];
+            referencedRelation: 'members';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'attendance_guest_id_fkey';
+            columns: ['guest_id'];
+            referencedRelation: 'guests';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'attendance_recorded_by_fkey';
+            columns: ['recorded_by'];
             referencedRelation: 'principals';
             referencedColumns: ['id'];
           },

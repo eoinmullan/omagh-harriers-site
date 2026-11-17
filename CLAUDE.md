@@ -129,6 +129,51 @@ the admin is told it was already recorded rather than shown an error.
 signed-in principal. That is deliberate: a line names the admin who recorded it,
 and RLS rightly hides every principal row but the member's own.
 
+## Training sessions and attendance
+
+A training session is a row somebody created, never something derived from the
+published timetable in `training-schedule.ts` — publishing the timetable and
+running training are two different jobs in the club, and the schema keeps them
+apart. A session copies the £2 price into `price_pence` at creation, so changing
+the constant never rewrites a session that has already run.
+
+`attendance` is one row per runner per session, member or guest, never both — a
+CHECK enforces the exclusive-or. Uniqueness is `(member_id, session_id)`, not
+`(member_id, date)`: a member can legitimately train twice in a day. Only a
+guest's row carries `amount_paid_pence`; a member's £2 comes out of the
+household pot and so lives in `credit_transactions` instead.
+
+Unlike the ledger, **attendance is not append-only** — unticking somebody
+removes the row. There is deliberately no UPDATE policy on it.
+
+That is why `credit_transactions` has **no `attendance_id`**, despite the plan
+once asking for one: a foreign key to `attendance` is a RESTRICT reference
+pinning the row the untick has to delete, and `ON DELETE SET NULL` is refused by
+the append-only trigger. A session debit is found through
+`(member_id, session_id)` instead, and is keyed `session:{attendance_id}` so
+that a re-tick after an untick is a new charge rather than a key the unique
+index silently swallows.
+
+`groups` are the squads the club trains in, and `member_groups` is what makes
+the registrar's Usuals list useful before any attendance history exists.
+Retiring a group is `is_active = false`; nothing is ever deleted.
+
+## Roles
+
+`member`, `registrar`, `admin`, `superuser`. A registrar is a volunteer with a
+borrowed phone: they read the whole club — every principal, member and ledger
+row, because a household balance beside a name is the sum of that ledger and the
+sign-in app holds no service-role key — and they write only the night's
+sessions, attendance, guests and cash. They cannot edit a member, change a role,
+rename a group or re-price a session.
+
+RLS gates on the **`app_role`** JWT claim, never `role`. PostgREST reserves
+`role` for the PostgreSQL session role, which is why `0004` moved it. `0008`
+was written against the old name and so never matched anybody; `0010` repairs
+it. Phase 4 didn't notice because its admin pages use the service-role client,
+which bypasses RLS entirely — if a page reads the ledger with the anon key,
+check the claim name first.
+
 ## Members area layout
 
 Every signed-in page frames itself with `apps/site/src/components/PageContainer.astro`

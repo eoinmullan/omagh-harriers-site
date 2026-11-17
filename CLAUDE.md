@@ -84,9 +84,9 @@ No emails are sent: auth users are created with `email_confirm: true`, which ski
 
 Every signed-in page frames itself with `apps/site/src/components/PageContainer.astro`
 rather than its own `max-w-* mx-auto` div, so the gutters line up with the nav and
-footer and the page doesn't resize as you click around. Three widths, by role:
-`form` for the sign-in card, `wide` for pages listing records, `page` for everything
-else. `/admin/training-times` is the exception — it mirrors the public home page, so
+footer and the page doesn't resize as you click around. One width throughout, which
+is the default; `width="form"` narrows the sign-in card, and nothing else should need
+to ask. `/admin/training-times` is the exception — it mirrors the public home page, so
 it keeps that page's own full-width container.
 
 ## Sign-in flow

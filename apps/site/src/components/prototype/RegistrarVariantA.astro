@@ -1,7 +1,7 @@
 ---
-// PROTOTYPE A — "Roll call list". One scrolling list, the row itself is the
-// sign-in button, state shown in place so nothing moves under the thumb.
-// Closest to Spond, and the conservative answer.
+// PROTOTYPE A — the chosen shape. One list, ordered by surname, filtered to the
+// Usuals. Nothing here has an undo button: the checkbox and the cash cell each
+// show their own state and are reversed by using them again.
 ---
 
 <script is:inline>
@@ -9,15 +9,20 @@
     const root = document.getElementById('variant-root');
     if (!root || !window.proto) return;
 
-    const { model, formatBalance, formatPounds, balanceFor, isIn } = window.proto;
-    let tab = 'expected';
-    let sheetFor = null;
+    const { model, formatBalance, formatPounds, balanceFor, isIn, cashFor } = window.proto;
 
-    const TABS = [
-      ['expected', () => `Expected ${model.expected.length}`],
-      ['all', () => `All ${model.everyone.length}`],
-      ['guests', () => `Guests ${model.guests.length}`],
-    ];
+    let tab = 'usuals';
+    let hereOnly = false;
+    let sheetFor = null;
+    let keypadFor = null;
+    let keypadPence = 0;
+
+    const QUICK_AMOUNTS = [200, 500, 1000, 2000];
+
+    function cashLabel(pence) {
+      if (!pence) return '+&nbsp;£';
+      return pence % 100 === 0 ? `£${pence / 100}` : formatPounds(pence);
+    }
 
     function balanceNote(person) {
       const balance = balanceFor(person);
@@ -27,87 +32,158 @@
       return { text: `${formatBalance(balance)} credit`, tone: 'text-neutral-400' };
     }
 
+    function checkbox(checked) {
+      return `
+        <span class="w-9 h-9 rounded-lg border-2 flex items-center justify-center text-xl font-black ${
+          checked ? 'bg-amber border-amber text-black' : 'border-neutral-600 text-transparent'
+        }">✓</span>`;
+    }
+
+    function cashCell(pence, { dataset }) {
+      return `
+        <button ${dataset} class="w-[68px] shrink-0 border-l border-neutral-800 flex items-center justify-center active:bg-neutral-800 ${
+          pence ? 'bg-amber/10' : ''
+        }">
+          <span class="${pence ? 'text-amber font-bold text-base' : 'text-neutral-500 text-sm'}">${cashLabel(pence)}</span>
+        </button>`;
+    }
+
     function personRow(person) {
       const here = isIn(person);
       const note = balanceNote(person);
+      const paid = cashFor(person);
       return `
-        <li>
-          <div class="flex items-stretch border-b border-neutral-800 ${here ? 'bg-emerald-950' : ''}">
-            <button data-sign="${person.id}" class="flex-1 text-left px-4 py-3 min-h-[76px] flex flex-col justify-center active:bg-neutral-800">
-              <span class="text-lg leading-tight">
+        <li class="flex items-stretch border-b border-neutral-800 ${here ? 'bg-emerald-950/60' : ''}">
+          <button data-toggle="${person.id}" class="flex-1 min-w-0 text-left px-4 py-3 min-h-[76px] flex items-center gap-3 active:bg-neutral-800">
+            ${checkbox(here)}
+            <span class="min-w-0">
+              <span class="block text-lg leading-tight truncate">
                 <span class="font-bold uppercase tracking-wide">${person.surname}</span>,
                 <span class="font-normal">${person.firstName}</span>
               </span>
-              <span class="text-sm ${here ? 'text-emerald-400' : note.tone}">
-                ${here ? `Signed in · ${formatPounds(model.session.pricePence)} charged` : `${note.text} · ${person.householdName}`}
+              <span class="block text-sm truncate ${here ? 'text-emerald-400' : note.tone}">
+                ${here ? `In · ${formatPounds(model.session.pricePence)} charged` : note.text} · ${person.householdName}
               </span>
-            </button>
-            <button data-cash="${person.id}" class="w-16 shrink-0 border-l border-neutral-800 text-amber text-xl font-bold active:bg-neutral-800" aria-label="Take cash">£</button>
-            <div class="w-12 shrink-0 flex items-center justify-center text-2xl ${here ? 'text-emerald-400' : 'text-neutral-700'}">
-              ${here ? '✓' : '○'}
-            </div>
-          </div>
+            </span>
+          </button>
+          ${cashCell(paid, { dataset: `data-cash="${person.id}"` })}
         </li>`;
     }
 
     function guestRow(guest) {
+      const entry = window.proto.guestEntry(guest);
       return `
-        <li class="flex items-stretch border-b border-neutral-800">
-          <button data-guest="${guest.id}" class="flex-1 text-left px-4 py-3 min-h-[76px] flex flex-col justify-center active:bg-neutral-800">
-            <span class="text-lg leading-tight">
-              <span class="font-bold uppercase tracking-wide">${guest.surname}</span>,
-              <span class="font-normal">${guest.firstName}</span>
+        <li class="flex items-stretch border-b border-neutral-800 ${entry ? 'bg-emerald-950/60' : ''}">
+          <button data-guest-toggle="${guest.id}" class="flex-1 min-w-0 text-left px-4 py-3 min-h-[76px] flex items-center gap-3 active:bg-neutral-800">
+            ${checkbox(Boolean(entry))}
+            <span class="min-w-0">
+              <span class="block text-lg leading-tight truncate">
+                <span class="font-bold uppercase tracking-wide">${guest.surname}</span>,
+                <span class="font-normal">${guest.firstName}</span>
+              </span>
+              <span class="block text-sm truncate ${entry ? 'text-emerald-400' : 'text-neutral-400'}">
+                ${entry ? `In · paid ${formatPounds(entry.pence)}` : 'Guest — pays on the night'}
+              </span>
             </span>
-            <span class="text-sm text-neutral-400">Guest — pays tonight</span>
           </button>
-          <div class="w-12 shrink-0 flex items-center justify-center text-neutral-700 text-2xl">○</div>
+          ${cashCell(entry ? entry.pence : 0, { dataset: `data-guest-cash="${guest.id}"` })}
         </li>`;
     }
 
-    function alphabetRail(people) {
-      const letters = [...new Set(people.map((p) => p.surname[0].toUpperCase()))].sort();
+    function sheet(person, paid, isGuest) {
+      const name = `${person.firstName} ${person.surname}`;
       return `
-        <nav class="fixed right-0 top-32 bottom-28 w-7 flex flex-col justify-center text-[11px] text-amber z-20">
-          ${letters.map((l) => `<button data-jump="${l}" class="py-0.5 font-semibold">${l}</button>`).join('')}
-        </nav>`;
-    }
-
-    function cashSheet(person) {
-      const amounts = [200, 500, 1000, 2000];
-      return `
-        <div class="fixed inset-0 z-40 flex items-end bg-black/70" data-sheet-backdrop>
+        <div class="fixed inset-0 z-40 flex items-end bg-black/70" data-backdrop>
           <div class="w-full max-w-[420px] mx-auto bg-neutral-900 rounded-t-2xl p-4 pb-8 border-t border-neutral-700">
-            <p class="text-center text-neutral-400 text-sm mb-1">Cash from</p>
-            <p class="text-center text-xl font-bold mb-4">${person.firstName} ${person.surname}</p>
+            <p class="text-center text-neutral-400 text-sm">${paid ? 'Tonight' : 'Cash from'}</p>
+            <p class="text-center text-xl font-bold mb-1">${name}</p>
+            ${
+              paid
+                ? `<p class="text-center text-amber text-3xl font-bold mb-4">${formatPounds(paid)}</p>`
+                : '<p class="text-center text-neutral-500 text-sm mb-4">nothing yet</p>'
+            }
+            ${
+              paid
+                ? '<p class="text-center text-xs uppercase tracking-widest text-neutral-500 mb-2">change it to</p>'
+                : ''
+            }
             <div class="grid grid-cols-2 gap-3">
-              ${amounts
-                .map(
-                  (pence) =>
-                    `<button data-amount="${pence}" class="bg-amber text-black text-2xl font-bold rounded-xl py-5">${formatPounds(pence)}</button>`,
-                )
-                .join('')}
+              ${QUICK_AMOUNTS.map(
+                (pence) =>
+                  `<button data-amount="${pence}" class="bg-amber text-black text-2xl font-bold rounded-xl py-5">${formatPounds(pence)}</button>`,
+              ).join('')}
             </div>
-            <button data-sheet-close class="w-full mt-4 py-4 text-neutral-400 text-lg">Cancel</button>
+            <button data-other class="w-full mt-3 py-5 rounded-xl border-2 border-amber text-amber text-lg font-bold">Other amount…</button>
+            ${
+              paid
+                ? `<button data-clear class="w-full mt-3 py-5 rounded-xl border-2 border-red-500 text-red-400 text-lg font-semibold">Take it back — ${isGuest ? 'not paid' : 'nothing handed over'}</button>`
+                : ''
+            }
+            <button data-close class="w-full mt-3 py-4 text-neutral-400 text-lg">Cancel</button>
           </div>
         </div>`;
     }
 
-    function undoBar() {
-      const last = window.proto.lastAction();
-      if (!last) return '';
+    function keypad() {
+      const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'];
       return `
-        <div class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[388px] z-30 flex items-center gap-3 bg-neutral-100 text-black rounded-xl px-4 py-3 shadow-xl">
-          <span class="flex-1 text-sm leading-tight">${last.label}</span>
-          <button data-undo class="font-bold uppercase text-sm px-3 py-2 bg-black text-white rounded-lg">Undo</button>
+        <div class="fixed inset-0 z-50 bg-black flex flex-col max-w-[420px] mx-auto">
+          <div class="p-5 text-center border-b border-neutral-800">
+            <p class="text-neutral-400 text-sm">${keypadFor.firstName} ${keypadFor.surname}</p>
+            <p class="text-5xl font-bold text-amber mt-2">${formatPounds(keypadPence)}</p>
+          </div>
+          <div class="grid grid-cols-3 gap-px bg-neutral-800 flex-1">
+            ${keys
+              .map(
+                (key) =>
+                  `<button data-key="${key}" class="bg-black text-3xl font-semibold active:bg-neutral-800 ${
+                    key === 'clear' || key === 'back' ? 'text-neutral-400 text-xl' : ''
+                  }">${key === 'back' ? '⌫' : key === 'clear' ? 'clear' : key}</button>`,
+              )
+              .join('')}
+          </div>
+          <div class="p-3 grid grid-cols-2 gap-3">
+            <button data-key-cancel class="py-5 rounded-xl border-2 border-neutral-700 text-neutral-300 text-lg">Cancel</button>
+            <button data-key-confirm class="py-5 rounded-xl bg-amber text-black text-lg font-bold disabled:opacity-40" ${
+              keypadPence ? '' : 'disabled'
+            }>Take ${formatPounds(keypadPence)}</button>
+          </div>
         </div>`;
     }
 
+    function alphabetRail(people) {
+      const letters = [...new Set(people.map((p) => (p.surname[0] || '?').toUpperCase()))].sort();
+      return `
+        <nav class="fixed right-0 top-44 bottom-24 w-7 flex flex-col justify-center text-[11px] text-amber z-20">
+          ${letters.map((l) => `<button data-jump="${l}" class="py-0.5 font-semibold">${l}</button>`).join('')}
+        </nav>`;
+    }
+
+    function visiblePeople() {
+      const people = tab === 'usuals' ? model.expected : model.everyone;
+      if (!hereOnly) return people;
+      const extras = model.everyone.filter(
+        (person) => isIn(person) && !people.some((p) => p.id === person.id),
+      );
+      return [...people, ...extras].filter(isIn).sort((a, b) => a.surname.localeCompare(b.surname));
+    }
+
+    function visibleGuests() {
+      return hereOnly ? model.guests.filter(window.proto.guestEntry) : model.guests;
+    }
+
     function render() {
-      const people = tab === 'expected' ? model.expected : model.everyone;
+      const people = visiblePeople();
       const list =
         tab === 'guests'
-          ? model.guests.map(guestRow).join('')
+          ? visibleGuests().map(guestRow).join('')
           : people.map(personRow).join('');
+
+      const tabs = [
+        ['usuals', `Usuals ${model.expected.length}`],
+        ['all', `All ${model.everyone.length}`],
+        ['guests', `Guests ${model.guests.length}`],
+      ];
 
       root.innerHTML = `
         <header class="sticky top-0 z-20 bg-black border-b border-neutral-800">
@@ -117,35 +193,56 @@
             <p class="text-neutral-400 text-sm">${model.session.location}</p>
           </div>
           <div class="flex divide-x divide-neutral-800 border-t border-neutral-800 text-center">
-            <div class="flex-1 py-2">
+            <button data-here class="flex-1 py-2 ${hereOnly ? 'bg-amber text-black' : ''}">
               <p class="text-2xl font-bold">${window.proto.headcount()}</p>
-              <p class="text-[11px] uppercase tracking-wider text-neutral-500">signed in</p>
-            </div>
+              <p class="text-[11px] uppercase tracking-wider ${hereOnly ? 'text-black/70' : 'text-neutral-500'}">
+                ${hereOnly ? 'showing who is here' : 'here — tap to show'}
+              </p>
+            </button>
             <div class="flex-1 py-2">
               <p class="text-2xl font-bold text-amber">${formatPounds(window.proto.cashTotalPence())}</p>
               <p class="text-[11px] uppercase tracking-wider text-neutral-500">cash on this phone</p>
             </div>
           </div>
           <div class="flex gap-1 p-2 border-t border-neutral-800">
-            ${TABS.map(
-              ([key, label]) =>
-                `<button data-tab="${key}" class="flex-1 py-3 rounded-lg text-sm font-semibold ${
-                  tab === key ? 'bg-amber text-black' : 'bg-neutral-900 text-neutral-300'
-                }">${label()}</button>`,
-            ).join('')}
+            ${tabs
+              .map(
+                ([key, label]) =>
+                  `<button data-tab="${key}" class="flex-1 py-3 rounded-lg text-sm font-semibold ${
+                    tab === key ? 'bg-neutral-100 text-black' : 'bg-neutral-900 text-neutral-300'
+                  }">${label}</button>`,
+              )
+              .join('')}
           </div>
         </header>
 
         <ul class="flex-1">${list}</ul>
-        ${tab === 'all' ? alphabetRail(people) : ''}
-        ${undoBar()}
-        ${sheetFor ? cashSheet(sheetFor) : ''}
+        ${
+          list === ''
+            ? '<p class="px-4 py-10 text-center text-neutral-500">Nobody here yet from this list.</p>'
+            : ''
+        }
+        ${tab === 'all' && !hereOnly ? alphabetRail(people) : ''}
+        ${sheetFor ? sheet(sheetFor.who, sheetFor.paid, sheetFor.isGuest) : ''}
+        ${keypadFor ? keypad() : ''}
       `;
       wire();
     }
 
     function findPerson(id) {
-      return model.everyone.find((p) => p.id === id);
+      return model.everyone.find((person) => person.id === id);
+    }
+
+    function findGuest(id) {
+      return model.guests.find((guest) => guest.id === id);
+    }
+
+    function applyAmount(pence) {
+      if (sheetFor?.isGuest) window.proto.setGuestCash(sheetFor.who, pence);
+      else window.proto.setCash(sheetFor.who, pence);
+      sheetFor = null;
+      keypadFor = null;
+      render();
     }
 
     function wire() {
@@ -155,42 +252,72 @@
           render();
         }),
       );
-      root.querySelectorAll('[data-sign]').forEach((button) =>
+      root.querySelector('[data-here]')?.addEventListener('click', () => {
+        hereOnly = !hereOnly;
+        render();
+      });
+      root.querySelectorAll('[data-toggle]').forEach((button) =>
         button.addEventListener('click', () => {
-          const person = findPerson(button.dataset.sign);
-          if (window.proto.isIn(person)) return;
-          window.proto.signIn(person);
+          const person = findPerson(button.dataset.toggle);
+          window.proto.setAttendance(person, !isIn(person));
+        }),
+      );
+      root.querySelectorAll('[data-guest-toggle]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const guest = findGuest(button.dataset.guestToggle);
+          window.proto.setGuestAttendance(guest, !window.proto.guestEntry(guest));
         }),
       );
       root.querySelectorAll('[data-cash]').forEach((button) =>
         button.addEventListener('click', () => {
-          sheetFor = findPerson(button.dataset.cash);
+          const person = findPerson(button.dataset.cash);
+          sheetFor = { who: person, paid: cashFor(person), isGuest: false };
           render();
         }),
       );
-      root.querySelectorAll('[data-guest]').forEach((button) =>
+      root.querySelectorAll('[data-guest-cash]').forEach((button) =>
         button.addEventListener('click', () => {
-          const guest = model.guests.find((g) => g.id === button.dataset.guest);
-          window.proto.addGuest(guest, model.session.pricePence);
+          const guest = findGuest(button.dataset.guestCash);
+          const entry = window.proto.guestEntry(guest);
+          if (!entry) return;
+          sheetFor = { who: guest, paid: entry.pence, isGuest: true };
+          render();
         }),
       );
       root.querySelectorAll('[data-amount]').forEach((button) =>
-        button.addEventListener('click', () => {
-          window.proto.takeCash(sheetFor, Number(button.dataset.amount));
-          sheetFor = null;
-          render();
-        }),
+        button.addEventListener('click', () => applyAmount(Number(button.dataset.amount))),
       );
-      root.querySelector('[data-sheet-close]')?.addEventListener('click', () => {
+      root.querySelector('[data-clear]')?.addEventListener('click', () => applyAmount(0));
+      root.querySelector('[data-other]')?.addEventListener('click', () => {
+        keypadFor = sheetFor.who;
+        keypadPence = sheetFor.paid;
+        render();
+      });
+      root.querySelector('[data-close]')?.addEventListener('click', () => {
         sheetFor = null;
         render();
       });
-      root.querySelector('[data-undo]')?.addEventListener('click', () => window.proto.undoLast());
+      root.querySelectorAll('[data-key]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const key = button.dataset.key;
+          if (key === 'clear') keypadPence = 0;
+          else if (key === 'back') keypadPence = Math.floor(keypadPence / 10);
+          else keypadPence = Math.min(keypadPence * 10 + Number(key), 99999);
+          render();
+        }),
+      );
+      root.querySelector('[data-key-cancel]')?.addEventListener('click', () => {
+        keypadFor = null;
+        render();
+      });
+      root.querySelector('[data-key-confirm]')?.addEventListener('click', () =>
+        applyAmount(keypadPence),
+      );
       root.querySelectorAll('[data-jump]').forEach((button) =>
         button.addEventListener('click', () => {
           const letter = button.dataset.jump;
-          const target = [...root.querySelectorAll('[data-sign]')].find((el) =>
-            findPerson(el.dataset.sign).surname.toUpperCase().startsWith(letter),
+          const target = [...root.querySelectorAll('[data-toggle]')].find((el) =>
+            findPerson(el.dataset.toggle).surname.toUpperCase().startsWith(letter),
           );
           target?.scrollIntoView({ block: 'center' });
         }),

@@ -39,7 +39,7 @@ const model = buildRegistrarPrototypeModel(
 );
 
 const variants = {
-  A: 'Roll call list',
+  A: 'The list (chosen)',
   B: 'One at a time',
   C: 'Expected / Here board',
 } as const;
@@ -100,17 +100,67 @@ const variant: VariantKey =
         return state.signedIn.has(person.id);
       }
 
-      function signIn(person) {
-        if (isIn(person)) return;
-        state.signedIn.set(person.id, {
-          principalId: person.principalId,
-          pence: model.session.pricePence,
-        });
+      function setAttendance(person, present) {
+        if (present === isIn(person)) return;
+        if (present) {
+          state.signedIn.set(person.id, {
+            principalId: person.principalId,
+            pence: model.session.pricePence,
+          });
+        } else {
+          state.signedIn.delete(person.id);
+        }
         state.actions.push({
           kind: 'sign_in',
           person,
-          label: `${person.firstName} ${person.surname} signed in · ${formatPounds(model.session.pricePence)}`,
+          label: `${person.firstName} ${person.surname} ${present ? 'signed in' : 'taken back out'}`,
         });
+        emit();
+      }
+
+      function signIn(person) {
+        setAttendance(person, true);
+      }
+
+      // What this runner has handed over tonight, net of anything taken back.
+      // Entries are kept rather than edited, the way the ledger will keep them:
+      // changing £10 to £15 is a £5 line, taking it back is a −£10 line, and
+      // the running total nets out on its own.
+      function cashFor(person) {
+        return state.cash
+          .filter((entry) => entry.person.id === person.id)
+          .reduce((total, entry) => total + entry.pence, 0);
+      }
+
+      function setCash(person, targetPence) {
+        const delta = targetPence - cashFor(person);
+        if (delta === 0) return;
+        state.cash.push({
+          id: crypto.randomUUID(),
+          principalId: person.principalId,
+          person,
+          pence: delta,
+        });
+        emit();
+      }
+
+      function guestEntry(guest) {
+        return state.guestsIn.find((entry) => entry.guest.id === guest.id);
+      }
+
+      function setGuestAttendance(guest, present) {
+        if (present) {
+          if (!guestEntry(guest)) addGuest(guest, model.session.pricePence);
+          return;
+        }
+        state.guestsIn = state.guestsIn.filter((entry) => entry.guest.id !== guest.id);
+        emit();
+      }
+
+      function setGuestCash(guest, pence) {
+        const entry = guestEntry(guest);
+        if (!entry) return;
+        entry.pence = pence;
         emit();
       }
 
@@ -169,6 +219,12 @@ const variant: VariantKey =
         peopleByHousehold,
         isIn,
         signIn,
+        setAttendance,
+        cashFor,
+        setCash,
+        guestEntry,
+        setGuestAttendance,
+        setGuestCash,
         takeCash,
         addGuest,
         undoLast,

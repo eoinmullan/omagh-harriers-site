@@ -227,7 +227,7 @@ not in scope.
 ### Supabase additions
 - [x] Create `groups` table — `id`, `name`, `is_active`, `created_at`. The squads the club actually trains in — sprints, middle distance, endurance, seniors, juniors, and whatever is added next. Admins add them through the UI, so the list is never a deploy away
 - [x] Create `training_sessions` table — `id`, `name`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `location` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`
-- [ ] `price_pence` is set from a **£2** constant in code at creation time. The session keeps its own copy, so changing the constant never rewrites a session that has already run, and never touches the ledger, which records what was actually charged
+- [x] `price_pence` is set from a **£2** constant in code at creation time. The session keeps its own copy, so changing the constant never rewrites a session that has already run, and never touches the ledger, which records what was actually charged
 - [x] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the Usuals list useful on day one, before any attendance history exists
 - [x] Create `guests` table — `id`, `first_name`, `surname`, `created_at`, `created_by`. A returning guest is picked from this list rather than retyped, which also stops one person becoming three through spelling
 - [x] Create `attendance` table — `id`, `session_id` (FK → `training_sessions`), `member_id` (nullable), `guest_id` (nullable), `amount_paid_pence` (nullable, guests only — they pay instead of drawing on credit), `recorded_by`, `idempotency_key` (unique), `created_at`, with a CHECK that exactly one of `member_id` and `guest_id` is set
@@ -237,6 +237,19 @@ not in scope.
 - [x] **No `attendance_id` on `credit_transactions`** — the plan asked for one and the schema deliberately does without it. See *Unticking a sign-in* below
 - [x] RLS: `registrar`, `admin` and `superuser` can insert and read all attendance, sessions, groups and guests; members can read their own attendance and any session they attended. Guests have no login and so no read path of their own
 - [x] Members can be on multiple sessions on the same day — uniqueness is `(member_id, session_id)`, not `(member_id, date)`. Guests get the same treatment on `(guest_id, session_id)`
+
+#### Two groups nobody can tell apart
+
+The unique index is on `lower(name)`, so Postgres would happily hold both
+"Middle Distance" and "Middle-Distance". The admin screen refuses the second
+anyway, on the same flattening the name search uses — case, whitespace,
+apostrophes, hyphens and accents all folded away.
+
+Being stricter than the database is the point. A registrar picking a group from
+a list cannot tell those two apart, and a session created against the wrong one
+takes its attendance and its charges with it. The admin gets a sentence naming
+the group already using the name, which is also what the clash with a *retired*
+group says — bring that one back rather than standing a second one beside it.
 
 #### Unticking a sign-in
 
@@ -264,12 +277,12 @@ to untick somebody, which is the only reason they were caught before the first n
   one removes the row and the cash with it, exactly as the registrar screen promises
 
 ### Admin: session management (in the main site)
-- [ ] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2)
-- [ ] Manage groups from the same area — add one, rename one, retire one. A retired group keeps its history
-- [ ] Assign members to groups, so a new session's Usuals list is populated before anyone has attended anything
-- [ ] Allow editing name/location/price; cancellation is a soft-disable, not a row drop, so attendance history stays intact. A session that has attendance against it keeps its price — editing it would contradict the ledger
-- [ ] Past sessions are a first-class view, not a by-product: headcount, cash taken, and who recorded each entry
-- [ ] Add a `registrar` role — today the only role that can write is `admin`, which can also reassign roles, deactivate households and move balances. A volunteer signing runners in on a borrowed phone needs none of that
+- [x] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2). The start time is read as Omagh's clock rather than the Worker's UTC, so a summer session is not an hour out — `training/club-time.ts`
+- [x] Manage groups from the same area — add one, rename one, retire one. A retired group keeps its history. `/admin/groups`, with the near-duplicate check deliberately stricter than the `lower(name)` index — see *Two groups nobody can tell apart* below
+- [x] Assign members to groups, so a new session's Usuals list is populated before anyone has attended anything. `/admin/groups/[id]`, with the forgiving type-to-filter the registrar screen settled on, shared from `training/names.ts`
+- [x] Allow editing name/location/price; cancellation is a soft-disable, not a row drop, so attendance history stays intact. A session that has attendance against it keeps its price — editing it would contradict the ledger. The price field disables itself once somebody has signed in, and says why
+- [x] Past sessions are a first-class view, not a by-product: headcount, cash taken, and who recorded each entry. The per-registrar split only appears when more than one person recorded something, because that is the only time it is a question
+- [x] Add a `registrar` role — today the only role that can write is `admin`, which can also reassign roles, deactivate households and move balances. A volunteer signing runners in on a borrowed phone needs none of that. Granted from `/admin/principals/[id]`, which was already the superuser-only place roles are set
 
 ### PWA setup
 - [ ] Add `apps/signin` package to the existing pnpm monorepo (created in Phase 0) — Vite + React

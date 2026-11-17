@@ -188,7 +188,9 @@ for (const m of activeMembers ?? []) {
                         ? 'bg-purple-100 text-purple-700'
                         : p.role === 'admin'
                           ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-600'
+                          : p.role === 'registrar'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-gray-100 text-gray-600'
                     }`}
                   >
                     {p.role}

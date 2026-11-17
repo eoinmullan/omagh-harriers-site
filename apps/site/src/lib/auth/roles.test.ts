@@ -1,0 +1,69 @@
+import { describe, expect, it } from 'vitest';
+import { assignableRoles, planRoleChange, type RoleChange } from './roles';
+
+const SUPERUSER = 'superuser-principal-id';
+const TARGET = 'target-principal-id';
+
+function request(overrides: Partial<Parameters<typeof planRoleChange>[0]> = {}) {
+  return {
+    actingRole: 'superuser' as const,
+    actingPrincipalId: SUPERUSER,
+    targetPrincipalId: TARGET,
+    currentRole: 'member' as const,
+    requestedRole: 'registrar',
+    ...overrides,
+  };
+}
+
+function roleOf(change: RoleChange) {
+  if ('problem' in change) throw new Error(`expected a role, got: ${change.problem}`);
+  return change.role;
+}
+
+function problemOf(change: RoleChange): string {
+  if (!('problem' in change)) throw new Error('expected a problem');
+  return change.problem;
+}
+
+describe('assignableRoles', () => {
+  it('offers a superuser all four roles, registrar among them', () => {
+    expect(assignableRoles('superuser')).toEqual(['member', 'registrar', 'admin', 'superuser']);
+  });
+
+  it('offers an admin nothing — roles are not theirs to hand out', () => {
+    expect(assignableRoles('admin')).toEqual([]);
+    expect(assignableRoles('registrar')).toEqual([]);
+    expect(assignableRoles('member')).toEqual([]);
+  });
+});
+
+describe('planRoleChange', () => {
+  it('makes a volunteer a registrar', () => {
+    expect(roleOf(planRoleChange(request()))).toBe('registrar');
+  });
+
+  it('refuses anybody who is not a superuser', () => {
+    expect(problemOf(planRoleChange(request({ actingRole: 'admin' })))).toBe(
+      'Only a superuser can change roles.',
+    );
+  });
+
+  it('refuses a role that does not exist', () => {
+    expect(problemOf(planRoleChange(request({ requestedRole: 'treasurer' })))).toBe(
+      'Choose one of the four roles.',
+    );
+  });
+
+  it('says so when the role is already theirs', () => {
+    expect(
+      problemOf(planRoleChange(request({ currentRole: 'registrar', requestedRole: 'registrar' }))),
+    ).toBe('They are already registrar.');
+  });
+
+  it('refuses to let a superuser change their own role', () => {
+    const change = planRoleChange(
+      request({ targetPrincipalId: SUPERUSER, currentRole: 'superuser', requestedRole: 'admin' }),
+    );
+    expect(problemOf(change)).toContain('lock you out of this screen');
+  });
+});

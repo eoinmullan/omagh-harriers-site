@@ -1,0 +1,267 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import {
+  planGroupRename,
+  planGroupRetirement,
+  planGroupReturn,
+  planNewGroup,
+  type ExistingGroup,
+  type GroupChange,
+  type GroupCreation,
+} from '../../lib/training/groups';
+
+const {
+  data: { user },
+} = await Astro.locals.supabase.auth.getUser();
+if (!user) return Astro.redirect('/signin');
+
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+
+async function loadGroups(): Promise<ExistingGroup[]> {
+  const { data } = await adminClient
+    .from('groups')
+    .select('id, name, is_active')
+    .order('name');
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    isActive: row.is_active,
+  }));
+}
+
+let error: string | null = null;
+let success: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
+  const existing = await loadGroups();
+  const group = existing.find((candidate) => candidate.id === field('group_id'));
+
+  let plan: GroupCreation | GroupChange | undefined;
+  let confirmation = '';
+
+  switch (field('action')) {
+    case 'add': {
+      plan = planNewGroup({ name: field('name'), existing });
+      confirmation = `${field('name').trim()} added.`;
+      break;
+    }
+    case 'rename': {
+      plan = group
+        ? planGroupRename({ group, name: field('name'), existing })
+        : { problem: 'That group no longer exists.' };
+      confirmation = `Renamed to ${field('name').trim()}.`;
+      break;
+    }
+    case 'retire': {
+      plan = group ? planGroupRetirement(group) : { problem: 'That group no longer exists.' };
+      confirmation = `${group?.name} retired. Its sessions and their attendance are untouched.`;
+      break;
+    }
+    case 'return': {
+      plan = group ? planGroupReturn(group) : { problem: 'That group no longer exists.' };
+      confirmation = `${group?.name} is running again.`;
+      break;
+    }
+  }
+
+  if (!plan) {
+    error = 'Unknown action.';
+  } else if ('problem' in plan) {
+    error = plan.problem;
+  } else if ('insert' in plan) {
+    const { error: insertError } = await adminClient.from('groups').insert(plan.insert);
+    if (insertError) error = insertError.message;
+    else success = confirmation;
+  } else {
+    const { error: updateError } = await adminClient
+      .from('groups')
+      .update(plan.update)
+      .eq('id', group!.id);
+    if (updateError) error = updateError.message;
+    else success = confirmation;
+  }
+}
+
+const groups = await loadGroups();
+
+const { data: memberships } = await adminClient.from('member_groups').select('group_id');
+const { data: sessions } = await adminClient.from('training_sessions').select('group_id');
+
+function countBy(rows: { group_id: string }[] | null): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const row of rows ?? []) {
+    counts.set(row.group_id, (counts.get(row.group_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+const memberCounts = countBy(memberships);
+const sessionCounts = countBy(sessions);
+
+const running = groups.filter((group) => group.isActive);
+const retired = groups.filter((group) => !group.isActive);
+---
+
+<Layout title="Groups — Admin — Omagh Harriers AC">
+  <PageContainer>
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <p class="text-sm text-gray-500 mb-1">
+          <a href="/members" class="hover:underline">Members' area</a> / Admin
+        </p>
+        <h1 class="text-3xl font-bold">Groups</h1>
+        <p class="text-gray-500 mt-1">
+          The squads the club trains in. Every session belongs to one.
+        </p>
+      </div>
+      <a href="/admin/sessions" class="text-sm underline hover:text-gray-600"
+        >View sessions →</a
+      >
+    </div>
+
+    {
+      error && (
+        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
+          {error}
+        </div>
+      )
+    }
+    {
+      success && (
+        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
+          {success}
+        </div>
+      )
+    }
+
+    <section class="mb-10">
+      <h2 class="text-lg font-semibold mb-3">Add a group</h2>
+      <form method="POST" class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
+        <input type="hidden" name="action" value="add" />
+        <div>
+          <label class="block text-sm font-medium mb-1" for="new-group-name">Name</label>
+          <input
+            id="new-group-name"
+            type="text"
+            name="name"
+            placeholder="Middle Distance"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div class="flex items-end">
+          <button
+            type="submit"
+            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+            >Add</button
+          >
+        </div>
+      </form>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-lg font-semibold mb-4">Running ({running.length})</h2>
+
+      {
+        running.length > 0 ? (
+          <ul class="space-y-3">
+            {running.map((group) => (
+              <li class="border border-gray-200 rounded-lg px-5 py-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="font-medium">{group.name}</p>
+                    <p class="text-sm text-gray-500">
+                      {memberCounts.get(group.id) ?? 0} members ·{' '}
+                      {sessionCounts.get(group.id) ?? 0} sessions
+                    </p>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <a
+                      href={`/admin/groups/${group.id}`}
+                      class="text-sm underline hover:text-gray-600"
+                    >
+                      Assign members →
+                    </a>
+                    <form method="POST">
+                      <input type="hidden" name="action" value="retire" />
+                      <input type="hidden" name="group_id" value={group.id} />
+                      <button
+                        type="submit"
+                        class="border border-gray-300 text-gray-600 rounded px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors"
+                      >
+                        Retire
+                      </button>
+                    </form>
+                  </div>
+                </div>
+                <form method="POST" class="mt-3 flex gap-2">
+                  <input type="hidden" name="action" value="rename" />
+                  <input type="hidden" name="group_id" value={group.id} />
+                  <input
+                    type="text"
+                    name="name"
+                    value={group.name}
+                    required
+                    aria-label={`Rename ${group.name}`}
+                    class="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    type="submit"
+                    class="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                    >Rename</button
+                  >
+                </form>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-gray-500 text-sm">
+            No groups yet. A session cannot be created until there is one, so start
+            with the squads that train this week.
+          </p>
+        )
+      }
+    </section>
+
+    {
+      retired.length > 0 && (
+        <section class="mb-10">
+          <h2 class="text-lg font-semibold mb-4">Retired ({retired.length})</h2>
+          <ul class="space-y-3">
+            {retired.map((group) => (
+              <li class="border border-gray-200 rounded-lg px-5 py-4 flex flex-wrap items-center justify-between gap-3 opacity-70">
+                <div>
+                  <p class="font-medium">{group.name}</p>
+                  <p class="text-sm text-gray-500">
+                    {memberCounts.get(group.id) ?? 0} members ·{' '}
+                    {sessionCounts.get(group.id) ?? 0} sessions kept
+                  </p>
+                </div>
+                <form method="POST">
+                  <input type="hidden" name="action" value="return" />
+                  <input type="hidden" name="group_id" value={group.id} />
+                  <button
+                    type="submit"
+                    class="border border-gray-300 rounded px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors"
+                  >
+                    Bring back
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <p class="text-xs text-gray-400">
+      Retiring a group never deletes it. Its sessions and the attendance against
+      them stay exactly as they were.
+    </p>
+  </PageContainer>
+</Layout>

@@ -1,0 +1,382 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
+import { formatPounds } from '../../lib/credits/money';
+import { formatClubDateTime } from '../../lib/training/club-time';
+import { planNewSession, partitionByStart, type SessionGroup } from '../../lib/training/sessions';
+import {
+  countHeads,
+  summariseSessionCash,
+  type SessionAttendanceRow,
+  type SessionLedgerRow,
+} from '../../lib/training/session-cash';
+
+const {
+  data: { user },
+} = await Astro.locals.supabase.auth.getUser();
+if (!user) return Astro.redirect('/signin');
+
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+
+const { data: actingPrincipal } = await Astro.locals.supabase
+  .from('principals')
+  .select('id')
+  .eq('auth_user_id', user.id)
+  .maybeSingle();
+
+if (!actingPrincipal) return Astro.redirect('/signin');
+
+async function loadGroups(): Promise<SessionGroup[]> {
+  const { data } = await adminClient.from('groups').select('id, name, is_active').order('name');
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    isActive: row.is_active,
+  }));
+}
+
+let error: string | null = null;
+let success: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
+
+  const plan = planNewSession({
+    name: field('name'),
+    groupId: field('group_id'),
+    startsAt: field('starts_at'),
+    location: field('location'),
+    price: field('price'),
+    groups: await loadGroups(),
+    createdBy: actingPrincipal.id,
+  });
+
+  if ('problem' in plan) {
+    error = plan.problem;
+  } else {
+    const { error: insertError } = await adminClient
+      .from('training_sessions')
+      .insert(plan.insert);
+
+    if (insertError) {
+      console.error('[admin/sessions] session insert failed:', insertError);
+      error = insertError.message;
+    } else {
+      success = `${plan.insert.name} created for ${formatClubDateTime(plan.insert.starts_at)}.`;
+    }
+  }
+}
+
+const groups = await loadGroups();
+const runningGroups = groups.filter((group) => group.isActive);
+
+const { data: sessionRows } = await adminClient
+  .from('training_sessions')
+  .select('id, name, starts_at, location, price_pence, is_cancelled, group:group_id(name)')
+  .order('starts_at', { ascending: false });
+
+type SessionListRow = {
+  id: string;
+  name: string;
+  starts_at: string;
+  location: string | null;
+  price_pence: number;
+  is_cancelled: boolean;
+  group: { name: string } | null;
+};
+
+const sessions = ((sessionRows ?? []) as unknown as SessionListRow[]).map((row) => ({
+  ...row,
+  startsAt: row.starts_at,
+}));
+
+const { upcoming, past } = partitionByStart(sessions);
+
+// Headcount and cash for the past list, which is the view the committee
+// actually reads. Two queries for the whole list rather than two per row.
+const pastIds = past.map((session) => session.id);
+
+const { data: attendanceRows } = pastIds.length
+  ? await adminClient
+      .from('attendance')
+      .select('session_id, member_id, guest_id, amount_paid_pence, recorded_by')
+      .in('session_id', pastIds)
+  : { data: [] };
+
+const { data: ledgerRows } = pastIds.length
+  ? await adminClient
+      .from('credit_transactions')
+      .select('session_id, type, amount_pence, created_by')
+      .in('session_id', pastIds)
+  : { data: [] };
+
+const attendanceBySession = new Map<string, SessionAttendanceRow[]>();
+for (const row of attendanceRows ?? []) {
+  attendanceBySession.set(row.session_id, [
+    ...(attendanceBySession.get(row.session_id) ?? []),
+    {
+      memberId: row.member_id,
+      guestId: row.guest_id,
+      amountPaidPence: row.amount_paid_pence,
+      recordedBy: row.recorded_by,
+    },
+  ]);
+}
+
+const ledgerBySession = new Map<string, SessionLedgerRow[]>();
+for (const row of ledgerRows ?? []) {
+  if (!row.session_id) continue;
+  ledgerBySession.set(row.session_id, [
+    ...(ledgerBySession.get(row.session_id) ?? []),
+    { type: row.type, amountPence: row.amount_pence, recordedBy: row.created_by },
+  ]);
+}
+
+const pastWithFigures = past.map((session) => {
+  const attendance = attendanceBySession.get(session.id) ?? [];
+  return {
+    ...session,
+    heads: countHeads(attendance),
+    cash: summariseSessionCash({
+      ledger: ledgerBySession.get(session.id) ?? [],
+      attendance,
+    }),
+  };
+});
+
+const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
+---
+
+<Layout title="Sessions — Admin — Omagh Harriers AC">
+  <PageContainer>
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <p class="text-sm text-gray-500 mb-1">
+          <a href="/members" class="hover:underline">Members' area</a> / Admin
+        </p>
+        <h1 class="text-3xl font-bold">Training sessions</h1>
+        <p class="text-gray-500 mt-1">
+          {upcoming.length} coming up · {past.length} run
+        </p>
+      </div>
+      <a href="/admin/groups" class="text-sm underline hover:text-gray-600"
+        >Manage groups →</a
+      >
+    </div>
+
+    {
+      error && (
+        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
+          {error}
+        </div>
+      )
+    }
+    {
+      success && (
+        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
+          {success}
+        </div>
+      )
+    }
+
+    {
+      runningGroups.length === 0 ? (
+        <div class="mb-10 border border-gray-200 rounded-lg px-5 py-4">
+          <h2 class="text-lg font-semibold mb-1">Add a group first</h2>
+          <p class="text-sm text-gray-600">
+            Every session belongs to a group, and the registrar's list of who to
+            expect comes from it.{' '}
+            <a href="/admin/groups" class="underline">Add the squads that train this week →</a>
+          </p>
+        </div>
+      ) : (
+        <section class="mb-10">
+          <h2 class="text-lg font-semibold mb-3">Create a session</h2>
+          <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1" for="session-name">Name</label>
+              <input
+                id="session-name"
+                type="text"
+                name="name"
+                placeholder="Monday Track"
+                required
+                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" for="session-group">Group</label>
+              <select
+                id="session-group"
+                name="group_id"
+                required
+                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              >
+                <option value="">Choose a group…</option>
+                {runningGroups.map((group) => (
+                  <option value={group.id}>{group.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" for="session-starts-at">
+                Starts
+              </label>
+              <input
+                id="session-starts-at"
+                type="datetime-local"
+                name="starts_at"
+                required
+                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              />
+              <p class="text-xs text-gray-500 mt-1">Omagh time, as it reads on the night.</p>
+            </div>
+            <div class="grid grid-cols-[1fr_8rem] gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1" for="session-location">
+                  Location <span class="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  id="session-location"
+                  type="text"
+                  name="location"
+                  placeholder="Omagh Leisure Complex"
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1" for="session-price">Price</label>
+                <input
+                  id="session-price"
+                  type="text"
+                  name="price"
+                  inputmode="decimal"
+                  placeholder={usualPrice}
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div class="sm:col-span-2 flex items-center gap-4">
+              <button
+                type="submit"
+                class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+                >Create session</button
+              >
+              <p class="text-xs text-gray-500">
+                Leave the price blank for the usual {usualPrice}. The session keeps
+                its own copy, so a later change of the club price never rewrites a
+                session that has already run.
+              </p>
+            </div>
+          </form>
+        </section>
+      )
+    }
+
+    <section class="mb-10">
+      <h2 class="text-lg font-semibold mb-4">Coming up ({upcoming.length})</h2>
+
+      {
+        upcoming.length > 0 ? (
+          <ul class="divide-y divide-gray-100 border-t border-b border-gray-200">
+            {upcoming.map((session) => (
+              <li class="py-3 flex flex-wrap items-baseline justify-between gap-3">
+                <div>
+                  <p class:list={['font-medium', session.is_cancelled && 'line-through']}>
+                    {session.name}
+                  </p>
+                  <p class="text-sm text-gray-500">
+                    {formatClubDateTime(session.startsAt)} · {session.group?.name}
+                    {session.location ? ` · ${session.location}` : ''} ·{' '}
+                    {formatPounds(session.price_pence)}
+                  </p>
+                </div>
+                <div class="flex items-center gap-3">
+                  {session.is_cancelled && (
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                      Cancelled
+                    </span>
+                  )}
+                  <a
+                    href={`/admin/sessions/${session.id}`}
+                    class="text-xs underline hover:text-gray-600"
+                  >
+                    Open →
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-gray-500 text-sm">Nothing scheduled yet.</p>
+        )
+      }
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold mb-4">Already run ({past.length})</h2>
+
+      {
+        pastWithFigures.length > 0 ? (
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 text-left">
+                  <th class="pb-3 font-semibold">Session</th>
+                  <th class="pb-3 font-semibold">Group</th>
+                  <th class="pb-3 font-semibold text-right">Here</th>
+                  <th class="pb-3 font-semibold text-right">Money collected</th>
+                  <th class="pb-3" />
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                {pastWithFigures.map((session) => (
+                  <tr class={session.is_cancelled ? 'opacity-50' : ''}>
+                    <td class="py-3">
+                      <p class:list={['font-medium', session.is_cancelled && 'line-through']}>
+                        {session.name}
+                      </p>
+                      <p class="text-xs text-gray-500">
+                        {formatClubDateTime(session.startsAt)}
+                        {session.location ? ` · ${session.location}` : ''}
+                      </p>
+                    </td>
+                    <td class="py-3 text-gray-600">{session.group?.name}</td>
+                    <td class="py-3 text-right">
+                      {session.heads.total}
+                      {session.heads.guests > 0 && (
+                        <span class="text-xs text-gray-500">
+                          {' '}
+                          ({session.heads.guests} guest{session.heads.guests === 1 ? '' : 's'})
+                        </span>
+                      )}
+                    </td>
+                    <td class="py-3 text-right">{formatPounds(session.cash.totalPence)}</td>
+                    <td class="py-3 text-right">
+                      <a
+                        href={`/admin/sessions/${session.id}`}
+                        class="text-xs underline hover:text-gray-600"
+                      >
+                        Open →
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p class="text-gray-500 text-sm">No session has run yet.</p>
+        )
+      }
+      <p class="text-xs text-gray-400 mt-4">
+        Money collected is the cash taken at the session, less anything handed
+        back, plus what its guests paid. Session charges are left out — they move
+        credit out of a household's pot rather than money into the tin.
+      </p>
+    </section>
+  </PageContainer>
+</Layout>

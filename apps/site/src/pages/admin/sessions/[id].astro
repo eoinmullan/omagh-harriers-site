@@ -1,0 +1,492 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import PageContainer from '../../../components/PageContainer.astro';
+import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { formatBalance, formatPounds } from '../../../lib/credits/money';
+import { formatClubDateTime } from '../../../lib/training/club-time';
+import {
+  planCancellation,
+  planReinstatement,
+  planSessionEdit,
+  type SessionChange,
+} from '../../../lib/training/sessions';
+import {
+  countHeads,
+  summariseSessionCash,
+  type SessionAttendanceRow,
+  type SessionLedgerRow,
+} from '../../../lib/training/session-cash';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/sessions');
+
+const {
+  data: { user },
+} = await Astro.locals.supabase.auth.getUser();
+if (!user) return Astro.redirect('/signin');
+
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+
+const { data: actingPrincipal } = await Astro.locals.supabase
+  .from('principals')
+  .select('id')
+  .eq('auth_user_id', user.id)
+  .maybeSingle();
+
+if (!actingPrincipal) return Astro.redirect('/signin');
+
+async function loadSession(sessionId: string) {
+  const { data } = await adminClient
+    .from('training_sessions')
+    .select('id, name, starts_at, location, price_pence, is_cancelled, group:group_id(id, name)')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (!data) return undefined;
+
+  const row = data as unknown as {
+    id: string;
+    name: string;
+    starts_at: string;
+    location: string | null;
+    price_pence: number;
+    is_cancelled: boolean;
+    group: { id: string; name: string } | null;
+  };
+
+  return {
+    ...row,
+    pricePence: row.price_pence,
+    isCancelled: row.is_cancelled,
+  };
+}
+
+async function countAttendance(sessionId: string): Promise<number> {
+  const { count } = await adminClient
+    .from('attendance')
+    .select('id', { count: 'exact', head: true })
+    .eq('session_id', sessionId);
+  return count ?? 0;
+}
+
+let error: string | null = null;
+let success: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
+  const session = await loadSession(id);
+
+  if (!session) {
+    error = 'That session no longer exists.';
+  } else {
+    let plan: SessionChange | undefined;
+    let confirmation = '';
+
+    switch (field('action')) {
+      case 'edit': {
+        plan = planSessionEdit({
+          session,
+          name: field('name'),
+          location: field('location'),
+          price: field('price'),
+          attendanceCount: await countAttendance(id),
+        });
+        confirmation = 'Session updated.';
+        break;
+      }
+      case 'cancel': {
+        plan = planCancellation(session);
+        confirmation = `${session.name} cancelled. Its attendance and the charges against it are untouched.`;
+        break;
+      }
+      case 'reinstate': {
+        plan = planReinstatement(session);
+        confirmation = `${session.name} is back on.`;
+        break;
+      }
+    }
+
+    if (!plan) {
+      error = 'Unknown action.';
+    } else if ('problem' in plan) {
+      error = plan.problem;
+    } else {
+      const { error: updateError } = await adminClient
+        .from('training_sessions')
+        .update(plan.update)
+        .eq('id', id);
+
+      if (updateError) {
+        console.error('[admin/sessions] session update failed:', updateError);
+        error = updateError.message;
+      } else {
+        success = confirmation;
+      }
+    }
+  }
+}
+
+const session = await loadSession(id);
+if (!session) return Astro.redirect('/admin/sessions');
+
+const { data: attendanceRows } = await adminClient
+  .from('attendance')
+  .select(
+    'id, member_id, guest_id, amount_paid_pence, created_at, member:member_id(first_name, surname, principal:principal_id(display_name)), guest:guest_id(first_name, surname), recorder:recorded_by(display_name)',
+  )
+  .eq('session_id', id);
+
+type AttendanceDetailRow = {
+  id: string;
+  member_id: string | null;
+  guest_id: string | null;
+  amount_paid_pence: number | null;
+  created_at: string;
+  member: {
+    first_name: string;
+    surname: string;
+    principal: { display_name: string } | null;
+  } | null;
+  guest: { first_name: string; surname: string } | null;
+  recorder: { display_name: string } | null;
+};
+
+const attendanceDetail = (attendanceRows ?? []) as unknown as AttendanceDetailRow[];
+
+const { data: ledgerRows } = await adminClient
+  .from('credit_transactions')
+  .select(
+    'id, type, amount_pence, member_id, notes, created_at, principal:principal_id(display_name), recorder:created_by(display_name)',
+  )
+  .eq('session_id', id)
+  .order('created_at');
+
+type SessionLedgerDetailRow = {
+  id: string;
+  type: SessionLedgerRow['type'];
+  amount_pence: number;
+  member_id: string | null;
+  notes: string | null;
+  created_at: string;
+  principal: { display_name: string } | null;
+  recorder: { display_name: string } | null;
+};
+
+const ledgerDetail = (ledgerRows ?? []) as unknown as SessionLedgerDetailRow[];
+
+const attendanceForSummary: SessionAttendanceRow[] = attendanceDetail.map((row) => ({
+  memberId: row.member_id,
+  guestId: row.guest_id,
+  amountPaidPence: row.amount_paid_pence,
+  recordedBy: row.recorder?.display_name ?? null,
+}));
+
+const cash = summariseSessionCash({
+  ledger: ledgerDetail.map((row) => ({
+    type: row.type,
+    amountPence: row.amount_pence,
+    recordedBy: row.recorder?.display_name ?? null,
+  })),
+  attendance: attendanceForSummary,
+});
+
+const heads = countHeads(attendanceForSummary);
+
+// A member's charge is found through (member_id, session_id), which is the
+// join that stands in for the foreign key the schema deliberately does without.
+const chargeByMember = new Map<string, number>();
+for (const row of ledgerDetail) {
+  if (row.type === 'session' && row.member_id) {
+    chargeByMember.set(row.member_id, (chargeByMember.get(row.member_id) ?? 0) + row.amount_pence);
+  }
+}
+
+const signedIn = attendanceDetail
+  .map((row) => ({
+    id: row.id,
+    name: row.member
+      ? `${row.member.surname}, ${row.member.first_name}`
+      : row.guest
+        ? `${row.guest.surname}, ${row.guest.first_name}`
+        : 'Unknown',
+    household: row.member?.principal?.display_name ?? null,
+    isGuest: Boolean(row.guest_id),
+    paidPence: row.amount_paid_pence,
+    chargedPence: row.member_id ? chargeByMember.get(row.member_id) ?? null : null,
+    recordedBy: row.recorder?.display_name ?? 'Unattributed',
+    at: formatClubDateTime(row.created_at),
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
+
+const money = ledgerDetail
+  .filter((row) => row.type === 'top_up_cash' || row.type === 'refund')
+  .map((row) => ({
+    id: row.id,
+    household: row.principal?.display_name ?? 'Unknown household',
+    amountPence: row.amount_pence,
+    notes: row.notes,
+    recordedBy: row.recorder?.display_name ?? 'Unattributed',
+    at: formatClubDateTime(row.created_at),
+  }));
+
+const hasAttendance = attendanceDetail.length > 0;
+---
+
+<Layout title={`${session.name} — Sessions — Admin — Omagh Harriers AC`}>
+  <PageContainer>
+    <p class="text-sm text-gray-500 mb-6">
+      <a href="/members" class="hover:underline">Members' area</a> /
+      <a href="/admin/sessions" class="hover:underline">Sessions</a> /
+      {session.name}
+    </p>
+
+    {
+      error && (
+        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
+          {error}
+        </div>
+      )
+    }
+    {
+      success && (
+        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
+          {success}
+        </div>
+      )
+    }
+
+    <div class="bg-gray-50 border border-gray-200 rounded-lg px-6 py-5 mb-8">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 class:list={['text-2xl font-bold', session.isCancelled && 'line-through']}>
+            {session.name}
+          </h1>
+          <p class="text-gray-500 mt-1">
+            {formatClubDateTime(session.starts_at)} · {session.group?.name}
+            {session.location ? ` · ${session.location}` : ''}
+          </p>
+        </div>
+        <div class="flex gap-6 text-right">
+          <div>
+            <p class="text-sm text-gray-500">Here</p>
+            <p class="text-3xl font-bold">{heads.total}</p>
+            <p class="text-xs text-gray-500">
+              {heads.members} member{heads.members === 1 ? '' : 's'} · {heads.guests} guest
+              {heads.guests === 1 ? '' : 's'}
+            </p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Money collected</p>
+            <p class="text-3xl font-bold">{formatBalance(cash.totalPence)}</p>
+            <p class="text-xs text-gray-500">at {formatPounds(session.pricePence)} a session</p>
+          </div>
+        </div>
+      </div>
+      {
+        session.isCancelled && (
+          <p class="text-sm text-gray-500 mt-4">
+            This session is cancelled. Nothing recorded against it has been removed.
+          </p>
+        )
+      }
+    </div>
+
+    {
+      cash.byRecorder.length > 1 && (
+        <section class="mb-8">
+          <h2 class="text-lg font-semibold mb-3">Who took it</h2>
+          <ul class="divide-y divide-gray-100 border-t border-b border-gray-200">
+            {cash.byRecorder.map((recorder) => (
+              <li class="py-2.5 flex items-baseline justify-between gap-4">
+                <span>{recorder.recordedBy}</span>
+                <span class="font-medium">{formatBalance(recorder.totalPence)}</span>
+              </li>
+            ))}
+          </ul>
+          <p class="text-xs text-gray-500 mt-2">
+            Two phones were open on this session. This is the figure each of them
+            should be able to account for.
+          </p>
+        </section>
+      )
+    }
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">Details</h2>
+      <form method="POST" class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_8rem_auto] gap-4">
+        <input type="hidden" name="action" value="edit" />
+        <div>
+          <label class="block text-sm font-medium mb-1" for="edit-name">Name</label>
+          <input
+            id="edit-name"
+            type="text"
+            name="name"
+            value={session.name}
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="edit-location">
+            Location <span class="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            id="edit-location"
+            type="text"
+            name="location"
+            value={session.location ?? ''}
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="edit-price">Price</label>
+          <input
+            id="edit-price"
+            type="text"
+            name="price"
+            inputmode="decimal"
+            value={formatPounds(session.pricePence)}
+            disabled={hasAttendance}
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+          />
+        </div>
+        <div class="flex items-end">
+          <button
+            type="submit"
+            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+            >Save</button
+          >
+        </div>
+      </form>
+      <p class="text-xs text-gray-500 mt-2">
+        {
+          hasAttendance
+            ? `The price is settled: ${heads.total} ${heads.total === 1 ? 'runner has' : 'runners have'} signed in at ${formatPounds(session.pricePence)}, and the ledger records what they were charged. Cancel this session and create another if the price was wrong.`
+            : 'The group and the start time are fixed once a session exists — cancel it and create another if either was wrong.'
+        }
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-lg font-semibold mb-3">Status</h2>
+      {
+        session.isCancelled ? (
+          <form method="POST">
+            <input type="hidden" name="action" value="reinstate" />
+            <button
+              type="submit"
+              class="border border-green-300 text-green-700 rounded px-4 py-2 text-sm hover:bg-green-50 transition-colors"
+            >
+              Put it back on
+            </button>
+          </form>
+        ) : (
+          <form method="POST">
+            <input type="hidden" name="action" value="cancel" />
+            <button
+              type="submit"
+              class="border border-red-300 text-red-600 rounded px-4 py-2 text-sm hover:bg-red-50 transition-colors"
+              onclick="return confirm('Cancel this session? Nothing already recorded against it is removed.')"
+            >
+              Cancel session
+            </button>
+          </form>
+        )
+      }
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-lg font-semibold mb-4">Who was here ({signedIn.length})</h2>
+
+      {
+        signedIn.length > 0 ? (
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 text-left">
+                  <th class="pb-3 font-semibold">Name</th>
+                  <th class="pb-3 font-semibold">Household</th>
+                  <th class="pb-3 font-semibold text-right">Charged</th>
+                  <th class="pb-3 font-semibold">Recorded by</th>
+                  <th class="pb-3 font-semibold">At</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                {signedIn.map((line) => (
+                  <tr>
+                    <td class="py-3 font-medium">
+                      {line.name}
+                      {line.isGuest && (
+                        <span class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          guest
+                        </span>
+                      )}
+                    </td>
+                    <td class="py-3 text-gray-600">{line.household ?? '—'}</td>
+                    <td class="py-3 text-right">
+                      {line.isGuest
+                        ? line.paidPence
+                          ? `${formatPounds(line.paidPence)} cash`
+                          : '—'
+                        : line.chargedPence
+                          ? `${formatPounds(line.chargedPence)} credit`
+                          : 'not charged'}
+                    </td>
+                    <td class="py-3 text-gray-600">{line.recordedBy}</td>
+                    <td class="py-3 text-gray-500 text-xs">{line.at}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p class="text-gray-500 text-sm">
+            Nobody has been signed in to this session yet.
+          </p>
+        )
+      }
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold mb-4">Cash taken ({money.length})</h2>
+
+      {
+        money.length > 0 ? (
+          <ul class="divide-y divide-gray-100 border-t border-b border-gray-200">
+            {money.map((line) => (
+              <li class="py-3 flex flex-wrap items-baseline justify-between gap-4">
+                <div>
+                  <p class="font-medium">
+                    {formatBalance(line.amountPence)} · {line.household}
+                  </p>
+                  <p class="text-xs text-gray-500 mt-0.5">
+                    {line.at} · recorded by {line.recordedBy}
+                    {line.notes ? ` · ${line.notes}` : ''}
+                  </p>
+                </div>
+                <span
+                  class:list={[
+                    'text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap',
+                    line.amountPence > 0
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-600',
+                  ]}
+                >
+                  {line.amountPence > 0 ? 'Taken in' : 'Handed back'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-gray-500 text-sm">No cash was recorded at this session.</p>
+        )
+      }
+      <p class="text-xs text-gray-400 mt-4">
+        A guest's payment is on their own row above rather than here: they hold no
+        credit for it to go into. Session charges are left out of the total, since
+        they move credit out of a household's pot rather than money into the tin.
+      </p>
+    </section>
+  </PageContainer>
+</Layout>

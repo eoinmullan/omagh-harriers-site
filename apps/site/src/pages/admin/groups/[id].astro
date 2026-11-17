@@ -1,0 +1,256 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import PageContainer from '../../../components/PageContainer.astro';
+import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { isEmpty, planGroupMembership } from '../../../lib/training/groups';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/groups');
+
+const {
+  data: { user },
+} = await Astro.locals.supabase.auth.getUser();
+if (!user) return Astro.redirect('/signin');
+
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+
+// Surname first, so siblings sit together — the same ordering the registrar
+// app uses at the track.
+async function loadMembers() {
+  const { data } = await adminClient
+    .from('members')
+    .select('id, first_name, surname')
+    .eq('is_active', true)
+    .order('surname')
+    .order('first_name');
+  return data ?? [];
+}
+
+async function loadMemberIdsInGroup(groupId: string): Promise<string[]> {
+  const { data } = await adminClient
+    .from('member_groups')
+    .select('member_id')
+    .eq('group_id', groupId);
+  return (data ?? []).map((row) => row.member_id);
+}
+
+let error: string | null = null;
+let success: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const members = await loadMembers();
+
+  const change = planGroupMembership({
+    groupId: id,
+    current: await loadMemberIdsInGroup(id),
+    selected: formData.getAll('member_id').map(String),
+    eligible: members.map((member) => member.id),
+  });
+
+  if (isEmpty(change)) {
+    success = 'Nothing was changed.';
+  } else {
+    const failures: string[] = [];
+
+    if (change.add.length > 0) {
+      const { error: insertError } = await adminClient.from('member_groups').insert(change.add);
+      if (insertError) failures.push(insertError.message);
+    }
+
+    if (change.remove.length > 0) {
+      const { error: deleteError } = await adminClient
+        .from('member_groups')
+        .delete()
+        .eq('group_id', id)
+        .in('member_id', change.remove);
+      if (deleteError) failures.push(deleteError.message);
+    }
+
+    if (failures.length > 0) {
+      console.error('[admin/groups] membership write failed:', failures);
+      error = failures.join(' ');
+    } else {
+      success = `${describeChange(change.add.length, 'added')}, ${describeChange(change.remove.length, 'removed')}.`;
+    }
+  }
+}
+
+function describeChange(count: number, verb: string): string {
+  return count === 1 ? `1 member ${verb}` : `${count} members ${verb}`;
+}
+
+const { data: group } = await adminClient
+  .from('groups')
+  .select('id, name, is_active')
+  .eq('id', id)
+  .maybeSingle();
+
+if (!group) return Astro.redirect('/admin/groups');
+
+const members = await loadMembers();
+const inGroup = new Set(await loadMemberIdsInGroup(id));
+
+// Which other squads each member already trains with — the context that makes
+// a junior in the sprint group obvious at a glance.
+const { data: allMemberships } = await adminClient
+  .from('member_groups')
+  .select('member_id, group:group_id(name)');
+
+type MembershipRow = { member_id: string; group: { name: string } | null };
+
+const otherGroupNames = new Map<string, string[]>();
+for (const row of (allMemberships ?? []) as unknown as MembershipRow[]) {
+  if (!row.group || row.group.name === group.name) continue;
+  otherGroupNames.set(row.member_id, [
+    ...(otherGroupNames.get(row.member_id) ?? []),
+    row.group.name,
+  ]);
+}
+---
+
+<Layout title={`${group.name} — Groups — Admin — Omagh Harriers AC`}>
+  <PageContainer>
+    <p class="text-sm text-gray-500 mb-6">
+      <a href="/members" class="hover:underline">Members' area</a> /
+      <a href="/admin/groups" class="hover:underline">Groups</a> /
+      {group.name}
+    </p>
+
+    {
+      error && (
+        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
+          {error}
+        </div>
+      )
+    }
+    {
+      success && (
+        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
+          {success}
+        </div>
+      )
+    }
+
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold">{group.name}</h1>
+      <p class="text-gray-500 mt-1">
+        {inGroup.size} of {members.length} members train with this group.
+      </p>
+      {
+        !group.is_active && (
+          <p class="text-sm text-gray-500 mt-2">
+            This group is retired. Its membership can still be corrected, but no
+            new session can be created for it.
+          </p>
+        )
+      }
+    </div>
+
+    <form method="POST">
+      <div
+        class="flex flex-wrap items-center gap-3 mb-4 sticky top-0 bg-white py-3 border-b border-gray-200"
+      >
+        <input
+          id="member-search"
+          type="search"
+          placeholder="Type part of a name…"
+          autocomplete="off"
+          class="flex-1 min-w-48 border border-gray-300 rounded px-3 py-2 text-sm"
+        />
+        <p id="member-count" class="text-sm text-gray-500" aria-live="polite"></p>
+        <button
+          type="submit"
+          class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+          >Save</button
+        >
+      </div>
+
+      <ul id="member-list" class="divide-y divide-gray-100 border-b border-gray-200">
+        {
+          members.map((member) => (
+            <li
+              data-member-row
+              data-first-name={member.first_name}
+              data-surname={member.surname}
+            >
+              <label class="flex items-center gap-3 py-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="member_id"
+                  value={member.id}
+                  checked={inGroup.has(member.id)}
+                  class="h-5 w-5 rounded border-gray-300"
+                />
+                <span class="font-medium">
+                  {member.surname}, {member.first_name}
+                </span>
+                {otherGroupNames.get(member.id) && (
+                  <span class="text-xs text-gray-400">
+                    {otherGroupNames.get(member.id)!.sort().join(' · ')}
+                  </span>
+                )}
+              </label>
+            </li>
+          ))
+        }
+      </ul>
+
+      {
+        members.length === 0 && (
+          <p class="text-gray-500 text-sm py-8">
+            No active members to assign. Run the Klubfunder sync first.
+          </p>
+        )
+      }
+
+      <div class="mt-6 flex items-center gap-4">
+        <button
+          type="submit"
+          class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+          >Save</button
+        >
+        <p class="text-xs text-gray-500">
+          The ticks are the whole truth about this group. Filtering the list does
+          not change what is saved.
+        </p>
+      </div>
+    </form>
+  </PageContainer>
+</Layout>
+
+<script>
+  import { matchesName } from '../../../lib/training/names';
+
+  const search = document.getElementById('member-search') as HTMLInputElement | null;
+  const count = document.getElementById('member-count');
+  const rows = [
+    ...document.querySelectorAll<HTMLLIElement>('#member-list li[data-member-row]'),
+  ];
+
+  function nameOf(row: HTMLLIElement) {
+    return {
+      firstName: row.dataset.firstName ?? '',
+      surname: row.dataset.surname ?? '',
+    };
+  }
+
+  function applyFilter() {
+    const term = search?.value ?? '';
+    let shown = 0;
+
+    for (const row of rows) {
+      const matches = matchesName(nameOf(row), term);
+      row.hidden = !matches;
+      if (matches) shown += 1;
+    }
+
+    if (count) {
+      count.textContent =
+        shown === rows.length ? `${rows.length} members` : `${shown} of ${rows.length}`;
+    }
+  }
+
+  search?.addEventListener('input', applyFilter);
+  applyFilter();
+</script>

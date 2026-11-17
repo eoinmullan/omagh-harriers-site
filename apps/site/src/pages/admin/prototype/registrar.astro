@@ -122,13 +122,17 @@ const variant: VariantKey =
         setAttendance(person, true);
       }
 
-      // What this runner has handed over tonight, net of anything taken back.
-      // Entries are kept rather than edited, the way the ledger will keep them:
-      // changing £10 to £15 is a £5 line, taking it back is a −£10 line, and
-      // the running total nets out on its own.
+      // What this HOUSEHOLD has handed over tonight, net of anything taken
+      // back. Credit is a household pot, so the money going into it is a
+      // household fact too — £10 handed over for one of three siblings reads
+      // the same on all three rows, because it is the same £10.
+      //
+      // Entries are kept rather than edited, the way the ledger will keep
+      // them: changing £10 to £15 is a £5 line, taking it back is a −£10 line,
+      // and the running total nets out on its own.
       function cashFor(person) {
         return state.cash
-          .filter((entry) => entry.person.id === person.id)
+          .filter((entry) => entry.principalId === person.principalId)
           .reduce((total, entry) => total + entry.pence, 0);
       }
 

@@ -15,21 +15,33 @@
     let hereOnly = false;
     let sheetFor = null;
     let keypadFor = null;
+    let keypadTitle = '';
     let keypadPence = 0;
 
     const QUICK_AMOUNTS = [200, 500, 1000, 2000];
 
     function cashLabel(pence) {
-      if (!pence) return '+&nbsp;£';
       return pence % 100 === 0 ? `£${pence / 100}` : formatPounds(pence);
     }
 
+    // The line under a name says one thing and says it the same way every
+    // time: what the household's pot holds right now. The tick takes £2 off
+    // it, the cash cell puts money on, so both controls are legible here
+    // without this line ever having to narrate them. Colour carries the
+    // warning so the words never have to change.
     function balanceNote(person) {
       const balance = balanceFor(person);
-      if (balance < 0) return { text: `${formatBalance(balance)} owing`, tone: 'text-red-400' };
-      if (balance < model.session.pricePence)
-        return { text: `${formatBalance(balance)} — needs to pay`, tone: 'text-amber' };
-      return { text: `${formatBalance(balance)} credit`, tone: 'text-neutral-400' };
+      const tone =
+        balance < 0
+          ? 'text-red-400'
+          : balance < model.session.pricePence
+            ? 'text-amber'
+            : 'text-neutral-400';
+      return { text: `${formatBalance(balance)} · ${person.householdName}`, tone };
+    }
+
+    function householdOf(person) {
+      return window.proto.peopleByHousehold(person.principalId);
     }
 
     function checkbox(checked) {
@@ -41,10 +53,15 @@
 
     function cashCell(pence, { dataset }) {
       return `
-        <button ${dataset} class="w-[68px] shrink-0 border-l border-neutral-800 flex items-center justify-center active:bg-neutral-800 ${
+        <button ${dataset} class="w-[72px] shrink-0 border-l border-neutral-800 flex flex-col items-center justify-center leading-none active:bg-neutral-800 ${
           pence ? 'bg-amber/10' : ''
         }">
-          <span class="${pence ? 'text-amber font-bold text-base' : 'text-neutral-500 text-sm'}">${cashLabel(pence)}</span>
+          ${
+            pence
+              ? `<span class="text-amber font-bold text-base">${cashLabel(pence)}</span>
+                 <span class="block mt-1 text-[10px] uppercase tracking-wider text-neutral-500">added</span>`
+              : '<span class="text-neutral-600 text-sm">+&nbsp;£</span>'
+          }
         </button>`;
     }
 
@@ -61,9 +78,7 @@
                 <span class="font-bold uppercase tracking-wide">${person.surname}</span>,
                 <span class="font-normal">${person.firstName}</span>
               </span>
-              <span class="block text-sm truncate ${here ? 'text-emerald-400' : note.tone}">
-                ${here ? `In · ${formatPounds(model.session.pricePence)} charged` : note.text} · ${person.householdName}
-              </span>
+              <span class="block text-sm truncate ${note.tone}">${note.text}</span>
             </span>
           </button>
           ${cashCell(paid, { dataset: `data-cash="${person.id}"` })}
@@ -81,9 +96,7 @@
                 <span class="font-bold uppercase tracking-wide">${guest.surname}</span>,
                 <span class="font-normal">${guest.firstName}</span>
               </span>
-              <span class="block text-sm truncate ${entry ? 'text-emerald-400' : 'text-neutral-400'}">
-                ${entry ? `In · paid ${formatPounds(entry.pence)}` : 'Guest — pays on the night'}
-              </span>
+              <span class="block text-sm truncate text-neutral-400">Guest — holds no credit</span>
             </span>
           </button>
           ${cashCell(entry ? entry.pence : 0, { dataset: `data-guest-cash="${guest.id}"` })}
@@ -91,12 +104,20 @@
     }
 
     function sheet(person, paid, isGuest) {
-      const name = `${person.firstName} ${person.surname}`;
+      const title = isGuest
+        ? `${person.firstName} ${person.surname}`
+        : `${person.householdName} household`;
+      const who = isGuest
+        ? 'Guest — pays on the night'
+        : householdOf(person)
+            .map((member) => member.firstName)
+            .join(', ');
       return `
         <div class="fixed inset-0 z-40 flex items-end bg-black/70" data-backdrop>
           <div class="w-full max-w-[420px] mx-auto bg-neutral-900 rounded-t-2xl p-4 pb-8 border-t border-neutral-700">
-            <p class="text-center text-neutral-400 text-sm">${paid ? 'Tonight' : 'Cash from'}</p>
-            <p class="text-center text-xl font-bold mb-1">${name}</p>
+            <p class="text-center text-neutral-400 text-sm">${paid ? 'Added tonight' : 'Cash from'}</p>
+            <p class="text-center text-xl font-bold">${title}</p>
+            <p class="text-center text-neutral-500 text-sm mb-1">${who}</p>
             ${
               paid
                 ? `<p class="text-center text-amber text-3xl font-bold mb-4">${formatPounds(paid)}</p>`
@@ -116,7 +137,7 @@
             <button data-other class="w-full mt-3 py-5 rounded-xl border-2 border-amber text-amber text-lg font-bold">Other amount…</button>
             ${
               paid
-                ? `<button data-clear class="w-full mt-3 py-5 rounded-xl border-2 border-red-500 text-red-400 text-lg font-semibold">Take it back — ${isGuest ? 'not paid' : 'nothing handed over'}</button>`
+                ? '<button data-clear class="w-full mt-3 py-5 rounded-xl border-2 border-red-500 text-red-400 text-lg font-semibold">Take it back — nothing handed over</button>'
                 : ''
             }
             <button data-close class="w-full mt-3 py-4 text-neutral-400 text-lg">Cancel</button>
@@ -129,7 +150,7 @@
       return `
         <div class="fixed inset-0 z-50 bg-black flex flex-col max-w-[420px] mx-auto">
           <div class="p-5 text-center border-b border-neutral-800">
-            <p class="text-neutral-400 text-sm">${keypadFor.firstName} ${keypadFor.surname}</p>
+            <p class="text-neutral-400 text-sm">${keypadTitle}</p>
             <p class="text-5xl font-bold text-amber mt-2">${formatPounds(keypadPence)}</p>
           </div>
           <div class="grid grid-cols-3 gap-px bg-neutral-800 flex-1">
@@ -290,6 +311,9 @@
       root.querySelector('[data-clear]')?.addEventListener('click', () => applyAmount(0));
       root.querySelector('[data-other]')?.addEventListener('click', () => {
         keypadFor = sheetFor.who;
+        keypadTitle = sheetFor.isGuest
+          ? `${sheetFor.who.firstName} ${sheetFor.who.surname}`
+          : `${sheetFor.who.householdName} household`;
         keypadPence = sheetFor.paid;
         render();
       });

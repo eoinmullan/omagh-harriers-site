@@ -246,6 +246,43 @@ describe('computePlan', () => {
     expect(plan.members.lapse).toHaveLength(1);
   });
 
+  it('lapses a member who leaves a household that is still in the CSV', () => {
+    const existing: ExistingState = {
+      principals: [principal()],
+      members: [
+        member({ id: 'm-stays', first_name: 'Hannah' }),
+        member({ id: 'm-leaves', first_name: 'Niamh' }),
+      ],
+    };
+
+    const plan = computePlan([row({ firstName: 'Hannah' })], existing);
+
+    expect(plan.members.lapse.map((a) => a.id)).toEqual(['m-leaves']);
+    expect(plan.principals.lapse).toEqual([]);
+  });
+
+  it('keeps a lapsed member on the household rather than removing them', () => {
+    const existing: ExistingState = {
+      principals: [principal()],
+      members: [member({ id: 'm-leaves' })],
+    };
+
+    const plan = computePlan([], existing);
+
+    expect(plan.members.lapse).toEqual([{ id: 'm-leaves', naturalKey: 'hannah|mccullagh|2013-12-07' }]);
+  });
+
+  it('does NOT lapse a manual-source member absent from the CSV', () => {
+    const existing: ExistingState = {
+      principals: [principal()],
+      members: [member({ id: 'm-manual', source: 'manual' })],
+    };
+
+    const plan = computePlan([row({ firstName: 'Someone', surname: 'Else' })], existing);
+
+    expect(plan.members.lapse).toEqual([]);
+  });
+
   it('does NOT lapse a manual-source principal', () => {
     const existing: ExistingState = {
       principals: [principal({ source: 'manual' })],

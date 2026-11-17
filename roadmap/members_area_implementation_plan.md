@@ -267,7 +267,8 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [ ] The registrar can add somebody to the list or drop them from it by hand. The system suggests; the person holding the phone decides
 - [ ] Second toggle: the full member list. Third toggle: guests seen before, so a returning non-member is a tap rather than a retype
 - [ ] **Order everyone by surname, everywhere.** Siblings arrive together, so the next two people the registrar needs are adjacent
-- [ ] **Who is here so far** is a filter over whichever list is open, reached by tapping the signed-in count in the header — the number and the names behind it are the same control. Taken from the rejected board prototype, where watching the night fill up was the one thing it did better
+- [ ] **Both figures in the header are filters.** Tapping the headcount shows who is here; tapping **Money collected** shows who has handed something over. A number and the names behind it are one control, so when the tin does not match there is nothing to go hunting for. One filter at a time — tapping either clears the other — and both answer for the whole night, not just the list that happens to be open, or the number would be describing people the registrar cannot see
+- [ ] The here filter is taken from the rejected board prototype, where watching the night fill up was the one thing it did better than a list
 - [ ] Getting around 300 names: an A–Z index down the edge of the list, jumping to a surname initial. Worth revisiting once the Usuals list is real, because reaching for the full list should be the exception
 
 ### Registrar experience
@@ -287,7 +288,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [ ] **Taking a cash payment back writes a `refund`, not a negative top-up.** The sign CHECK forbids a negative `top_up_cash`, and a `manual_adjustment` would be both unattached to the session and misleading on the member's page. `refund` is already constrained negative and already means money going back out, so the running total nets out on its own
 - [ ] Unticking a guest deletes the attendance row. Guests have no ledger to compensate against, and attendance is not append-only — only `credit_transactions` is
 - [ ] `describeEntry` should surface a refund's note the way it does for an adjustment. *"£10.00 deducted — refunded"* does not say why, and a keying slip corrected in front of the member deserves a reason
-- [ ] The total is only complete once every device has synced. A registrar working offline sees what their own phone has taken, not the session's — say so on screen rather than showing a confident wrong number
+- [ ] The total is only complete once every device has synced. A registrar working offline sees what their own phone has taken, not the session's — say so on screen rather than showing a confident wrong number. The figure is labelled **Money collected**, so that caveat has to appear under it when it applies rather than hiding in the label, which is the right trade: the common case reads plainly and the exception announces itself
 - [ ] **Two registrars at once.** A busy track will have more than one phone open on the same session. Idempotency keys stop a double charge; the view should also not fight itself when somebody else's sign-in arrives
 - [ ] **Built for the conditions.** Large targets, high contrast, legible under floodlights and in rain, usable one-handed and with cold fingers. No small text, no long presses, no precision gestures
 - [ ] Paper fallback — a printable session list, for the night a phone dies

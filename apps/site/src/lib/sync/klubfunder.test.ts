@@ -13,12 +13,25 @@ import {
 const HEADER =
   'First Name,Surname,Date of Birth,Select gender,First line of address,Town,Postcode,Athletic Association Number,Personal Best,Select Team,Parent or Guardian Full Name,Parent or Guardian Contact number,Parent or Guardian Email,List any Medical Conditions/Allergies that the club should be aware of.,"Photos consent","By ticking this box you are agreeing that you have read and agree to adhere to your clubs policies",Status';
 
+const LEGACY_HEADER = HEADER;
+const HEADER_WITH_ID = `MemberId,${HEADER}`;
+
+// Rows are written without an id so each test reads as its own case; the real
+// export carries one on every row, so csv() supplies a distinct one.
 function csv(...lines: string[]): string {
-  return [HEADER, ...lines].join('\n');
+  return [
+    HEADER_WITH_ID,
+    ...lines.map((line, index) => `${90000 + index},${line}`),
+  ].join('\n');
+}
+
+function legacyCsv(...lines: string[]): string {
+  return [LEGACY_HEADER, ...lines].join('\n');
 }
 
 function row(overrides: Partial<KlubfunderRow> = {}): KlubfunderRow {
   return {
+    klubfunderMemberId: null,
     firstName: 'Hannah',
     surname: 'McCullagh',
     dateOfBirth: '2013-12-07',
@@ -53,6 +66,7 @@ function member(overrides: Partial<MemberRow> = {}): MemberRow {
   return {
     id: 'm-1',
     principal_id: 'p-1',
+    klubfunder_member_id: null,
     first_name: 'Hannah',
     surname: 'McCullagh',
     date_of_birth: '2013-12-07',
@@ -140,6 +154,25 @@ describe('parseKlubfunderCSV', () => {
       csv('A,B,2010-01-01,Male,,,,,,,,,a@b.com,,,,Lapsed'),
     );
     expect(result.rows[0].status).toBe('lapsed');
+  });
+
+  it('warns that matching will fall back when the CSV has no MemberId column', () => {
+    const result = parseKlubfunderCSV(
+      legacyCsv('Hannah,McCullagh,2013-12-07,Female,,,,,,,,,rmccullagh@hotmail.com,,,,Paid'),
+    );
+
+    expect(result.rows[0].klubfunderMemberId).toBeNull();
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toMatch(/matched on name and date of birth/);
+  });
+
+  it('reads the Klubfunder id from the MemberId column', () => {
+    const result = parseKlubfunderCSV(
+      csv('Hannah,McCullagh,2013-12-07,Female,,,,,,,,,rmccullagh@hotmail.com,,,,Paid'),
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.rows[0].klubfunderMemberId).toBe('90000');
   });
 
   it('throws on missing required columns', () => {
@@ -269,7 +302,7 @@ describe('computePlan', () => {
 
     const plan = computePlan([], existing);
 
-    expect(plan.members.lapse).toEqual([{ id: 'm-leaves', naturalKey: 'hannah|mccullagh|2013-12-07' }]);
+    expect(plan.members.lapse).toEqual([{ id: 'm-leaves', label: 'Hannah McCullagh' }]);
   });
 
   it('does NOT lapse a manual-source member absent from the CSV', () => {
@@ -320,7 +353,79 @@ describe('computePlan', () => {
     expect(plan.principals.lapse.map((a) => a.id)).toContain('p-old');
   });
 
-  it('treats a name spelling change as a new member, not a rename', () => {
+  it('treats a surname change as an edit when the Klubfunder id matches', () => {
+    const existing: ExistingState = {
+      principals: [principal()],
+      members: [member({ id: 'm-1', klubfunder_member_id: '14188', surname: 'Armstrong' })],
+    };
+
+    const plan = computePlan(
+      [row({ klubfunderMemberId: '14188', surname: 'Armstrong left' })],
+      existing,
+    );
+
+    expect(plan.members.add).toEqual([]);
+    expect(plan.members.lapse).toEqual([]);
+    expect(plan.members.update).toHaveLength(1);
+    expect(plan.members.update[0].changes).toEqual({ surname: 'Armstrong left' });
+  });
+
+  it('treats a corrected date of birth as an edit when the Klubfunder id matches', () => {
+    const existing: ExistingState = {
+      principals: [principal()],
+      members: [member({ klubfunder_member_id: '25085', date_of_birth: '2015-12-02' })],
+    };
+
+    const plan = computePlan(
+      [row({ klubfunderMemberId: '25085', dateOfBirth: '2016-12-02' })],
+      existing,
+    );
+
+    expect(plan.members.lapse).toEqual([]);
+    expect(plan.members.update[0].changes).toEqual({ dateOfBirth: '2016-12-02' });
+  });
+
+  it('backfills the Klubfunder id onto a member matched by name and date of birth', () => {
+    const existing: ExistingState = {
+      principals: [principal()],
+      members: [member({ klubfunder_member_id: null })],
+    };
+
+    const plan = computePlan([row({ klubfunderMemberId: '14188' })], existing);
+
+    expect(plan.members.update[0].changes).toEqual({ klubfunderMemberId: '14188' });
+  });
+
+  it('does not match on name and date of birth when the member already has a different id', () => {
+    const existing: ExistingState = {
+      principals: [principal()],
+      members: [member({ id: 'm-other', klubfunder_member_id: '11111' })],
+    };
+
+    const plan = computePlan([row({ klubfunderMemberId: '22222' })], existing);
+
+    expect(plan.members.add).toHaveLength(1);
+    expect(plan.members.lapse.map((a) => a.id)).toEqual(['m-other']);
+  });
+
+  it('lapses a member whose Klubfunder id is absent from the CSV', () => {
+    const existing: ExistingState = {
+      principals: [principal()],
+      members: [
+        member({ id: 'm-stays', klubfunder_member_id: '111', first_name: 'Hannah' }),
+        member({ id: 'm-leaves', klubfunder_member_id: '222', first_name: 'Niamh' }),
+      ],
+    };
+
+    const plan = computePlan(
+      [row({ klubfunderMemberId: '111', firstName: 'Hannah' })],
+      existing,
+    );
+
+    expect(plan.members.lapse.map((a) => a.id)).toEqual(['m-leaves']);
+  });
+
+  it('treats a name spelling change as a new member when no Klubfunder id is present', () => {
     const existing: ExistingState = {
       principals: [principal()],
       members: [member({ first_name: 'Hannah' })],

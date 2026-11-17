@@ -56,6 +56,7 @@ export type PrincipalUpdate = {
 export type MemberRow = {
   id: string;
   principal_id: string;
+  klubfunder_member_id: string | null;
   first_name: string;
   surname: string;
   date_of_birth: string;
@@ -72,6 +73,7 @@ export type MemberRow = {
 export type MemberInsert = {
   id?: string;
   principal_id: string;
+  klubfunder_member_id?: string | null;
   first_name: string;
   surname: string;
   date_of_birth: string;
@@ -88,6 +90,7 @@ export type MemberInsert = {
 export type MemberUpdate = {
   id?: string;
   principal_id?: string;
+  klubfunder_member_id?: string | null;
   first_name?: string;
   surname?: string;
   date_of_birth?: string;

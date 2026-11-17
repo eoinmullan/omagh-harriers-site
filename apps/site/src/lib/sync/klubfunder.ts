@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import type {
   MemberRow,
   MemberStatus,
+  MemberUpdate,
   PrincipalRow,
 } from '../supabase/types';
 import type { SupabaseAdminClient } from '../supabase/admin';
@@ -11,6 +12,7 @@ import type { SupabaseAdminClient } from '../supabase/admin';
 // =============================================================================
 
 export interface KlubfunderRow {
+  klubfunderMemberId: string | null;
   firstName: string;
   surname: string;
   dateOfBirth: string; // ISO date YYYY-MM-DD
@@ -51,8 +53,19 @@ export interface PrincipalLapseAction {
   email: string;
 }
 
+export interface MemberChanges {
+  firstName?: string;
+  surname?: string;
+  dateOfBirth?: string;
+  gender?: string | null;
+  athleticAssociationNumber?: string | null;
+  status?: MemberStatus;
+  klubfunderMemberId?: string;
+}
+
 export interface MemberAddAction {
-  naturalKey: string;
+  label: string;
+  klubfunderMemberId: string | null;
   principalEmail: string;
   firstName: string;
   surname: string;
@@ -64,32 +77,26 @@ export interface MemberAddAction {
 
 export interface MemberMoveAction {
   id: string;
-  naturalKey: string;
+  label: string;
   newPrincipalEmail: string;
   oldPrincipalEmail: string;
 }
 
 export interface MemberReactivateAction {
   id: string;
-  naturalKey: string;
-  gender: string | null;
-  athleticAssociationNumber: string | null;
-  status: MemberStatus;
+  label: string;
+  changes: MemberChanges;
 }
 
 export interface MemberUpdateAction {
   id: string;
-  naturalKey: string;
-  changes: {
-    gender?: string | null;
-    athleticAssociationNumber?: string | null;
-    status?: MemberStatus;
-  };
+  label: string;
+  changes: MemberChanges;
 }
 
 export interface MemberLapseAction {
   id: string;
-  naturalKey: string;
+  label: string;
 }
 
 export interface SyncPlan {
@@ -139,6 +146,7 @@ export class KlubfunderParseError extends Error {}
 // =============================================================================
 
 interface RawCsvRow {
+  MemberId?: string;
   'First Name'?: string;
   Surname?: string;
   'Date of Birth'?: string;
@@ -148,6 +156,8 @@ interface RawCsvRow {
   'Parent or Guardian Email'?: string;
   Status?: string;
 }
+
+const KLUBFUNDER_ID_COLUMN = 'MemberId';
 
 const REQUIRED_COLUMNS = [
   'First Name',
@@ -185,6 +195,13 @@ export function parseKlubfunderCSV(csv: string): ParseResult {
 
   const rows: KlubfunderRow[] = [];
   const warnings: string[] = [];
+
+  if (!headers.includes(KLUBFUNDER_ID_COLUMN)) {
+    warnings.push(
+      `No ${KLUBFUNDER_ID_COLUMN} column: members will be matched on name and date of birth, ` +
+        'so an edited name or a corrected date of birth will read as a departure and a new arrival.',
+    );
+  }
 
   result.data.forEach((raw, index) => {
     const rowNumber = index + 2; // +1 for 0-based, +1 for header
@@ -224,6 +241,7 @@ export function parseKlubfunderCSV(csv: string): ParseResult {
     }
 
     rows.push({
+      klubfunderMemberId: nullIfEmpty((raw[KLUBFUNDER_ID_COLUMN] ?? '').trim()),
       firstName,
       surname,
       dateOfBirth,
@@ -274,6 +292,63 @@ function memberNaturalKeyFromRow(m: {
   date_of_birth: string;
 }): string {
   return memberNaturalKey(m.first_name, m.surname, m.date_of_birth);
+}
+
+// An id match is definitive. Falling back to the natural key is only safe for a
+// member who has no id yet — one that already carries a different id is someone
+// else who happens to share a name and date of birth.
+function matchExistingMember(
+  row: KlubfunderRow,
+  naturalKey: string,
+  byKlubfunderId: Map<string, MemberRow>,
+  byNaturalKey: Map<string, MemberRow>,
+): MemberRow | undefined {
+  const matchedById = row.klubfunderMemberId
+    ? byKlubfunderId.get(row.klubfunderMemberId)
+    : undefined;
+  if (matchedById) return matchedById;
+
+  const matchedByKey = byNaturalKey.get(naturalKey);
+  return matchedByKey && !matchedByKey.klubfunder_member_id
+    ? matchedByKey
+    : undefined;
+}
+
+function memberChanges(existing: MemberRow, row: KlubfunderRow): MemberChanges {
+  const changes: MemberChanges = {};
+  if (existing.first_name !== row.firstName) changes.firstName = row.firstName;
+  if (existing.surname !== row.surname) changes.surname = row.surname;
+  if (existing.date_of_birth !== row.dateOfBirth) {
+    changes.dateOfBirth = row.dateOfBirth;
+  }
+  if (existing.gender !== row.gender) changes.gender = row.gender;
+  if (existing.athletic_association_number !== row.athleticAssociationNumber) {
+    changes.athleticAssociationNumber = row.athleticAssociationNumber;
+  }
+  if (existing.status !== row.status) changes.status = row.status;
+  if (
+    row.klubfunderMemberId &&
+    existing.klubfunder_member_id !== row.klubfunderMemberId
+  ) {
+    changes.klubfunderMemberId = row.klubfunderMemberId;
+  }
+  return changes;
+}
+
+function memberUpdateFromChanges(changes: MemberChanges): MemberUpdate {
+  const updates: MemberUpdate = {};
+  if ('firstName' in changes) updates.first_name = changes.firstName;
+  if ('surname' in changes) updates.surname = changes.surname;
+  if ('dateOfBirth' in changes) updates.date_of_birth = changes.dateOfBirth;
+  if ('gender' in changes) updates.gender = changes.gender;
+  if ('athleticAssociationNumber' in changes) {
+    updates.athletic_association_number = changes.athleticAssociationNumber;
+  }
+  if ('status' in changes) updates.status = changes.status;
+  if ('klubfunderMemberId' in changes) {
+    updates.klubfunder_member_id = changes.klubfunderMemberId;
+  }
+  return updates;
 }
 
 export function deriveDisplayName(rowsForEmail: KlubfunderRow[]): string {
@@ -363,30 +438,44 @@ export function computePlan(
     }
   }
 
-  // Index existing members by natural key.
+  // The Klubfunder id is the identity. The natural key only has to carry
+  // members who were registered before the export included an id.
+  const membersByKlubfunderId = new Map<string, MemberRow>();
   const membersByKey = new Map<string, MemberRow>();
   for (const m of existing.members) {
+    if (m.klubfunder_member_id) {
+      membersByKlubfunderId.set(m.klubfunder_member_id, m);
+    }
     membersByKey.set(memberNaturalKeyFromRow(m), m);
   }
 
   // === Member actions ===
-  const csvKeys = new Set<string>();
+  const matchedMemberIds = new Set<string>();
+  const seenKlubfunderIds = new Set<string>();
+  const seenKeys = new Set<string>();
 
   for (const row of rows) {
+    const label = `${row.firstName} ${row.surname}`;
     const key = memberNaturalKey(row.firstName, row.surname, row.dateOfBirth);
-    if (csvKeys.has(key)) {
+
+    const isDuplicate = row.klubfunderMemberId
+      ? seenKlubfunderIds.has(row.klubfunderMemberId)
+      : seenKeys.has(key);
+    if (isDuplicate) {
       warnings.push(
-        `Row ${row.rowNumber} (${row.firstName} ${row.surname}): duplicate of an earlier row; skipping`,
+        `Row ${row.rowNumber} (${label}): duplicate of an earlier row; skipping`,
       );
       continue;
     }
-    csvKeys.add(key);
+    if (row.klubfunderMemberId) seenKlubfunderIds.add(row.klubfunderMemberId);
+    seenKeys.add(key);
 
-    const existingM = membersByKey.get(key);
+    const existingM = matchExistingMember(row, key, membersByKlubfunderId, membersByKey);
 
     if (!existingM) {
       plan.members.add.push({
-        naturalKey: key,
+        label,
+        klubfunderMemberId: row.klubfunderMemberId,
         principalEmail: row.email,
         firstName: row.firstName,
         surname: row.surname,
@@ -403,6 +492,8 @@ export function computePlan(
       continue;
     }
 
+    matchedMemberIds.add(existingM.id);
+
     const existingPrincipal = principalsById.get(existingM.principal_id);
     const oldPrincipalEmail =
       existingPrincipal?.email.toLowerCase() ?? '<unknown>';
@@ -410,48 +501,33 @@ export function computePlan(
     if (oldPrincipalEmail !== row.email) {
       plan.members.move.push({
         id: existingM.id,
-        naturalKey: key,
+        label,
         newPrincipalEmail: row.email,
         oldPrincipalEmail,
       });
     }
 
+    const changes = memberChanges(existingM, row);
+
     if (!existingM.is_active) {
-      plan.members.reactivate.push({
-        id: existingM.id,
-        naturalKey: key,
-        gender: row.gender,
-        athleticAssociationNumber: row.athleticAssociationNumber,
-        status: row.status,
-      });
+      plan.members.reactivate.push({ id: existingM.id, label, changes });
       continue;
     }
 
-    const changes: MemberUpdateAction['changes'] = {};
-    if (existingM.gender !== row.gender) changes.gender = row.gender;
-    if (
-      existingM.athletic_association_number !== row.athleticAssociationNumber
-    ) {
-      changes.athleticAssociationNumber = row.athleticAssociationNumber;
-    }
-    if (existingM.status !== row.status) changes.status = row.status;
-
     if (Object.keys(changes).length > 0) {
-      plan.members.update.push({
-        id: existingM.id,
-        naturalKey: key,
-        changes,
-      });
+      plan.members.update.push({ id: existingM.id, label, changes });
     }
   }
 
-  // Members to lapse: klubfunder-sourced, currently active, not in CSV.
+  // Members to lapse: klubfunder-sourced, currently active, unmatched by the CSV.
   for (const m of existing.members) {
     if (m.source !== 'klubfunder') continue;
     if (!m.is_active) continue;
-    const key = memberNaturalKeyFromRow(m);
-    if (csvKeys.has(key)) continue;
-    plan.members.lapse.push({ id: m.id, naturalKey: key });
+    if (matchedMemberIds.has(m.id)) continue;
+    plan.members.lapse.push({
+      id: m.id,
+      label: `${m.first_name} ${m.surname}`,
+    });
   }
 
   // Principals to lapse: klubfunder-sourced, currently active, email not in CSV.
@@ -474,6 +550,13 @@ export function computePlan(
 // =============================================================================
 // Plan description (for CLI output and future UI)
 // =============================================================================
+
+function describeChanges(changes: MemberChanges): string {
+  const bits = Object.entries(changes).map(
+    ([field, value]) => `${field}=${JSON.stringify(value)}`,
+  );
+  return bits.length > 0 ? ` (${bits.join(', ')})` : '';
+}
 
 export function describePlan(plan: SyncPlan): string {
   const lines: string[] = [];
@@ -510,22 +593,19 @@ export function describePlan(plan: SyncPlan): string {
   }
   lines.push(`  Move       (${members.move.length})`);
   for (const a of members.move) {
-    lines.push(`    → ${a.naturalKey} (${a.oldPrincipalEmail} → ${a.newPrincipalEmail})`);
+    lines.push(`    → ${a.label} (${a.oldPrincipalEmail} → ${a.newPrincipalEmail})`);
   }
   lines.push(`  Reactivate (${members.reactivate.length})`);
   for (const a of members.reactivate) {
-    lines.push(`    ↻ ${a.naturalKey}`);
+    lines.push(`    ↻ ${a.label}${describeChanges(a.changes)}`);
   }
   lines.push(`  Update     (${members.update.length})`);
   for (const a of members.update) {
-    const changeBits = Object.entries(a.changes)
-      .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-      .join(', ');
-    lines.push(`    ✎ ${a.naturalKey} (${changeBits})`);
+    lines.push(`    ✎ ${a.label}${describeChanges(a.changes)}`);
   }
   lines.push(`  Lapse      (${members.lapse.length})`);
   for (const a of members.lapse) {
-    lines.push(`    - ${a.naturalKey}`);
+    lines.push(`    - ${a.label}`);
   }
 
   if (warnings.length > 0) {
@@ -749,6 +829,7 @@ export async function applyPlan(
     try {
       const { error: insertErr } = await supabase.from('members').insert({
         principal_id: principalId,
+        klubfunder_member_id: action.klubfunderMemberId,
         first_name: action.firstName,
         surname: action.surname,
         date_of_birth: action.dateOfBirth,
@@ -774,7 +855,7 @@ export async function applyPlan(
     const principalId = resolvePrincipalId(
       action.newPrincipalEmail,
       'member.move',
-      action.naturalKey,
+      action.label,
     );
     if (!principalId) continue;
     try {
@@ -790,7 +871,7 @@ export async function applyPlan(
     } catch (e) {
       result.errors.push({
         action: 'member.move',
-        detail: action.naturalKey,
+        detail: action.label,
         error: errorMessage(e),
       });
     }
@@ -802,10 +883,8 @@ export async function applyPlan(
       const { error } = await supabase
         .from('members')
         .update({
+          ...memberUpdateFromChanges(action.changes),
           is_active: true,
-          status: action.status,
-          gender: action.gender,
-          athletic_association_number: action.athleticAssociationNumber,
           last_seen_in_klubfunder_at: now,
         })
         .eq('id', action.id);
@@ -814,7 +893,7 @@ export async function applyPlan(
     } catch (e) {
       result.errors.push({
         action: 'member.reactivate',
-        detail: action.naturalKey,
+        detail: action.label,
         error: errorMessage(e),
       });
     }
@@ -823,26 +902,19 @@ export async function applyPlan(
   // === Member: update ===
   for (const action of plan.members.update) {
     try {
-      const updates: import('../supabase/types').MemberUpdate = {
-        last_seen_in_klubfunder_at: now,
-      };
-      if ('gender' in action.changes) updates.gender = action.changes.gender;
-      if ('athleticAssociationNumber' in action.changes) {
-        updates.athletic_association_number =
-          action.changes.athleticAssociationNumber;
-      }
-      if ('status' in action.changes) updates.status = action.changes.status;
-
       const { error } = await supabase
         .from('members')
-        .update(updates)
+        .update({
+          ...memberUpdateFromChanges(action.changes),
+          last_seen_in_klubfunder_at: now,
+        })
         .eq('id', action.id);
       if (error) throw new Error(error.message);
       result.members.updated++;
     } catch (e) {
       result.errors.push({
         action: 'member.update',
-        detail: action.naturalKey,
+        detail: action.label,
         error: errorMessage(e),
       });
     }
@@ -863,7 +935,7 @@ export async function applyPlan(
     } catch (e) {
       result.errors.push({
         action: 'member.lapse',
-        detail: action.naturalKey,
+        detail: action.label,
         error: errorMessage(e),
       });
     }

@@ -76,6 +76,15 @@ Run the dry run first and review the plan. The plan is grouped by action:
 | **Update** member | `status`, `gender`, or `athletic_association_number` changed |
 | **Lapse** member | Klubfunder-sourced member absent from the current export → `is_active=false`, `status='lapsed'` |
 
+### Member identity
+
+Members are matched on Klubfunder's own `MemberId`, not on their name. Name and
+date of birth are ordinary editable fields — correcting a typo at the source is
+an **Update**, not a departure and a new arrival. A member with no id yet falls
+back to first name + surname + date of birth for one sync, which attaches the id;
+after that the name is free to change. An export with no `MemberId` column still
+works and says so in the warnings, on the old fragile terms.
+
 The script always uses `source='klubfunder'` for the rows it creates and **never touches** rows tagged `source='manual'` (admin-added principals/members are immune from lapsing).
 
 No emails are sent: auth users are created with `email_confirm: true`, which skips Supabase's confirmation-email step.

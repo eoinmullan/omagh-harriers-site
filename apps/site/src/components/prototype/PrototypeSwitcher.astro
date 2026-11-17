@@ -1,0 +1,70 @@
+---
+// PROTOTYPE — throwaway. The bar is deliberately ugly so nobody mistakes it for
+// part of the design being judged.
+interface Props {
+  variants: Record<string, string>;
+  current: string;
+  sessionName: string;
+  expectedCount: number;
+  totalCount: number;
+}
+
+const { variants, current, sessionName, expectedCount, totalCount } = Astro.props;
+const keys = Object.keys(variants);
+---
+
+{
+  import.meta.env.DEV && (
+    <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-full bg-fuchsia-600 text-white shadow-2xl ring-4 ring-fuchsia-300/40 px-2 py-1.5 font-mono text-xs">
+      <button
+        type="button"
+        data-step="-1"
+        class="px-3 py-2 rounded-full hover:bg-fuchsia-700 text-base leading-none"
+        aria-label="Previous variant">←</button
+      >
+      <span class="px-2 whitespace-nowrap">
+        {current} — {variants[current]}
+      </span>
+      <button
+        type="button"
+        data-step="1"
+        class="px-3 py-2 rounded-full hover:bg-fuchsia-700 text-base leading-none"
+        aria-label="Next variant">→</button
+      >
+      <span class="px-2 border-l border-fuchsia-400/60 text-fuchsia-100 whitespace-nowrap">
+        {sessionName} · {expectedCount} expected of {totalCount}
+      </span>
+      <button
+        type="button"
+        data-reset
+        class="px-3 py-2 rounded-full hover:bg-fuchsia-700"
+        aria-label="Reset prototype state">reset</button
+      >
+    </div>
+  )
+}
+
+<script is:inline define:vars={{ keys, current }}>
+  function goTo(step) {
+    const next = keys[(keys.indexOf(current) + step + keys.length) % keys.length];
+    const url = new URL(window.location.href);
+    url.searchParams.set('variant', next);
+    window.location.href = url.toString();
+  }
+
+  document.querySelectorAll('[data-step]').forEach((button) => {
+    button.addEventListener('click', () => goTo(Number(button.dataset.step)));
+  });
+
+  document.querySelector('[data-reset]')?.addEventListener('click', () => {
+    window.location.reload();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (document.activeElement?.isContentEditable) return;
+    if (event.key === 'ArrowLeft') goTo(-1);
+    if (event.key === 'ArrowRight') goTo(1);
+  });
+</script>

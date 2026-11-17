@@ -1,0 +1,203 @@
+---
+// PROTOTYPE A — "Roll call list". One scrolling list, the row itself is the
+// sign-in button, state shown in place so nothing moves under the thumb.
+// Closest to Spond, and the conservative answer.
+---
+
+<script is:inline>
+  (function () {
+    const root = document.getElementById('variant-root');
+    if (!root || !window.proto) return;
+
+    const { model, formatBalance, formatPounds, balanceFor, isIn } = window.proto;
+    let tab = 'expected';
+    let sheetFor = null;
+
+    const TABS = [
+      ['expected', () => `Expected ${model.expected.length}`],
+      ['all', () => `All ${model.everyone.length}`],
+      ['guests', () => `Guests ${model.guests.length}`],
+    ];
+
+    function balanceNote(person) {
+      const balance = balanceFor(person);
+      if (balance < 0) return { text: `${formatBalance(balance)} owing`, tone: 'text-red-400' };
+      if (balance < model.session.pricePence)
+        return { text: `${formatBalance(balance)} — needs to pay`, tone: 'text-amber' };
+      return { text: `${formatBalance(balance)} credit`, tone: 'text-neutral-400' };
+    }
+
+    function personRow(person) {
+      const here = isIn(person);
+      const note = balanceNote(person);
+      return `
+        <li>
+          <div class="flex items-stretch border-b border-neutral-800 ${here ? 'bg-emerald-950' : ''}">
+            <button data-sign="${person.id}" class="flex-1 text-left px-4 py-3 min-h-[76px] flex flex-col justify-center active:bg-neutral-800">
+              <span class="text-lg leading-tight">
+                <span class="font-bold uppercase tracking-wide">${person.surname}</span>,
+                <span class="font-normal">${person.firstName}</span>
+              </span>
+              <span class="text-sm ${here ? 'text-emerald-400' : note.tone}">
+                ${here ? `Signed in · ${formatPounds(model.session.pricePence)} charged` : `${note.text} · ${person.householdName}`}
+              </span>
+            </button>
+            <button data-cash="${person.id}" class="w-16 shrink-0 border-l border-neutral-800 text-amber text-xl font-bold active:bg-neutral-800" aria-label="Take cash">£</button>
+            <div class="w-12 shrink-0 flex items-center justify-center text-2xl ${here ? 'text-emerald-400' : 'text-neutral-700'}">
+              ${here ? '✓' : '○'}
+            </div>
+          </div>
+        </li>`;
+    }
+
+    function guestRow(guest) {
+      return `
+        <li class="flex items-stretch border-b border-neutral-800">
+          <button data-guest="${guest.id}" class="flex-1 text-left px-4 py-3 min-h-[76px] flex flex-col justify-center active:bg-neutral-800">
+            <span class="text-lg leading-tight">
+              <span class="font-bold uppercase tracking-wide">${guest.surname}</span>,
+              <span class="font-normal">${guest.firstName}</span>
+            </span>
+            <span class="text-sm text-neutral-400">Guest — pays tonight</span>
+          </button>
+          <div class="w-12 shrink-0 flex items-center justify-center text-neutral-700 text-2xl">○</div>
+        </li>`;
+    }
+
+    function alphabetRail(people) {
+      const letters = [...new Set(people.map((p) => p.surname[0].toUpperCase()))].sort();
+      return `
+        <nav class="fixed right-0 top-32 bottom-28 w-7 flex flex-col justify-center text-[11px] text-amber z-20">
+          ${letters.map((l) => `<button data-jump="${l}" class="py-0.5 font-semibold">${l}</button>`).join('')}
+        </nav>`;
+    }
+
+    function cashSheet(person) {
+      const amounts = [200, 500, 1000, 2000];
+      return `
+        <div class="fixed inset-0 z-40 flex items-end bg-black/70" data-sheet-backdrop>
+          <div class="w-full max-w-[420px] mx-auto bg-neutral-900 rounded-t-2xl p-4 pb-8 border-t border-neutral-700">
+            <p class="text-center text-neutral-400 text-sm mb-1">Cash from</p>
+            <p class="text-center text-xl font-bold mb-4">${person.firstName} ${person.surname}</p>
+            <div class="grid grid-cols-2 gap-3">
+              ${amounts
+                .map(
+                  (pence) =>
+                    `<button data-amount="${pence}" class="bg-amber text-black text-2xl font-bold rounded-xl py-5">${formatPounds(pence)}</button>`,
+                )
+                .join('')}
+            </div>
+            <button data-sheet-close class="w-full mt-4 py-4 text-neutral-400 text-lg">Cancel</button>
+          </div>
+        </div>`;
+    }
+
+    function undoBar() {
+      const last = window.proto.lastAction();
+      if (!last) return '';
+      return `
+        <div class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[388px] z-30 flex items-center gap-3 bg-neutral-100 text-black rounded-xl px-4 py-3 shadow-xl">
+          <span class="flex-1 text-sm leading-tight">${last.label}</span>
+          <button data-undo class="font-bold uppercase text-sm px-3 py-2 bg-black text-white rounded-lg">Undo</button>
+        </div>`;
+    }
+
+    function render() {
+      const people = tab === 'expected' ? model.expected : model.everyone;
+      const list =
+        tab === 'guests'
+          ? model.guests.map(guestRow).join('')
+          : people.map(personRow).join('');
+
+      root.innerHTML = `
+        <header class="sticky top-0 z-20 bg-black border-b border-neutral-800">
+          <div class="px-4 pt-4 pb-3">
+            <p class="text-amber text-xs uppercase tracking-widest">${model.session.startsAt}</p>
+            <h1 class="text-2xl font-bold">${model.session.name}</h1>
+            <p class="text-neutral-400 text-sm">${model.session.location}</p>
+          </div>
+          <div class="flex divide-x divide-neutral-800 border-t border-neutral-800 text-center">
+            <div class="flex-1 py-2">
+              <p class="text-2xl font-bold">${window.proto.headcount()}</p>
+              <p class="text-[11px] uppercase tracking-wider text-neutral-500">signed in</p>
+            </div>
+            <div class="flex-1 py-2">
+              <p class="text-2xl font-bold text-amber">${formatPounds(window.proto.cashTotalPence())}</p>
+              <p class="text-[11px] uppercase tracking-wider text-neutral-500">cash on this phone</p>
+            </div>
+          </div>
+          <div class="flex gap-1 p-2 border-t border-neutral-800">
+            ${TABS.map(
+              ([key, label]) =>
+                `<button data-tab="${key}" class="flex-1 py-3 rounded-lg text-sm font-semibold ${
+                  tab === key ? 'bg-amber text-black' : 'bg-neutral-900 text-neutral-300'
+                }">${label()}</button>`,
+            ).join('')}
+          </div>
+        </header>
+
+        <ul class="flex-1">${list}</ul>
+        ${tab === 'all' ? alphabetRail(people) : ''}
+        ${undoBar()}
+        ${sheetFor ? cashSheet(sheetFor) : ''}
+      `;
+      wire();
+    }
+
+    function findPerson(id) {
+      return model.everyone.find((p) => p.id === id);
+    }
+
+    function wire() {
+      root.querySelectorAll('[data-tab]').forEach((button) =>
+        button.addEventListener('click', () => {
+          tab = button.dataset.tab;
+          render();
+        }),
+      );
+      root.querySelectorAll('[data-sign]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const person = findPerson(button.dataset.sign);
+          if (window.proto.isIn(person)) return;
+          window.proto.signIn(person);
+        }),
+      );
+      root.querySelectorAll('[data-cash]').forEach((button) =>
+        button.addEventListener('click', () => {
+          sheetFor = findPerson(button.dataset.cash);
+          render();
+        }),
+      );
+      root.querySelectorAll('[data-guest]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const guest = model.guests.find((g) => g.id === button.dataset.guest);
+          window.proto.addGuest(guest, model.session.pricePence);
+        }),
+      );
+      root.querySelectorAll('[data-amount]').forEach((button) =>
+        button.addEventListener('click', () => {
+          window.proto.takeCash(sheetFor, Number(button.dataset.amount));
+          sheetFor = null;
+          render();
+        }),
+      );
+      root.querySelector('[data-sheet-close]')?.addEventListener('click', () => {
+        sheetFor = null;
+        render();
+      });
+      root.querySelector('[data-undo]')?.addEventListener('click', () => window.proto.undoLast());
+      root.querySelectorAll('[data-jump]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const letter = button.dataset.jump;
+          const target = [...root.querySelectorAll('[data-sign]')].find((el) =>
+            findPerson(el.dataset.sign).surname.toUpperCase().startsWith(letter),
+          );
+          target?.scrollIntoView({ block: 'center' });
+        }),
+      );
+    }
+
+    window.proto.onChange(render);
+    render();
+  })();
+</script>

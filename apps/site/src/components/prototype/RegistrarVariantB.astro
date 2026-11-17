@@ -1,0 +1,219 @@
+---
+// PROTOTYPE B — "One at a time". The screen holds one runner, never a list to
+// scroll. Find, act, confirm, next. Costs typing; buys an unmissable target and
+// a definite end to each person in the queue.
+---
+
+<script is:inline>
+  (function () {
+    const root = document.getElementById('variant-root');
+    if (!root || !window.proto) return;
+
+    const { model, formatPounds, formatBalance, balanceFor } = window.proto;
+
+    let query = '';
+    let selected = null;
+    let confirmation = null;
+
+    function matches() {
+      const term = query.trim().toLowerCase();
+      if (term.length < 2) return [];
+      return model.everyone
+        .filter(
+          (person) =>
+            person.surname.toLowerCase().startsWith(term) ||
+            person.firstName.toLowerCase().startsWith(term),
+        )
+        .slice(0, 5);
+    }
+
+    function statusLine(person) {
+      const balance = balanceFor(person);
+      if (balance < 0) return `<span class="text-red-400">${formatBalance(balance)} owing</span>`;
+      if (balance < model.session.pricePence)
+        return `<span class="text-amber">${formatBalance(balance)} — needs to pay</span>`;
+      return `<span class="text-emerald-400">${formatBalance(balance)} credit</span>`;
+    }
+
+    function tally() {
+      return `
+        <div class="flex items-center justify-between px-4 py-3 bg-neutral-900 border-b border-neutral-800 text-sm">
+          <span class="font-semibold">${model.session.name} · ${model.session.startsAt}</span>
+          <span class="text-neutral-300">${window.proto.headcount()} in · <span class="text-amber font-bold">${formatPounds(window.proto.cashTotalPence())}</span></span>
+        </div>`;
+    }
+
+    function confirmScreen() {
+      const canUndo = Boolean(window.proto.lastAction());
+      return `
+        ${tally()}
+        <div class="flex-1 flex flex-col items-center justify-center text-center px-6 bg-emerald-950">
+          <div class="text-6xl mb-4">✓</div>
+          <p class="text-3xl font-bold leading-tight">${confirmation.title}</p>
+          <p class="text-emerald-300 text-lg mt-3">${confirmation.detail}</p>
+        </div>
+        <div class="p-4 space-y-3 bg-black">
+          ${
+            canUndo
+              ? '<button data-undo class="w-full py-5 rounded-xl bg-neutral-100 text-black text-lg font-bold">Undo that</button>'
+              : ''
+          }
+          <button data-next class="w-full py-6 rounded-xl bg-amber text-black text-2xl font-bold">Next runner</button>
+        </div>`;
+    }
+
+    function personPanel(person) {
+      const siblings = window.proto
+        .peopleByHousehold(person.principalId)
+        .filter((other) => other.id !== person.id);
+      return `
+        ${tally()}
+        <div class="flex-1 px-5 pt-8">
+          <button data-back class="text-neutral-400 text-sm mb-6">← someone else</button>
+          <p class="text-4xl font-bold leading-tight uppercase tracking-wide">${person.surname}</p>
+          <p class="text-3xl">${person.firstName}</p>
+          <p class="mt-4 text-xl">${statusLine(person)}</p>
+          <p class="text-neutral-500 text-sm mt-1">${person.householdName} household${
+            siblings.length
+              ? ` · shared with ${siblings.map((s) => s.firstName).join(', ')}`
+              : ''
+          }</p>
+        </div>
+        <div class="p-4 space-y-3">
+          <button data-sign class="w-full py-7 rounded-2xl bg-amber text-black text-2xl font-bold">
+            ${window.proto.isIn(person) ? 'Already signed in' : `Sign in · ${formatPounds(model.session.pricePence)}`}
+          </button>
+          <div class="grid grid-cols-4 gap-2">
+            ${[200, 500, 1000, 2000]
+              .map(
+                (pence) =>
+                  `<button data-amount="${pence}" class="py-5 rounded-xl border-2 border-amber text-amber text-lg font-bold">${formatPounds(pence)}</button>`,
+              )
+              .join('')}
+          </div>
+          <p class="text-center text-neutral-500 text-xs">tap an amount to take cash</p>
+        </div>`;
+    }
+
+    function searchScreen() {
+      const results = matches();
+      const body =
+        query.trim().length >= 2
+          ? results.length
+            ? results
+                .map(
+                  (person) => `
+                    <button data-pick="${person.id}" class="w-full text-left px-5 py-5 border-b border-neutral-800 active:bg-neutral-800">
+                      <span class="text-2xl"><span class="font-bold uppercase">${person.surname}</span>, ${person.firstName}</span>
+                      <span class="block text-sm mt-1">${statusLine(person)}${window.proto.isIn(person) ? ' · <span class="text-emerald-400">already in</span>' : ''}</span>
+                    </button>`,
+                )
+                .join('')
+            : '<p class="px-5 py-10 text-center text-neutral-500">Nobody by that name. Add them as a guest.</p>'
+          : `
+            <p class="px-5 pt-6 pb-2 text-xs uppercase tracking-widest text-neutral-500">Expected tonight</p>
+            <div class="grid grid-cols-2 gap-2 px-4">
+              ${model.expected
+                .map(
+                  (person) => `
+                    <button data-pick="${person.id}" class="text-left px-3 py-4 rounded-xl ${
+                      window.proto.isIn(person)
+                        ? 'bg-emerald-900 text-emerald-200'
+                        : 'bg-neutral-900'
+                    }">
+                      <span class="block font-bold uppercase text-sm leading-tight">${person.surname}</span>
+                      <span class="block text-sm">${person.firstName}</span>
+                    </button>`,
+                )
+                .join('')}
+            </div>`;
+
+      return `
+        ${tally()}
+        <div class="p-4">
+          <input id="b-search" type="search" inputmode="search" autocomplete="off"
+            value="${query}" placeholder="Surname…"
+            class="w-full bg-neutral-900 rounded-2xl px-5 py-6 text-2xl placeholder-neutral-600 outline-none focus:ring-2 focus:ring-amber" />
+        </div>
+        <div class="flex-1">${body}</div>
+        <div class="p-4">
+          <button data-guest class="w-full py-5 rounded-xl border-2 border-neutral-700 text-neutral-200 text-lg font-semibold">+ Guest paying tonight</button>
+        </div>`;
+    }
+
+    function render() {
+      root.innerHTML = confirmation
+        ? confirmScreen()
+        : selected
+          ? personPanel(selected)
+          : searchScreen();
+      wire();
+    }
+
+    function wire() {
+      const search = root.querySelector('#b-search');
+      if (search) {
+        search.addEventListener('input', () => {
+          query = search.value;
+          render();
+          root.querySelector('#b-search')?.focus();
+        });
+      }
+      root.querySelectorAll('[data-pick]').forEach((button) =>
+        button.addEventListener('click', () => {
+          selected = model.everyone.find((p) => p.id === button.dataset.pick);
+          render();
+        }),
+      );
+      root.querySelector('[data-back]')?.addEventListener('click', () => {
+        selected = null;
+        render();
+      });
+      root.querySelector('[data-sign]')?.addEventListener('click', () => {
+        if (window.proto.isIn(selected)) return;
+        window.proto.signIn(selected);
+        confirmation = {
+          title: `${selected.firstName} ${selected.surname}`,
+          detail: `Signed in · ${formatPounds(model.session.pricePence)} charged · ${formatBalance(balanceFor(selected))} left`,
+        };
+        render();
+      });
+      root.querySelectorAll('[data-amount]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const pence = Number(button.dataset.amount);
+          window.proto.takeCash(selected, pence);
+          confirmation = {
+            title: `${formatPounds(pence)} from ${selected.firstName} ${selected.surname}`,
+            detail: `Balance now ${formatBalance(balanceFor(selected))}`,
+          };
+          render();
+        }),
+      );
+      root.querySelector('[data-guest]')?.addEventListener('click', () => {
+        const guest = model.guests[window.proto.state.guestsIn.length % model.guests.length];
+        window.proto.addGuest(guest, model.session.pricePence);
+        confirmation = {
+          title: `${guest.firstName} ${guest.surname}`,
+          detail: `Guest in · ${formatPounds(model.session.pricePence)} cash taken`,
+        };
+        render();
+      });
+      root.querySelector('[data-undo]')?.addEventListener('click', () => {
+        window.proto.undoLast();
+        confirmation = null;
+        selected = null;
+        query = '';
+        render();
+      });
+      root.querySelector('[data-next]')?.addEventListener('click', () => {
+        confirmation = null;
+        selected = null;
+        query = '';
+        render();
+      });
+    }
+
+    window.proto.onChange(() => {});
+    render();
+  })();
+</script>

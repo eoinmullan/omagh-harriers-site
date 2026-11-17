@@ -1,0 +1,196 @@
+---
+// PROTOTYPE — throwaway, dev only. Three structurally different answers to
+// "what should the registrar's attendance screen look like?", switchable with
+// `?variant=A|B|C` and the floating bar at the bottom.
+//
+// The real thing is the Phase 5 PWA at signin.omaghharriers.com, which does not
+// exist yet, so this borrows the main site's routing and admin gating and
+// frames itself at phone width. Nothing here writes to the database: every
+// action is in-memory and gone on reload.
+import '../../../styles/global.css';
+import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { buildRegistrarPrototypeModel } from '../../../components/prototype/registrarPrototypeData';
+import PrototypeSwitcher from '../../../components/prototype/PrototypeSwitcher.astro';
+import RegistrarVariantA from '../../../components/prototype/RegistrarVariantA.astro';
+import RegistrarVariantB from '../../../components/prototype/RegistrarVariantB.astro';
+import RegistrarVariantC from '../../../components/prototype/RegistrarVariantC.astro';
+
+if (!import.meta.env.DEV) return new Response(null, { status: 404 });
+
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+
+const { data: members } = await adminClient
+  .from('members')
+  .select('id, first_name, surname, date_of_birth, principal_id')
+  .eq('is_active', true);
+
+const { data: principals } = await adminClient
+  .from('principals')
+  .select('id, display_name');
+
+const householdNames = new Map(
+  (principals ?? []).map((principal) => [principal.id, principal.display_name]),
+);
+
+const model = buildRegistrarPrototypeModel(
+  members ?? [],
+  householdNames,
+  new Date(),
+);
+
+const variants = {
+  A: 'Roll call list',
+  B: 'One at a time',
+  C: 'Expected / Here board',
+} as const;
+
+type VariantKey = keyof typeof variants;
+
+const requested = Astro.url.searchParams.get('variant')?.toUpperCase();
+const variant: VariantKey =
+  requested && requested in variants ? (requested as VariantKey) : 'A';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Registrar prototype — {variants[variant]}</title>
+  </head>
+  <body class="bg-neutral-800 min-h-screen">
+    <div class="mx-auto max-w-[420px] min-h-screen bg-black text-white pb-28">
+      <div id="variant-root" class="min-h-screen flex flex-col"></div>
+    </div>
+
+    <script is:inline define:vars={{ model }}>
+      // Shared in-memory store. Deliberately not a shared layout — each variant
+      // draws this however it likes, which is the whole point of the exercise.
+      const state = {
+        signedIn: new Map(),
+        cash: [],
+        guestsIn: [],
+        actions: [],
+        listeners: [],
+      };
+
+      function formatPounds(pence) {
+        return `£${(Math.abs(pence) / 100).toFixed(2)}`;
+      }
+
+      function formatBalance(pence) {
+        return pence < 0 ? `−${formatPounds(pence)}` : formatPounds(pence);
+      }
+
+      function peopleByHousehold(principalId) {
+        return model.everyone.filter((p) => p.principalId === principalId);
+      }
+
+      function balanceFor(person) {
+        const charged = [...state.signedIn.values()]
+          .filter((entry) => entry.principalId === person.principalId)
+          .reduce((total, entry) => total + entry.pence, 0);
+        const added = state.cash
+          .filter((entry) => entry.principalId === person.principalId)
+          .reduce((total, entry) => total + entry.pence, 0);
+        return person.balancePence - charged + added;
+      }
+
+      function isIn(person) {
+        return state.signedIn.has(person.id);
+      }
+
+      function signIn(person) {
+        if (isIn(person)) return;
+        state.signedIn.set(person.id, {
+          principalId: person.principalId,
+          pence: model.session.pricePence,
+        });
+        state.actions.push({
+          kind: 'sign_in',
+          person,
+          label: `${person.firstName} ${person.surname} signed in · ${formatPounds(model.session.pricePence)}`,
+        });
+        emit();
+      }
+
+      function takeCash(person, pence) {
+        const entry = { id: crypto.randomUUID(), principalId: person.principalId, person, pence };
+        state.cash.push(entry);
+        state.actions.push({
+          kind: 'cash',
+          entry,
+          label: `${formatPounds(pence)} cash from ${person.firstName} ${person.surname}`,
+        });
+        emit();
+      }
+
+      function addGuest(guest, pence) {
+        const entry = { id: crypto.randomUUID(), guest, pence };
+        state.guestsIn.push(entry);
+        state.actions.push({
+          kind: 'guest',
+          entry,
+          label: `${guest.firstName} ${guest.surname} (guest) in · ${formatPounds(pence)} cash`,
+        });
+        emit();
+      }
+
+      function undoLast() {
+        const action = state.actions.pop();
+        if (!action) return;
+        if (action.kind === 'sign_in') state.signedIn.delete(action.person.id);
+        if (action.kind === 'cash') state.cash = state.cash.filter((c) => c.id !== action.entry.id);
+        if (action.kind === 'guest')
+          state.guestsIn = state.guestsIn.filter((g) => g.id !== action.entry.id);
+        emit();
+      }
+
+      function cashTotalPence() {
+        const fromMembers = state.cash.reduce((total, entry) => total + entry.pence, 0);
+        const fromGuests = state.guestsIn.reduce((total, entry) => total + entry.pence, 0);
+        return fromMembers + fromGuests;
+      }
+
+      function headcount() {
+        return state.signedIn.size + state.guestsIn.length;
+      }
+
+      function emit() {
+        state.listeners.forEach((listener) => listener());
+      }
+
+      window.proto = {
+        model,
+        state,
+        formatPounds,
+        formatBalance,
+        balanceFor,
+        peopleByHousehold,
+        isIn,
+        signIn,
+        takeCash,
+        addGuest,
+        undoLast,
+        cashTotalPence,
+        headcount,
+        lastAction: () => state.actions[state.actions.length - 1],
+        onChange(listener) {
+          state.listeners.push(listener);
+        },
+      };
+    </script>
+
+    {variant === 'A' && <RegistrarVariantA />}
+    {variant === 'B' && <RegistrarVariantB />}
+    {variant === 'C' && <RegistrarVariantC />}
+
+    <PrototypeSwitcher
+      variants={variants}
+      current={variant}
+      sessionName={model.session.name}
+      expectedCount={model.expected.length}
+      totalCount={model.everyone.length}
+    />
+  </body>
+</html>

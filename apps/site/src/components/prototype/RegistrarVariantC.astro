@@ -1,0 +1,242 @@
+---
+// PROTOTYPE C — "Expected / Here board". The screen is the register: names move
+// out of "still to arrive" and into "here", so nobody has to remember or
+// re-check. Money is a mode, not a button on a row, so it can never be
+// confused with signing someone in mid-queue.
+---
+
+<script is:inline>
+  (function () {
+    const root = document.getElementById('variant-root');
+    if (!root || !window.proto) return;
+
+    const { model, formatPounds, formatBalance, balanceFor, isIn } = window.proto;
+
+    let mode = 'sign';
+    let cashFor = null;
+    let searching = false;
+    let query = '';
+
+    function waiting() {
+      return model.expected.filter((person) => !isIn(person));
+    }
+
+    function here() {
+      return model.everyone.filter(isIn);
+    }
+
+    function chip(person) {
+      const balance = balanceFor(person);
+      const warn = balance < model.session.pricePence;
+      return `
+        <button data-tap="${person.id}" class="text-left px-3 py-4 rounded-2xl min-h-[80px] flex flex-col justify-center ${
+          mode === 'cash' ? 'bg-sky-950 ring-1 ring-sky-600' : 'bg-neutral-900'
+        } active:scale-95 transition-transform">
+          <span class="block font-bold uppercase text-base leading-tight truncate">${person.surname}</span>
+          <span class="block text-base truncate">${person.firstName}</span>
+          <span class="block text-xs mt-1 ${warn ? 'text-amber' : 'text-neutral-500'}">${formatBalance(balance)}${warn ? ' ⚠' : ''}</span>
+        </button>`;
+    }
+
+    function hereRow(person) {
+      return `
+        <button data-out="${person.id}" class="w-full flex items-center gap-3 px-4 py-3 border-b border-emerald-900/60 text-left">
+          <span class="text-emerald-400 text-lg">✓</span>
+          <span class="flex-1 truncate"><span class="font-bold uppercase">${person.surname}</span>, ${person.firstName}</span>
+          <span class="text-xs text-neutral-500">tap to take back out</span>
+        </button>`;
+    }
+
+    function guestRow(entry) {
+      return `
+        <div class="w-full flex items-center gap-3 px-4 py-3 border-b border-emerald-900/60">
+          <span class="text-sky-400 text-lg">£</span>
+          <span class="flex-1 truncate">${entry.guest.surname.toUpperCase()}, ${entry.guest.firstName} <span class="text-neutral-500 text-xs">guest</span></span>
+          <span class="text-sm text-amber">${formatPounds(entry.pence)}</span>
+        </div>`;
+    }
+
+    function cashPad(person) {
+      return `
+        <div class="fixed inset-0 z-40 bg-black/80 flex items-end">
+          <div class="w-full max-w-[420px] mx-auto bg-neutral-900 border-t-4 border-sky-500 rounded-t-3xl p-5 pb-8">
+            <p class="text-center text-sky-400 text-xs uppercase tracking-widest">taking cash</p>
+            <p class="text-center text-2xl font-bold mt-1">${person.firstName} ${person.surname}</p>
+            <p class="text-center text-neutral-400 text-sm mb-5">${formatBalance(balanceFor(person))} now · ${person.householdName} household</p>
+            <div class="grid grid-cols-2 gap-3">
+              ${[200, 500, 1000, 2000]
+                .map(
+                  (pence) =>
+                    `<button data-amount="${pence}" class="bg-sky-500 text-black text-2xl font-bold rounded-2xl py-6">${formatPounds(pence)}</button>`,
+                )
+                .join('')}
+            </div>
+            <button data-pad-close class="w-full mt-4 py-4 text-neutral-400 text-lg">Cancel</button>
+          </div>
+        </div>`;
+    }
+
+    function searchOverlay() {
+      const term = query.trim().toLowerCase();
+      const results = term.length
+        ? model.everyone
+            .filter((person) => person.surname.toLowerCase().startsWith(term))
+            .slice(0, 30)
+        : [];
+      return `
+        <div class="fixed inset-0 z-40 bg-black flex flex-col max-w-[420px] mx-auto">
+          <div class="flex items-center gap-2 p-3 border-b border-neutral-800">
+            <input id="c-search" type="search" autocomplete="off" value="${query}" placeholder="Surname…"
+              class="flex-1 bg-neutral-900 rounded-xl px-4 py-4 text-xl outline-none focus:ring-2 focus:ring-amber" />
+            <button data-search-close class="px-4 py-4 text-neutral-400">Close</button>
+          </div>
+          <div class="flex-1 overflow-y-auto">
+            ${
+              results.length
+                ? results
+                    .map(
+                      (person) => `
+                        <button data-add="${person.id}" class="w-full text-left px-4 py-4 border-b border-neutral-800">
+                          <span class="text-lg"><span class="font-bold uppercase">${person.surname}</span>, ${person.firstName}</span>
+                          <span class="block text-sm text-neutral-500">${person.group} · ${formatBalance(balanceFor(person))}${isIn(person) ? ' · already in' : ''}</span>
+                        </button>`,
+                    )
+                    .join('')
+                : '<p class="p-6 text-center text-neutral-600">Type a surname to find anyone in the club.</p>'
+            }
+          </div>
+        </div>`;
+    }
+
+    function render() {
+      const left = waiting();
+      const inside = here();
+      const total = model.expected.length;
+      const done = total - left.length;
+
+      root.innerHTML = `
+        <div class="${mode === 'cash' ? 'ring-4 ring-inset ring-sky-500' : ''} flex-1 flex flex-col">
+          <header class="px-4 pt-4 pb-3 border-b border-neutral-800">
+            <div class="flex items-baseline justify-between">
+              <h1 class="text-xl font-bold">${model.session.name}</h1>
+              <span class="text-sm text-neutral-400">${model.session.startsAt}</span>
+            </div>
+            <div class="mt-3 h-2 bg-neutral-800 rounded-full overflow-hidden">
+              <div class="h-full bg-amber" style="width:${total ? (done / total) * 100 : 0}%"></div>
+            </div>
+            <p class="mt-2 text-sm text-neutral-400">
+              <span class="text-white font-semibold">${done} of ${total}</span> expected
+              · ${window.proto.state.guestsIn.length} guest${window.proto.state.guestsIn.length === 1 ? '' : 's'}
+              · <span class="text-amber font-semibold">${formatPounds(window.proto.cashTotalPence())}</span> taken
+            </p>
+          </header>
+
+          <div class="flex gap-2 p-3">
+            <button data-mode="sign" class="flex-1 py-4 rounded-xl font-bold ${mode === 'sign' ? 'bg-amber text-black' : 'bg-neutral-900 text-neutral-400'}">Signing in</button>
+            <button data-mode="cash" class="flex-1 py-4 rounded-xl font-bold ${mode === 'cash' ? 'bg-sky-500 text-black' : 'bg-neutral-900 text-neutral-400'}">Taking cash</button>
+          </div>
+
+          <p class="px-4 pb-2 text-xs uppercase tracking-widest text-neutral-500">
+            ${mode === 'cash' ? 'tap anyone to take cash' : `still to arrive — ${left.length}`}
+          </p>
+          <div class="grid grid-cols-2 gap-2 px-3">
+            ${(mode === 'cash' ? model.expected : left).map(chip).join('')}
+          </div>
+          ${left.length === 0 && mode === 'sign' ? '<p class="px-4 py-6 text-center text-emerald-400">Everyone expected is here.</p>' : ''}
+
+          <div class="flex gap-2 p-3 mt-2">
+            <button data-search class="flex-1 py-4 rounded-xl border-2 border-neutral-700 text-neutral-200 font-semibold">Someone else</button>
+            <button data-guest class="flex-1 py-4 rounded-xl border-2 border-neutral-700 text-neutral-200 font-semibold">+ Guest</button>
+          </div>
+
+          <section class="mt-2 bg-emerald-950/40 border-t border-emerald-900">
+            <p class="px-4 py-3 text-xs uppercase tracking-widest text-emerald-400">here — ${inside.length + window.proto.state.guestsIn.length}</p>
+            ${inside.map(hereRow).join('')}
+            ${window.proto.state.guestsIn.map(guestRow).join('')}
+            ${inside.length + window.proto.state.guestsIn.length === 0 ? '<p class="px-4 pb-4 text-neutral-500 text-sm">Nobody yet.</p>' : ''}
+          </section>
+        </div>
+        ${cashFor ? cashPad(cashFor) : ''}
+        ${searching ? searchOverlay() : ''}
+      `;
+      wire();
+    }
+
+    function findPerson(id) {
+      return model.everyone.find((person) => person.id === id);
+    }
+
+    function wire() {
+      root.querySelectorAll('[data-mode]').forEach((button) =>
+        button.addEventListener('click', () => {
+          mode = button.dataset.mode;
+          render();
+        }),
+      );
+      root.querySelectorAll('[data-tap]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const person = findPerson(button.dataset.tap);
+          if (mode === 'cash') {
+            cashFor = person;
+            render();
+            return;
+          }
+          window.proto.signIn(person);
+        }),
+      );
+      root.querySelectorAll('[data-out]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const person = findPerson(button.dataset.out);
+          window.proto.state.signedIn.delete(person.id);
+          window.proto.state.actions = window.proto.state.actions.filter(
+            (action) => action.person?.id !== person.id,
+          );
+          render();
+        }),
+      );
+      root.querySelectorAll('[data-amount]').forEach((button) =>
+        button.addEventListener('click', () => {
+          window.proto.takeCash(cashFor, Number(button.dataset.amount));
+          cashFor = null;
+          render();
+        }),
+      );
+      root.querySelector('[data-pad-close]')?.addEventListener('click', () => {
+        cashFor = null;
+        render();
+      });
+      root.querySelector('[data-search]')?.addEventListener('click', () => {
+        searching = true;
+        render();
+      });
+      root.querySelector('[data-search-close]')?.addEventListener('click', () => {
+        searching = false;
+        query = '';
+        render();
+      });
+      const search = root.querySelector('#c-search');
+      search?.addEventListener('input', () => {
+        query = search.value;
+        render();
+        root.querySelector('#c-search')?.focus();
+      });
+      root.querySelectorAll('[data-add]').forEach((button) =>
+        button.addEventListener('click', () => {
+          const person = findPerson(button.dataset.add);
+          if (!model.expected.some((p) => p.id === person.id)) model.expected.push(person);
+          model.expected.sort((a, b) => a.surname.localeCompare(b.surname));
+          searching = false;
+          query = '';
+          window.proto.signIn(person);
+        }),
+      );
+      root.querySelector('[data-guest]')?.addEventListener('click', () => {
+        const guest = model.guests[window.proto.state.guestsIn.length % model.guests.length];
+        window.proto.addGuest(guest, model.session.pricePence);
+      });
+    }
+
+    window.proto.onChange(render);
+    render();
+  })();
+</script>

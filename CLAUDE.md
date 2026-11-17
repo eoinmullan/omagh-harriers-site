@@ -158,9 +158,52 @@ index silently swallows.
 the registrar's Usuals list useful before any attendance history exists.
 Retiring a group is `is_active = false`; nothing is ever deleted.
 
+## Admin session management
+
+Four screens, and between them they make the Phase 5 schema usable: `/admin/groups`
+(add, rename, retire), `/admin/groups/[id]` (who trains with a squad),
+`/admin/sessions` (list and create) and `/admin/sessions/[id]` (edit, cancel, and
+what the night came to).
+
+Every rule they obey lives in `src/lib/training/` and is unit tested without a
+database, the way `credits/ledger.ts` is: `groups.ts`, `sessions.ts`,
+`session-cash.ts`, `names.ts`, `club-time.ts`. A page hands over a form and gets
+back either a row to write or one sentence to show the admin.
+
+- **Group names are checked more strictly than the database checks them.** The index
+  is on `lower(name)`, so "Middle Distance" and "Middle-Distance" could both exist.
+  `normaliseForSearch` folds case, whitespace, apostrophes, hyphens and accents, and
+  the second one is refused with a sentence naming the first. A registrar picking from
+  a list cannot tell those apart
+- **A session's price is set from `DEFAULT_SESSION_PRICE_PENCE` at creation and the
+  session keeps its own copy.** Once anybody has signed in, the price field disables
+  itself: each sign-in put a debit in the append-only ledger at that figure, and a new
+  one here would contradict it. Name and location stay editable. Cancelling is
+  `is_cancelled = true`
+- **Retiring a group and cancelling a session are both soft.** The sessions and the
+  attendance behind them have to keep meaning something years later
+- **Money collected is `top_up_cash` plus `refund` rows carrying the `session_id`,
+  plus `amount_paid_pence` on the session's guest attendance.** Session debits are
+  excluded — they move credit out of a household's pot rather than money into the tin.
+  Grouping by who recorded each entry is the figure that matters when two phones were
+  open, and it only appears on screen when more than one person recorded something
+- **A member's charge is found through `(member_id, session_id)`**, which is the join
+  that stands in for the foreign key the schema deliberately does without
+- **`training/names.ts` is shared with the browser.** The member-assignment filter
+  imports it from the page's `<script>`, so what the admin screen matches and what
+  the registrar app will match cannot drift apart
+- **`training/club-time.ts` reads a typed time as Omagh's clock, not the Worker's.**
+  A `datetime-local` of `19:00` on a July evening is 18:00 UTC; storing it as 19:00Z
+  would put every screen an hour out of step with the people on the track
+
 ## Roles
 
-`member`, `registrar`, `admin`, `superuser`. A registrar is a volunteer with a
+`member`, `registrar`, `admin`, `superuser`. Who may hand out which role lives in
+`src/lib/auth/roles.ts`; the screen is `/admin/principals/[id]`, which has always
+been superuser-only. A superuser cannot change their own role there — it would lock
+them out of the only screen that could put it back.
+
+A registrar is a volunteer with a
 borrowed phone: they read the whole club — every principal, member and ledger
 row, because a household balance beside a name is the sum of that ledger and the
 sign-in app holds no service-role key — and they write only the night's

@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
+import { formatBalance } from '../../lib/credits/money';
 
 // Middleware guarantees auth + active principal + terms accepted before we get here.
 // Defensive fallback only.
@@ -33,6 +34,14 @@ function formatDob(dob: string): string {
   });
 }
 
+const { data: balance } = await Astro.locals.supabase
+  .from('principal_balances')
+  .select('balance_pence')
+  .eq('principal_id', principal.id)
+  .maybeSingle();
+
+const balancePence = balance?.balance_pence ?? 0;
+
 const { data: members } = await Astro.locals.supabase
   .from('members')
   .select('id, first_name, surname, date_of_birth, status, gender')
@@ -59,6 +68,26 @@ const { data: members } = await Astro.locals.supabase
         </button>
       </form>
     </div>
+
+    <a
+      href="/members/credits"
+      class="block bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 mb-10 hover:border-gray-400 transition-colors"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500">Training credit</p>
+          <p
+            class:list={[
+              'text-2xl font-bold mt-0.5',
+              balancePence < 0 ? 'text-red-600' : 'text-gray-900',
+            ]}
+          >
+            {formatBalance(balancePence)}
+          </p>
+        </div>
+        <span class="text-sm underline">View history &rarr;</span>
+      </div>
+    </a>
 
     <section>
       <h2 class="text-xl font-semibold mb-4">
@@ -107,6 +136,9 @@ const { data: members } = await Astro.locals.supabase
           <div class="flex flex-col items-start gap-2">
             <a href="/admin/principals" class="text-sm underline hover:text-gray-600">
               Manage principals & members →
+            </a>
+            <a href="/admin/credits" class="text-sm underline hover:text-gray-600">
+              Training credit →
             </a>
             <a href="/admin/training-times" class="text-sm underline hover:text-gray-600">
               Preview training times →

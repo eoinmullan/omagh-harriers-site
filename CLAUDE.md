@@ -89,6 +89,46 @@ The script always uses `source='klubfunder'` for the rows it creates and **never
 
 No emails are sent: auth users are created with `email_confirm: true`, which skips Supabase's confirmation-email step.
 
+## Training credits
+
+A household's balance is never stored — it is the sum of `credit_transactions`,
+exposed by the `principal_balances` view. The ledger is append-only: a trigger
+refuses UPDATE and DELETE outright, service-role key included, so a mistake is
+corrected with a compensating row (`manual_adjustment`) rather than an edit.
+
+A CHECK constraint ties the sign of `amount_pence` to the `type` — top-ups and
+`transfer_in` must be positive, sessions, refunds and `transfer_out` negative.
+Only `manual_adjustment` may go either way, which is the point of it.
+
+Every write carries an `idempotency_key`. That is what lets the Phase 5 sign-in
+PWA retry safely on leisure-centre wifi without charging anyone twice.
+
+Member-facing wording lives in `apps/site/src/lib/credits/transactions.ts`, not
+in the page — a transaction has to read as a sentence a parent can check against
+their own memory ("£10.00 added — paid by cash at training, recorded by ...").
+`money.ts` is the only place pounds and pence meet: admins type pounds, the app
+stores pence, and a minus sign is never typed — direction is a control.
+
+Every rule about what may be written lives in `credits/ledger.ts`, which turns a
+form into rows or into one sentence for the admin. The admin pages decide
+nothing, so the rules are unit tested without a database. A transfer returns
+**both** rows for a single multi-row insert: one statement, so Postgres applies
+both sides or neither. Two separate inserts could strand money in nobody's
+account with no way to take it back.
+
+`DEFAULT_SESSION_PRICE_PENCE` in `ledger.ts` is the £2 a session has cost for
+years. It is a constant on purpose — a settings table and an admin screen would
+be machinery for a change that happens once a decade. A session debit copies the
+amount into the ledger row, so changing the constant never rewrites history.
+
+Admin forms carry an `idempotency_key` minted per render. A refresh, a double
+click or the back button resends the same key, the unique index refuses it, and
+the admin is told it was already recorded rather than shown an error.
+
+`/members/credits` reads the ledger with the service-role client, scoped to the
+signed-in principal. That is deliberate: a line names the admin who recorded it,
+and RLS rightly hides every principal row but the member's own.
+
 ## Members area layout
 
 Every signed-in page frames itself with `apps/site/src/components/PageContainer.astro`

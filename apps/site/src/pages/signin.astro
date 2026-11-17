@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { microsoftSignInIsAvailable } from '../lib/auth/microsoft-oauth';
 import { createSupabaseAdminClientFromLocals } from '../lib/supabase/admin';
 
 let sent = false;
@@ -82,6 +83,8 @@ const urlErrorMessages: Record<string, string> = {
 
 const urlErrorMessage = urlErrorMessages[Astro.url.searchParams.get('error') ?? ''];
 
+const showMicrosoftSignIn = microsoftSignInIsAvailable(new Date());
+
 const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 ---
 
@@ -124,19 +127,21 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
               Sign in with Google
             </button>
 
-            <button
-              id="microsoft-btn"
-              type="button"
-              class="w-full border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-3"
-            >
-              <svg class="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11.4 2H2v9.4h9.4V2z" fill="#F25022"/>
-                <path d="M22 2h-9.4v9.4H22V2z" fill="#7FBA00"/>
-                <path d="M11.4 12.6H2V22h9.4v-9.4z" fill="#00A4EF"/>
-                <path d="M22 12.6h-9.4V22H22v-9.4z" fill="#FFB900"/>
-              </svg>
-              Sign in with Microsoft
-            </button>
+            {showMicrosoftSignIn && (
+              <button
+                id="microsoft-btn"
+                type="button"
+                class="w-full border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-3"
+              >
+                <svg class="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11.4 2H2v9.4h9.4V2z" fill="#F25022"/>
+                  <path d="M22 2h-9.4v9.4H22V2z" fill="#7FBA00"/>
+                  <path d="M11.4 12.6H2V22h9.4v-9.4z" fill="#00A4EF"/>
+                  <path d="M22 12.6h-9.4V22H22v-9.4z" fill="#FFB900"/>
+                </svg>
+                Sign in with Microsoft
+              </button>
+            )}
           </div>
 
           <div class="relative my-6">
@@ -227,9 +232,13 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
       },
     ];
 
-    for (const provider of providers) {
-      const button = document.getElementById(provider.buttonId) as HTMLButtonElement | null;
-      button?.addEventListener('click', async () => {
+    const availableProviders = providers.filter((provider) =>
+      document.getElementById(provider.buttonId),
+    );
+
+    for (const provider of availableProviders) {
+      const button = document.getElementById(provider.buttonId) as HTMLButtonElement;
+      button.addEventListener('click', async () => {
         button.disabled = true;
         const { error } = await supabase.auth.signInWithOAuth({
           provider: provider.supabaseProvider,
@@ -244,7 +253,9 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
 
     function providerForEmail(email: string) {
       const domain = email.split('@')[1]?.toLowerCase();
-      return domain ? providers.find((p) => p.emailDomains.includes(domain)) : undefined;
+      return domain
+        ? availableProviders.find((provider) => provider.emailDomains.includes(domain))
+        : undefined;
     }
 
     document.getElementById('email')?.addEventListener('input', (event) => {

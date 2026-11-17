@@ -79,3 +79,14 @@ Run the dry run first and review the plan. The plan is grouped by action:
 The script always uses `source='klubfunder'` for the rows it creates and **never touches** rows tagged `source='manual'` (admin-added principals/members are immune from lapsing).
 
 No emails are sent: auth users are created with `email_confirm: true`, which skips Supabase's confirmation-email step.
+
+## Microsoft sign-in expiry
+
+Azure caps an OAuth client secret at 24 months, and when it lapses Microsoft
+sign-in breaks for every member at once. The button withdraws itself on the date
+in `apps/site/src/lib/auth/microsoft-oauth.ts` rather than failing in the
+member's face — magic link and Google carry on regardless.
+
+**Renewing the secret in Azure means moving that date to match**, otherwise the
+button stays hidden. Deleting the constant is the way to retire Microsoft
+sign-in for good.

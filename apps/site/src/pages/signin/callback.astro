@@ -1,6 +1,18 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 
+const INTENDED_EMAIL_COOKIE = 'oauth_intended_email';
+
+// A provider signs the member in under its account's primary address, which is
+// not always the one they typed — a Microsoft alias is the usual culprit. Left
+// unchecked that silently lands them on whichever principal owns the primary
+// address, so a mismatch is turned away rather than guessed at.
+function takeIntendedEmail(): string | undefined {
+  const intended = Astro.cookies.get(INTENDED_EMAIL_COOKIE)?.value;
+  Astro.cookies.delete(INTENDED_EMAIL_COOKIE, { path: '/' });
+  return intended;
+}
+
 async function redirectForUser(userId: string) {
   const { data: principal } = await Astro.locals.supabase
     .from('principals')
@@ -29,6 +41,14 @@ if (code) {
   const { data, error } = await Astro.locals.supabase.auth.exchangeCodeForSession(code);
   if (error) console.error('[callback] exchangeCodeForSession failed:', error);
   if (error || !data.user) return Astro.redirect('/signin?error=invalid_link');
+
+  const intendedEmail = takeIntendedEmail();
+  if (intendedEmail && data.user.email?.toLowerCase() !== intendedEmail) {
+    console.error('[callback] provider signed in under a different address than the member entered');
+    await Astro.locals.supabase.auth.signOut();
+    return Astro.redirect('/signin?error=wrong_account');
+  }
+
   return Astro.redirect(await redirectForUser(data.user.id));
 }
 

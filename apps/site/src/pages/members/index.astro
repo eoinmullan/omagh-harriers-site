@@ -46,6 +46,7 @@ const { data: members } = await Astro.locals.supabase
       <div>
         <h1 class="text-3xl font-bold">Members' area</h1>
         <p class="text-gray-500 mt-1">Welcome back, {principal.display_name}</p>
+        <p class="text-gray-400 text-sm mt-1">Signed in as {user.email}</p>
       </div>
       <form method="POST">
         <input type="hidden" name="action" value="signout" />

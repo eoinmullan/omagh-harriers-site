@@ -80,6 +80,19 @@ The script always uses `source='klubfunder'` for the rows it creates and **never
 
 No emails are sent: auth users are created with `email_confirm: true`, which skips Supabase's confirmation-email step.
 
+## Sign-in flow
+
+`/signin` asks for the membership email first, checks it against `principals`, then
+offers only what that address can actually use — Google for Gmail, Microsoft for
+Outlook and friends (`apps/site/src/lib/auth/oauth-providers.ts`), with an email
+link always available. Nobody is shown three buttons when they only have one.
+
+The entered address is kept in a short-lived httpOnly cookie across the OAuth
+round trip. `/signin/callback` refuses the sign-in if the provider returns a
+different address, which is what happens when a member's Klubfunder email is a
+secondary alias on their Microsoft account. Without that check they are quietly
+signed in as whichever principal owns the primary address.
+
 ## Microsoft sign-in expiry
 
 Azure caps an OAuth client secret at 24 months, and when it lapses Microsoft

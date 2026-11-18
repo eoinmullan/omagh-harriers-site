@@ -54,14 +54,10 @@ export const prerender = true;
 </html>
 
 <style is:global>
-  /* Built for a floodlit track in the rain: dark ground, high contrast, and
-     nothing small enough to need aiming at. */
-  @theme {
-    --color-ground: #0b1120;
-    --color-raised: #1b2435;
-    --color-edge: #33415c;
-  }
-
+  /* The palette lives in global.css, because @theme is only read from the
+     stylesheet Tailwind processes. What is left here is structural and belongs
+     to this page alone — it is inlined into this page's HTML and never reaches
+     the public site's shared bundle. */
   :root {
     color-scheme: dark;
   }

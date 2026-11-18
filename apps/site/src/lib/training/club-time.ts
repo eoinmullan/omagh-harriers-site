@@ -49,6 +49,18 @@ export function formatClubDateTime(iso: string): string {
   });
 }
 
+/**
+ * Just the time, e.g. '19:00' — for a list that has already said which night
+ * it is talking about.
+ */
+export function formatClubTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    timeZone: CLUB_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /** e.g. 'Mon 6 Jul 2026' — for grouping a list by the night it happened. */
 export function formatClubDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', {
@@ -58,6 +70,20 @@ export function formatClubDate(iso: string): string {
     month: 'short',
     year: 'numeric',
   });
+}
+
+/**
+ * The club's calendar day for an instant, as `YYYY-MM-DD`.
+ *
+ * A session at 20:30 on a June evening is 19:30Z, and one at 00:30 after a
+ * late finish is the small hours of the next UTC day. Asking "is this on
+ * tonight?" against UTC gets both wrong, so the comparison is made on the day
+ * Omagh is living in.
+ */
+export function clubDayKey(iso: string | number | Date): string {
+  const instant = iso instanceof Date ? iso.getTime() : typeof iso === 'number' ? iso : Date.parse(iso);
+  const parts = clubParts(instant);
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function offsetMillisAt(instant: number): number {

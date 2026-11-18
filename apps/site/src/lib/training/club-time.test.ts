@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatClubDateTime, parseClubDateTime, toClubDateTimeInput } from './club-time';
+import {
+  clubDayKey,
+  formatClubDateTime,
+  formatClubTime,
+  parseClubDateTime,
+  toClubDateTimeInput,
+} from './club-time';
 
 describe('parseClubDateTime', () => {
   it('reads a winter evening as UTC, because Omagh is on UTC then', () => {
@@ -45,5 +51,37 @@ describe('formatClubDateTime', () => {
   it('reads as the evening the club turned up, not the UTC one', () => {
     expect(formatClubDateTime('2027-07-05T18:00:00.000Z')).toContain('19:00');
     expect(formatClubDateTime('2027-07-05T18:00:00.000Z')).toContain('Mon');
+  });
+});
+
+describe('clubDayKey', () => {
+  it('reads a summer evening as the day Omagh is living in', () => {
+    expect(clubDayKey('2026-07-06T18:30:00.000Z')).toBe('2026-07-06');
+  });
+
+  it('keeps a late finish on the night it belongs to', () => {
+    expect(clubDayKey('2026-07-06T22:30:00.000Z')).toBe('2026-07-06');
+  });
+
+  it('rolls over when Omagh does, not when UTC does', () => {
+    expect(clubDayKey('2026-07-06T23:30:00.000Z')).toBe('2026-07-07');
+  });
+
+  it('agrees with UTC in winter, when there is no offset to apply', () => {
+    expect(clubDayKey('2026-01-12T19:00:00.000Z')).toBe('2026-01-12');
+  });
+
+  it('reads midnight as the start of the day, not hour 24 of the last one', () => {
+    expect(clubDayKey('2026-01-12T00:00:00.000Z')).toBe('2026-01-12');
+  });
+});
+
+describe('formatClubTime', () => {
+  it('reads a summer evening as the clock on the track reads it', () => {
+    expect(formatClubTime('2026-07-06T18:30:00.000Z')).toBe('19:30');
+  });
+
+  it('reads a winter evening the same way, with no offset to apply', () => {
+    expect(formatClubTime('2026-01-12T19:00:00.000Z')).toBe('19:00');
   });
 });

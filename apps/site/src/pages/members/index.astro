@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { formatBalance } from '../../lib/credits/money';
+import { mayRunASession } from '../../lib/training/registrar';
 
 // Middleware guarantees auth + active principal + terms accepted before we get here.
 // Defensive fallback only.
@@ -128,6 +129,24 @@ const { data: members } = await Astro.locals.supabase
         )
       }
     </section>
+
+    {
+      mayRunASession(principal.role) && (
+        <section class="mt-10 pt-8 border-t border-gray-200">
+          <h2 class="text-lg font-semibold mb-3">Taking sign-ins</h2>
+          <a
+            href="/registrar"
+            class="block bg-gray-900 text-white rounded-lg px-5 py-4 hover:bg-gray-800 transition-colors"
+          >
+            <span class="block font-semibold">Sign runners in &rarr;</span>
+            <span class="block text-sm text-gray-300 mt-0.5">
+              Tonight's session, on your phone. Add it to your home screen from there and
+              it opens already signed in.
+            </span>
+          </a>
+        </section>
+      )
+    }
 
     {
       (principal.role === 'admin' || principal.role === 'superuser') && (

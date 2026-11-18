@@ -198,6 +198,36 @@ the append-only trigger. A session debit is found through
 that a re-tick after an untick is a new charge rather than a key the unique
 index silently swallows.
 
+**A tick is two rows in two tables, so it goes through an RPC.** PostgREST
+cannot span `attendance` and `credit_transactions` in one statement, and a phone
+on leisure-centre wifi that managed only one of them would leave a runner
+present and uncharged, or charged and absent. `public.sign_in_member(member,
+session [, attendance_id])` writes both in one transaction and returns the
+attendance id; `public.undo_member_sign_in(attendance_id)` deletes the row and
+gives the money back. Both are in migration `0011`.
+
+They are **SECURITY INVOKER** on purpose. RLS already says who may write what,
+and a definer function would restate that rule and then be where it goes stale.
+The role check at the top of each only turns a silent RLS denial into a sentence.
+
+Every insert is `ON CONFLICT DO NOTHING`, untargeted, because a retry could trip
+either the unique `idempotency_key` or the unique `(member_id, session_id)`.
+CHECK violations still raise — a malformed row is a bug, not a retry. A repeated
+tick returns the attendance row that is already there and writes no second
+charge; a repeated untick credits once; a re-tick after an untick mints a fresh
+attendance id and so correctly charges again.
+
+**A guest never goes through these.** Their cash lives on the attendance row, so
+ticking and unticking a guest is a single-table write through PostgREST.
+`undo_member_sign_in` refuses one with a sentence saying so.
+
+**A free session is attendance and nothing else** (`price_pence = 0`, allowed
+since `0012`). `credit_transactions` is `CHECK (amount_pence <> 0)`, so a zero
+debit cannot be written whatever anybody decides — which is why `sign_in_member`
+branches on the price rather than inserting the pair unconditionally. Nothing was
+taken, so an untick gives nothing back. A guest at a free session has
+`amount_paid_pence` NULL, not 0.
+
 `groups` are the squads the club trains in, and `member_groups` is what makes
 the registrar's Usuals list useful before any attendance history exists.
 Retiring a group is `is_active = false`; nothing is ever deleted.

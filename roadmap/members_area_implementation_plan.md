@@ -240,6 +240,7 @@ not in scope.
 - [x] Create `groups` table — `id`, `name`, `is_active`, `created_at`. The squads the club actually trains in — sprints, middle distance, endurance, seniors, juniors, and whatever is added next. Admins add them through the UI, so the list is never a deploy away
 - [x] Create `training_sessions` table — `id`, `name`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `location` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`
 - [x] `price_pence` is set from a **£2** constant in code at creation time. The session keeps its own copy, so changing the constant never rewrites a session that has already run, and never touches the ledger, which records what was actually charged
+- [ ] **Migration needed:** relax `training_sessions.price_pence` from `CHECK (price_pence > 0)` to `>= 0`, so a free session can exist. `0009` forbade zero on the grounds that it would produce no ledger row; that is now the wanted behaviour — see *A session that costs nothing* below. Not yet written
 - [x] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the Usuals list useful on day one, before any attendance history exists
 - [x] Create `guests` table — `id`, `first_name`, `surname`, `created_at`, `created_by`. A returning guest is picked from this list rather than retyped, which also stops one person becoming three through spelling
 - [x] Create `attendance` table — `id`, `session_id` (FK → `training_sessions`), `member_id` (nullable), `guest_id` (nullable), `amount_paid_pence` (nullable, guests only — they pay instead of drawing on credit), `recorded_by`, `idempotency_key` (unique), `created_at`, with a CHECK that exactly one of `member_id` and `guest_id` is set
@@ -324,6 +325,47 @@ wording reads from.
 It is keyed `untick:{attendance_id}`, off the attendance row it reverses, so a
 double-tapped untick credits once. A re-tick mints a fresh `attendance_id`, so
 unticking *that* is a different key and correctly credits again.
+
+#### A session that costs nothing
+
+Some sessions are free — a taster night, a club championship, a junior session
+the club decides not to charge for. **A free session records attendance and
+writes no ledger row at all.**
+
+That is not a preference, it is the only thing the schema permits.
+`credit_transactions.amount_pence` is `CHECK (amount_pence <> 0)`, so a £0 debit
+cannot be written whatever we decide. The same holds for the reversal in *What
+gives the £2 back*: there is nothing to give back, and a `manual_adjustment` of
+0 would be refused too.
+
+A guest at a free session is an attendance row with `amount_paid_pence` **NULL,
+not 0** — the column is nullable but carries `CHECK (amount_paid_pence > 0)`, so
+a zero would be refused where an absent figure is fine. "They paid nothing" and
+"we are not recording what they paid" are the same fact here.
+
+**This needs a migration, and it reverses a decision Phase 5 took on purpose.**
+`training_sessions.price_pence` is `CHECK (price_pence > 0)`, and `0009`'s own
+comment gives the reason: *"a zero-price session could produce no ledger row at
+all, since credit_transactions refuses a zero amount."* That was treated as the
+thing to prevent; we now want it as the behaviour. So the constraint relaxes to
+`>= 0` and the comment is rewritten to say that a free session is attendance
+only. Nothing else in the schema needs to move. **No migration has been written
+— it is the one thing this work is not allowed to add unasked.**
+
+Two things not to do when it lands:
+
+- **Don't loosen `parsePounds`.** It refuses 0 deliberately, and it is shared
+  with the credits screens, where a £0 top-up is meaningless and the ledger
+  refuses it anyway. A free session is chosen with a **"Free session" control**,
+  not by typing `0` — the same reasoning that made direction a control rather
+  than a typed minus sign
+- **Don't let the sign-in RPC insert the pair unconditionally.** It has to branch
+  on the session price: at £0 it writes the attendance row and stops. A blind
+  two-row insert fails the sign CHECK and takes the whole tick down, in front of
+  a queue
+
+`training/session-cash.ts` needs no change. A free session's figures come out as
+£0 collected and no guest payments, which is the truth about the night.
 
 ### Admin: session management (in the main site)
 - [x] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2). The start time is read as Omagh's clock rather than the Worker's UTC, so a summer session is not an hour out — `training/club-time.ts`

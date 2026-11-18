@@ -3,6 +3,14 @@
 @theme {
   --color-yellow: #fff278;
   --color-amber: #fcd03d;
+
+  /* The registrar app's palette (/registrar). Dark ground, high contrast,
+     legible under floodlights. Only those screens use it, but it has to be
+     declared here — @theme is only read from this stylesheet, and a copy in a
+     page's own <style> block is a dead at-rule. */
+  --color-ground: #0b1120;
+  --color-raised: #1b2435;
+  --color-edge: #33415c;
 }
 
 .logo-duotone {

@@ -288,38 +288,42 @@ to untick somebody, which is the only reason they were caught before the first n
 - **Guests were never affected.** No ledger row references a guest's attendance, so unticking
   one removes the row and the cash with it, exactly as the registrar screen promises
 
-#### What gives the £2 back — undecided
+#### What gives the £2 back
 
 Unticking a member deletes the attendance row, which frees its
 `attendance:{member_id}:{session_id}` key so a re-tick works. The debit cannot be
 deleted, and a re-tick is deliberately a *new* charge, so without something going
 back the household pays twice for one session.
 
+**It is a `manual_adjustment` at `+price_pence`, and the note does the
+explaining.** No migration, it is already the one type free to go either way, and
+it is already invisible to the cash total — which is the requirement that decides
+this.
+
 **It cannot be a `refund`.** The word is ordinary English for giving money back,
 but in this schema `refund` means cash leaving the tin — it reverses a
 `top_up_cash`, and the sign CHECK pins it negative. tick, untick, tick would come
 to **−£6**, not −£2.
 
-There is a second reason, and it rules out `top_up_cash` as well: a session's
-*Money collected* is the sum of `top_up_cash` and `refund` rows carrying that
-`session_id` (`training/session-cash.ts`). Anything used to credit £2 back that
-is not excluded from that sum breaks the one number the registrar checks the tin
-against. Unticking moves credit, not money, so it has to be invisible to it.
+**Nor a `top_up_cash`.** A session's *Money collected* is the sum of
+`top_up_cash` and `refund` rows carrying that `session_id`
+(`training/session-cash.ts`). Either of them would move the one number the
+registrar checks the tin against, and unticking moves credit, not money.
 
-Two ways to go, to be chosen when the sign-in RPC is written, since that needs a
-migration regardless:
+`describeEntry` already renders an adjustment as its own note, so the line reads
+*"£2.00 added — Monday Track sign-in corrected for Jack, recorded by Eoin
+Mullan"* with no new case in `credits/transactions.ts`. That is the whole reason
+the note is written for the member rather than for the admin: it has to be a
+sentence a parent can check against their own memory of the evening, which a bare
+"adjustment" is not. Name the session and the runner in it.
 
-- **`manual_adjustment` at `+price_pence`.** No migration. It is already free to
-  go either way, and already excluded from the cash total. The cost is the
-  member's page, where `describeEntry` renders an adjustment as its note — so the
-  wording is hand-written, and somebody has to choose a sentence a parent will
-  read
-- **A new `session_reversal` type**, constrained positive, excluded from the cash
-  total by construction. One more line in the same migration the RPC needs, and it
-  reads as a sentence without a note to invent
+Set `member_id` on the reversal as well, even though `describeEntry` ignores it
+for an adjustment — the row should know who it was about, whatever today's
+wording reads from.
 
-Either way it is keyed off the attendance row it reverses, so a double-tapped
-untick credits once.
+It is keyed `untick:{attendance_id}`, off the attendance row it reverses, so a
+double-tapped untick credits once. A re-tick mints a fresh `attendance_id`, so
+unticking *that* is a different key and correctly credits again.
 
 ### Admin: session management (in the main site)
 - [x] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2). The start time is read as Omagh's clock rather than the Worker's UTC, so a summer session is not an hour out — `training/club-time.ts`
@@ -395,7 +399,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [ ] Household balance visible inline against each name, so the registrar can see who needs to pay without opening anything
 
 ### Idempotency
-- [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
+- [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `untick:{attendance_id}` for the adjustment that gives a mis-tapped charge back, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
 - [ ] A take-back is keyed off what it reverses — `refund:{original_key}` — so a retried or double-tapped undo refunds once, which matters most on the flaky connection that prompted the retry
 - [ ] Write with `ON CONFLICT (idempotency_key) DO NOTHING` so retries / offline-then-sync never double-write
 - [ ] Test: queue an attendance write offline → bring app online → exactly one row appears

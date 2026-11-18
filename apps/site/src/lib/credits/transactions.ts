@@ -1,5 +1,5 @@
 import type { CreditTransactionType } from '@omagh/supabase';
-import { formatPounds } from './money';
+import { formatPounds } from '@omagh/training';
 
 export interface LedgerEntry {
   type: CreditTransactionType;

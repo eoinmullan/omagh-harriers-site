@@ -2,7 +2,7 @@
 import Layout from '../../../layouts/Layout.astro';
 import PageContainer from '../../../components/PageContainer.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
-import { formatBalance, formatPounds } from '../../../lib/credits/money';
+import { formatBalance, formatPounds } from '@omagh/training';
 import { describeEntry, isCredit } from '../../../lib/credits/transactions';
 import {
   DEFAULT_SESSION_PRICE_PENCE,

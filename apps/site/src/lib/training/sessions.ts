@@ -1,7 +1,6 @@
 import { DEFAULT_SESSION_PRICE_PENCE } from '../credits/ledger';
-import { formatPounds, parsePounds } from '../credits/money';
 import type { TrainingSessionInsert, TrainingSessionUpdate } from '@omagh/supabase';
-import { parseClubDateTime } from './club-time';
+import { formatPounds, parseClubDateTime, parsePounds } from '@omagh/training';
 
 // What may be written to `training_sessions`, decided here so the admin pages
 // decide nothing. Same shape as `credits/ledger.ts`: a form in, either a row

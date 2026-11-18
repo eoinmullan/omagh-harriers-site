@@ -15,6 +15,7 @@
   "dependencies": {
     "@astrojs/cloudflare": "^12.6.13",
     "@omagh/supabase": "workspace:*",
+    "@omagh/training": "workspace:*",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.3",
     "@tailwindcss/vite": "^4.1.18",

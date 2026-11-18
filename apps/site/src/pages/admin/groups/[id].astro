@@ -220,7 +220,7 @@ for (const row of (allMemberships ?? []) as unknown as MembershipRow[]) {
 </Layout>
 
 <script>
-  import { matchesName } from '../../../lib/training/names';
+  import { matchesName } from '@omagh/training';
 
   const search = document.getElementById('member-search') as HTMLInputElement | null;
   const count = document.getElementById('member-count');

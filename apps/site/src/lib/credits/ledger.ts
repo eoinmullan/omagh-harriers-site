@@ -1,5 +1,5 @@
 import type { CreditTransactionInsert } from '@omagh/supabase';
-import { formatPounds, parsePounds } from './money';
+import { formatPounds, parsePounds } from '@omagh/training';
 
 // A transfer only needs to know who the other household is. Its balance is
 // the source's business, not the target's.

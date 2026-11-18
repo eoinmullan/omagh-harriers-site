@@ -3,8 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
-import { formatPounds } from '../../lib/credits/money';
-import { formatClubDateTime } from '../../lib/training/club-time';
+import { formatClubDateTime, formatPounds } from '@omagh/training';
 import { planNewSession, partitionByStart, type SessionGroup } from '../../lib/training/sessions';
 import {
   countHeads,

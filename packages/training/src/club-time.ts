@@ -60,6 +60,20 @@ export function formatClubDate(iso: string): string {
   });
 }
 
+/**
+ * The club's calendar day for an instant, as `YYYY-MM-DD`.
+ *
+ * A session at 20:30 on a June evening is 19:30Z, and one at 00:30 after a
+ * late finish is the small hours of the next UTC day. Asking "is this on
+ * tonight?" against UTC gets both wrong, so the comparison is made on the day
+ * Omagh is living in.
+ */
+export function clubDayKey(iso: string | number | Date): string {
+  const instant = iso instanceof Date ? iso.getTime() : typeof iso === 'number' ? iso : Date.parse(iso);
+  const parts = clubParts(instant);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function offsetMillisAt(instant: number): number {
   const parts = clubParts(instant);
   const asIfUtc = Date.UTC(

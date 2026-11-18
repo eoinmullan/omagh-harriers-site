@@ -1,5 +1,5 @@
 import type { GroupInsert, GroupUpdate, MemberGroupInsert } from '@omagh/supabase';
-import { normaliseForSearch } from './names';
+import { normaliseForSearch } from '@omagh/training';
 
 // Every rule about what may be written to `groups` and `member_groups` lives
 // here, in the style of `credits/ledger.ts`: the page hands over a form and

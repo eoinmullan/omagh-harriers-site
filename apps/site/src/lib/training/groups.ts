@@ -1,4 +1,4 @@
-import type { GroupInsert, GroupUpdate, MemberGroupInsert } from '../supabase/types';
+import type { GroupInsert, GroupUpdate, MemberGroupInsert } from '@omagh/supabase';
 import { normaliseForSearch } from './names';
 
 // Every rule about what may be written to `groups` and `member_groups` lives

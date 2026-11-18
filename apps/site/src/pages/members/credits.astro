@@ -4,7 +4,7 @@ import PageContainer from '../../components/PageContainer.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import { describeEntry, isCredit } from '../../lib/credits/transactions';
 import { formatBalance } from '../../lib/credits/money';
-import type { CreditTransactionType } from '../../lib/supabase/types';
+import type { CreditTransactionType } from '@omagh/supabase';
 
 // Middleware guarantees auth + active principal + terms accepted before we get here.
 // Defensive fallback only.

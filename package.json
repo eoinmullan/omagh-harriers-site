@@ -8,6 +8,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "preview": "pnpm --filter @omagh/site preview",
-    "sync-klubfunder": "pnpm --filter @omagh/site sync-klubfunder"
+    "sync-klubfunder": "pnpm --filter @omagh/site sync-klubfunder",
+    "supabase:types": "pnpm --filter @omagh/supabase gen-types"
   }
 }

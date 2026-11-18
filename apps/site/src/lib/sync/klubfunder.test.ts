@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MemberRow, PrincipalRow } from '../supabase/types';
+import type { MemberRow, PrincipalRow } from '@omagh/supabase';
 import {
   computePlan,
   deriveDisplayName,

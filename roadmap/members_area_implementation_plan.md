@@ -335,11 +335,39 @@ unticking *that* is a different key and correctly credits again.
 
 ### PWA setup
 - [ ] Add `apps/signin` package to the existing pnpm monorepo (created in Phase 0) — Vite + React
-- [ ] Share Supabase types via a `packages/supabase` workspace package consumed by both `apps/site` and `apps/signin`
+- [x] Share Supabase types via a `packages/supabase` workspace package — `apps/site` imports it now, `apps/signin` imports it the day it is created. The package is types and nothing else: no client factory, because the site's service-role client must never be reachable from a volunteer's phone and its cookie-backed browser client is the wrong session model for an installed app. Nothing is emitted, so there is no build step and no bundling question — see *One copy of the schema* below
 - [ ] Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it
 - [ ] Connect to the same Supabase project — `registrar`, `admin` or `superuser` required
 - [ ] Add Web App Manifest and service worker (PWA installable on iOS and Android)
 - [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns
+
+#### One copy of the schema
+
+`packages/supabase` holds the `Database` type and the row, insert and update
+aliases the lib modules import by name. It exists because two copies would drift
+the first time a column was added, and the app that missed the change would fail
+at the track rather than at the typechecker.
+
+Three things stayed behind in `apps/site/src/lib/supabase/`, on purpose:
+
+- **`admin.ts`** mints the service-role client, which bypasses RLS entirely. The
+  sign-in app holds no secret key and must not be able to ask for one. A shared
+  module that can build this client is an invitation to try
+- **`server.ts`** takes `AstroCookies`. Astro-only by construction
+- **`browser.ts`** is `@supabase/ssr`'s cookie-backed client, which is right for a
+  server-rendered site and wrong for an installed app that wants a session which
+  survives being closed. The PWA builds its own client with
+  `createClient<Database>` and a persisted session
+
+Because what is left is types only, every import of it is an `import type` and is
+erased before anything runs. The package emits nothing, needs no build step, and
+raises no question about transpiling a workspace dependency — which is the usual
+cost of sharing code between a Vite app and an Astro one. Its `typecheck` script
+runs under the existing `pnpm -r typecheck`, so CI checks it.
+
+`pnpm supabase:types` regenerates the file from the live schema. It replaces the
+whole thing, including the aliases and the comments explaining why attendance has
+no update shape, so diff it before committing.
 
 ### Member-facing
 

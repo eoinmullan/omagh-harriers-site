@@ -1,4 +1,4 @@
-import type { PrincipalRole } from '../supabase/types';
+import type { PrincipalRole } from '@omagh/supabase';
 
 // Who may be given which role, decided here rather than in the page. The
 // screen renders whatever `assignableRoles` offers and writes whatever

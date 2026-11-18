@@ -8,7 +8,7 @@ import {
   type Household,
   type LedgerWrite,
 } from './ledger';
-import type { CreditTransactionInsert } from '../supabase/types';
+import type { CreditTransactionInsert } from '@omagh/supabase';
 
 const ADMIN = 'admin-principal-id';
 const KEY = 'idem-key';

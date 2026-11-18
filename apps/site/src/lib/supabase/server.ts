@@ -1,7 +1,7 @@
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AstroCookies } from 'astro';
-import type { Database } from './types';
+import type { Database } from '@omagh/supabase';
 
 export type SupabaseServerClient = SupabaseClient<Database>;
 

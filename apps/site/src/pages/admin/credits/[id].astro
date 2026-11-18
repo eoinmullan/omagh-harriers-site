@@ -12,7 +12,7 @@ import {
   planTransfer,
   type LedgerWrite,
 } from '../../../lib/credits/ledger';
-import type { CreditTransactionType } from '../../../lib/supabase/types';
+import type { CreditTransactionType } from '@omagh/supabase';
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/credits');

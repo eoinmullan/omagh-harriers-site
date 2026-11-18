@@ -50,6 +50,30 @@ Schedule invariants TypeScript can't express (real calendar dates, ordering, ove
 empty groups) are checked by `apps/site/src/lib/training/schedule.test.ts`. **CI does not run
 tests**, so run `pnpm --filter @omagh/site test` after editing the schedule.
 
+## Shared Supabase types
+
+`packages/supabase` (`@omagh/supabase`) holds the `Database` type and every row,
+insert and update alias. It is the only copy. The sign-in PWA will import it too,
+and two copies would drift the first time a column was added — the app that missed
+the change failing at the track rather than at the typechecker.
+
+**It is types and nothing else, and the three client factories stay in
+`apps/site/src/lib/supabase/` on purpose.** `admin.ts` mints the service-role
+client that bypasses RLS, and the sign-in app must not be able to ask for one;
+`server.ts` takes `AstroCookies`; `browser.ts` is the cookie-backed `@supabase/ssr`
+client, which is right for a server-rendered site and wrong for an installed app
+that needs a session surviving being closed. Each app builds its own client and
+names the shared type.
+
+Everything importing it does so with `import type`, so nothing is emitted and
+there is no build step — which is what keeps a Vite app and an Astro one sharing
+a workspace package without a transpile step between them. The package's
+`typecheck` script runs under `pnpm -r typecheck`, so CI covers it.
+
+Regenerate from the live schema with `pnpm supabase:types` from the repo root. It
+**overwrites the whole file**, aliases and explanatory comments included, so diff
+it rather than trusting it.
+
 ## Klubfunder sync
 
 The membership data in `principals` and `members` is reconciled from a Klubfunder CSV export by `apps/site/scripts/sync-klubfunder.ts`. Run it from the repo root.

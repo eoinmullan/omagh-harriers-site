@@ -1,4 +1,4 @@
-import type { CreditTransactionType } from '../supabase/types';
+import type { CreditTransactionType } from '@omagh/supabase';
 
 // What a session actually took, and who took it.
 //

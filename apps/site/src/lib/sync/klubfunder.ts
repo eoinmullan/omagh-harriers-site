@@ -4,7 +4,7 @@ import type {
   MemberStatus,
   MemberUpdate,
   PrincipalRow,
-} from '../supabase/types';
+} from '@omagh/supabase';
 import type { SupabaseAdminClient } from '../supabase/admin';
 
 // =============================================================================

@@ -1,11 +1,26 @@
-// Hand-rolled Database type for the principals + members schema.
-// Regenerate with `pnpm supabase:types` once the Supabase CLI is set up.
+// The shape of the club's database, and the only copy of it.
+//
+// `@omagh/supabase` exists so that the website and the sign-in app describe the
+// same tables. Two copies of this file would drift the first time a column was
+// added, and the app that missed the change would fail at the track rather than
+// at the typechecker.
+//
+// It is types and nothing else. There is no client factory here on purpose:
+// the website's service-role client bypasses RLS and must never be reachable
+// from a volunteer's phone, and its cookie-backed browser client is the wrong
+// session model for an installed app. Each app builds its own client and names
+// this type.
 //
 // Shape follows Supabase's generated-types convention so that the
 // SupabaseClient<Database> type machinery (in @supabase/postgrest-js) infers
 // table column types correctly. In particular: every Row/Insert/Update is a
 // type alias (not interface), Relationships is present per table, and
 // Views/Functions/Enums/CompositeTypes use the empty-mapped-type pattern.
+//
+// It is hand-rolled. `pnpm supabase:types` would replace the whole file with
+// the generator's output, losing the aliases every lib module imports by name
+// and the comments that explain why attendance has no Update shape. Diff it
+// before committing; don't run it and trust it.
 
 export type PrincipalRole = 'member' | 'registrar' | 'admin' | 'superuser';
 export type RecordSource = 'klubfunder' | 'manual';

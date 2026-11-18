@@ -1,4 +1,4 @@
-import type { CreditTransactionInsert } from '../supabase/types';
+import type { CreditTransactionInsert } from '@omagh/supabase';
 import { formatPounds, parsePounds } from './money';
 
 // A transfer only needs to know who the other household is. Its balance is

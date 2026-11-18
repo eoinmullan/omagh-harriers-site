@@ -1,6 +1,6 @@
 import { DEFAULT_SESSION_PRICE_PENCE } from '../credits/ledger';
 import { formatPounds, parsePounds } from '../credits/money';
-import type { TrainingSessionInsert, TrainingSessionUpdate } from '../supabase/types';
+import type { TrainingSessionInsert, TrainingSessionUpdate } from '@omagh/supabase';
 import { parseClubDateTime } from './club-time';
 
 // What may be written to `training_sessions`, decided here so the admin pages

@@ -7,11 +7,11 @@ Phases are intended to be shipped independently. Each phase is self-contained an
 | App | Subdomain | Hosting | Backend |
 |---|---|---|---|
 | Public site + members area | `omaghharriers.com` | Cloudflare Pages (SSR via Pages Functions) | Supabase |
-| Training sign-in PWA | `signin.omaghharriers.com` | Cloudflare Pages (separate project, static) | Same Supabase project |
+| Training sign-in PWA | `omaghharriers.com/registrar` | Same Cloudflare Pages project, prerendered route | Same Supabase project, same cookie session |
 
 **Admin area** (`/admin/*`) lives inside the club site as SSR Astro pages — desktop management tasks (member list, credit adjustments, history). Gated by an admin role check in middleware.
 
-**Training sign-in PWA** is a separate React + Vite app — mobile-first, installable, used at sessions to mark attendance and record cash payments. Members use it without ever seeing the URL. Shares the same Supabase project via role-based access.
+**Training sign-in PWA** is a prerendered route on the main site with a React island — mobile-first, installable, used at sessions to mark attendance and record cash payments. Reached from a card in the members' area that only a registrar sees, so it installs already signed in. See *One origin, one sign-in* in Phase 5.
 
 ## End-state Folder Structure
 
@@ -30,7 +30,7 @@ omagh-harriers-site/
 │   │   ├── astro.config.mjs
 │   │   ├── tsconfig.json           # extends ../../tsconfig.base.json
 │   │   └── package.json            # @omagh/site
-│   └── signin/                     # React+Vite PWA — signin.omaghharriers.com (Pages project B)
+│   └── (no second app — the registrar PWA is /registrar on the site)
 │       ├── src/
 │       ├── public/
 │       ├── vite.config.ts
@@ -189,7 +189,7 @@ The boxes below are kept as the plan, not as outstanding work.
 
 ## Phase 5 — Training Sessions, Attendance & Sign-in PWA
 
-Introduces training sessions as first-class entities, attendance recording against them, and the standalone sign-in PWA at `signin.omaghharriers.com`. Used by club registrars at training to mark attendance and record cash payments. Shares the same Supabase project. Built with offline-first idempotent writes so flaky leisure-centre wifi can't double-charge anyone.
+Introduces training sessions as first-class entities, attendance recording against them, and the installable sign-in app at `omaghharriers.com/registrar`. Used by club registrars at training to mark attendance and record cash payments. Shares the same Supabase project. Built with offline-first idempotent writes so flaky leisure-centre wifi can't double-charge anyone.
 
 **Usability comes before every other consideration in this phase.** The registrar is
 standing at the track with a queue of runners in front of them, often in the cold and
@@ -376,12 +376,67 @@ Two things not to do when it lands:
 - [x] Add a `registrar` role — today the only role that can write is `admin`, which can also reassign roles, deactivate households and move balances. A volunteer signing runners in on a borrowed phone needs none of that. Granted from `/admin/principals/[id]`, which was already the superuser-only place roles are set
 
 ### PWA setup
-- [ ] Add `apps/signin` package to the existing pnpm monorepo (created in Phase 0) — Vite + React
-- [ ] Share Supabase types via a `packages/supabase` workspace package consumed by both `apps/site` and `apps/signin`
-- [ ] Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it
-- [ ] Connect to the same Supabase project — `registrar`, `admin` or `superuser` required
-- [ ] Add Web App Manifest and service worker (PWA installable on iOS and Android)
+- [x] ~~Add `apps/signin` package — Vite + React~~ — **dropped.** It is `apps/site/src/pages/registrar/` with a React island in `components/registrar/`, which is what makes a single sign-in possible at all
+- [x] ~~Share Supabase types via a `packages/supabase` workspace package~~ — **dropped with the second app.** One app, one copy; `src/lib/supabase/types.ts` stays where it is
+- [x] ~~Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it~~ — **dropped.** One origin, one deployment, one set of env vars, no second redirect allow-list and no DNS record
+- [x] Connect to the same Supabase project — the site's own cookie session, through the existing `createSupabaseBrowserClient`, with the role read from the **`app_role`** claim on the token so the app knows what to draw with no signal. RLS gates every write — `lib/training/registrar.ts`
+- [x] Web App Manifest, icons and the standalone metadata, served only on `/registrar` so Add to Home Screen anywhere else bookmarks an ordinary page. Scope `/registrar` keeps the installed window out of the rest of the site
+- [ ] Service worker — deliberately not yet. It belongs with the offline queue below, and a cache added before there is anything worth caching offline only makes a stale app harder to debug. **Scope it to `/registrar`**: a root-scoped worker would start serving stale marketing pages, which is the one genuine hazard of sharing an origin
 - [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns
+
+#### One origin, one sign-in
+
+The plan assumed a separate Vite app on `signin.omaghharriers.com` from Phase 0
+onwards and never gave a reason. Examined, it does not survive.
+
+**The registrar is already a member with an account.** Asking a volunteer to sign
+in a second time, to a second thing, is the kind of friction that ends with
+somebody doing attendance on paper.
+
+**On iOS it was the wrong trade twice over.** A home screen web app gets its own
+cookie container, so signing in to Safari does not sign you in to the app — but
+since iOS 17.2 the cookies Safari holds are copied in **once, when the icon is
+created**. `localStorage` never is. The separate app persisted its session to
+local storage, which is precisely the storage iOS leaves behind; the site's
+cookie session is precisely the one it carries over. Single-origin is not merely
+more convenient, it is the only one of the two that installs already signed in.
+
+The flow then needs no instructions. The members' area shows a **Sign runners
+in** card to registrars, admins and superusers only. You cannot reach the app
+without signing in, and by the time you can add it to your home screen the cookie
+is there to be copied.
+
+**The route is prerendered, not server-rendered**, and that is the part worth
+defending. A server round trip is a blank screen at a track with no signal, and a
+service worker caching a server-rendered page would be caching one registrar's
+HTML to hand to the next. A static shell has neither failure, and the data comes
+from the browser's Supabase client under RLS.
+
+That means **nothing gates `/registrar`, and nothing can** — middleware does not
+run for a static asset. Correct rather than a gap: the shell is empty, RLS gates
+every read and write, and the role on the token decides only what is drawn.
+A middleware rule would buy nothing and would break opening the app offline.
+
+What was given up: the public site and the registrar app now deploy together, so
+a registrar fix redeploys the website and a bad content deploy takes the app down
+mid-session. For a club this size that beats a permanent second deployment,
+second domain, second env convention and second sign-in — but it is a real cost,
+not a free win.
+
+Two things the platform forces into the UI:
+
+- **A sign-in link cannot re-authenticate an installed iOS app.** Tapped in Mail
+  it opens Safari, a different cookie container, so the app stays signed out. The
+  recovery is to delete the icon and add it again, which copies a fresh cookie.
+  Unlikely in practice — registrars open it weekly — but nobody guesses it
+  unaided at seven on a wet Monday, so the signed-out screen says so, on iOS only
+- **Safari has no install prompt.** Chrome gets the real one through
+  `beforeinstallprompt`; iOS gets a dismissable line saying where Add to Home
+  Screen lives
+
+`@astrojs/react` is pinned to the **4.4.x** line. 6.x depends on Vite 8 and pulls
+rolldown in alongside Astro 5's Vite 6 — it builds, then breaks the dev server
+with `Missing field moduleType`.
 
 ### Member-facing
 
@@ -433,8 +488,8 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [ ] Paper fallback — a printable session list, for the night a phone dies
 
 ### PWA core features
-- [ ] Registrar sign-in (Supabase auth, role `registrar`, `admin` or `superuser`)
-- [ ] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one
+- [x] Registrar sign-in — there is no sign-in form. The session is the members' area's own cookie session, which is the whole point of *One origin, one sign-in*. A member who finds the route is told plainly that they're a member, not shown an error
+- [x] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one; a single session opens without asking. Today is Omagh's calendar day, so a late finish stays on the night it belongs to, and the query is bounded to that day rather than fetching the table — `lib/training/tonight.ts`. A cancelled session is named rather than hidden: "nothing on tonight" and "Monday Track was called off" send a registrar in the rain to two different places
 - [ ] Creating a session is the admin site's job, but the app keeps a fallback for the night nobody got round to it — a registrar blocked at the track by a missing row is exactly the failure this phase exists to avoid. The fallback asks for a group, since the Usuals list is useless without one
 - [ ] Attendance view — the Usuals described above, not the full membership. One tap of the checkbox marks attendance: writes an `attendance` row and a paired `credit_transactions` row of `type = 'session'` with `session_id` set and keyed `session:{attendance_id}`, in a single transaction
 - [ ] Record cash payment — tap the runner's cash cell, pick or key in the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared

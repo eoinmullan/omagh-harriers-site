@@ -334,11 +334,12 @@ unticking *that* is a different key and correctly credits again.
 - [x] Add a `registrar` role — today the only role that can write is `admin`, which can also reassign roles, deactivate households and move balances. A volunteer signing runners in on a borrowed phone needs none of that. Granted from `/admin/principals/[id]`, which was already the superuser-only place roles are set
 
 ### PWA setup
-- [ ] Add `apps/signin` package to the existing pnpm monorepo (created in Phase 0) — Vite + React
+- [x] Add `apps/signin` package to the existing pnpm monorepo (created in Phase 0) — Vite + React, Tailwind 4, vitest. Port 4322 so it can run beside the site
 - [x] Share Supabase types via a `packages/supabase` workspace package — `apps/site` imports it now, `apps/signin` imports it the day it is created. The package is types and nothing else: no client factory, because the site's service-role client must never be reachable from a volunteer's phone and its cookie-backed browser client is the wrong session model for an installed app. Nothing is emitted, so there is no build step and no bundling question — see *One copy of the schema* below
-- [ ] Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it
-- [ ] Connect to the same Supabase project — `registrar`, `admin` or `superuser` required
-- [ ] Add Web App Manifest and service worker (PWA installable on iOS and Android)
+- [ ] Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it — **needs doing in the dashboard**: build command `pnpm --filter @omagh/signin build`, output `apps/signin/dist`, and the two `VITE_` variables below
+- [x] Connect to the same Supabase project — anon key and RLS, never a service-role key, with a persisted session so a registrar signs in once per phone. The role is read from the **`app_role`** claim on the stored token rather than fetched, so the app knows what to draw with no signal; the write side stays RLS's business — `lib/registrar.ts`
+- [x] Web App Manifest, icons and the standalone/theme metadata — installable on iOS and Android
+- [ ] Service worker — deliberately not yet. It belongs with the offline queue below, and a cache added before there is anything to cache offline only makes a stale app harder to debug
 - [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns
 
 #### One copy of the schema
@@ -419,8 +420,8 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [ ] Paper fallback — a printable session list, for the night a phone dies
 
 ### PWA core features
-- [ ] Registrar sign-in (Supabase auth, role `registrar`, `admin` or `superuser`)
-- [ ] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one
+- [x] Registrar sign-in (Supabase auth, role `registrar`, `admin` or `superuser`). Email link only — the website offers Google and Microsoft because it knows which provider an address belongs to, but that is two more redirect URLs on a second domain for something that happens once per phone. A member who signs in is told plainly that they're a member, not shown an error
+- [x] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one. A single session opens without asking. Today is Omagh's calendar day, so a late finish stays on the night it belongs to, and the query is bounded to that day rather than fetching the table — `lib/tonight.ts`. A cancelled session is named rather than hidden: "nothing on tonight" and "Monday Track was called off" send a registrar in the rain to two different places
 - [ ] Creating a session is the admin site's job, but the app keeps a fallback for the night nobody got round to it — a registrar blocked at the track by a missing row is exactly the failure this phase exists to avoid. The fallback asks for a group, since the Usuals list is useless without one
 - [ ] Attendance view — the Usuals described above, not the full membership. One tap of the checkbox marks attendance: writes an `attendance` row and a paired `credit_transactions` row of `type = 'session'` with `session_id` set and keyed `session:{attendance_id}`, in a single transaction
 - [ ] Record cash payment — tap the runner's cash cell, pick or key in the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared

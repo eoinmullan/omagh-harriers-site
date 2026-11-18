@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+
+/* Built for a floodlit track in the rain: dark ground, high contrast, and
+   nothing small enough to need aiming at. Tap targets are at least 3rem high
+   throughout, which is the one rule the components must not break. */
+
+@theme {
+  --color-ground: #0b1120;
+  --color-raised: #1b2435;
+  --color-edge: #33415c;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ground);
+  color: #f8fafc;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  /* Keeps content clear of a phone's notch and home indicator. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* A mis-tap is the failure this app exists to avoid, so nothing is a drag
+   target and nothing double-tap zooms. */
+button,
+a,
+input {
+  touch-action: manipulation;
+}

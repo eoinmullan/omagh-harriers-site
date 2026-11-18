@@ -18,6 +18,7 @@ export {
   clubDayKey,
   formatClubDate,
   formatClubDateTime,
+  formatClubTime,
   parseClubDateTime,
   toClubDateTimeInput,
 } from './club-time';

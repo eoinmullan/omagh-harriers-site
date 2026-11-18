@@ -49,6 +49,18 @@ export function formatClubDateTime(iso: string): string {
   });
 }
 
+/**
+ * Just the time, e.g. '19:00' — for a list that has already said which night
+ * it is talking about.
+ */
+export function formatClubTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    timeZone: CLUB_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /** e.g. 'Mon 6 Jul 2026' — for grouping a list by the night it happened. */
 export function formatClubDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', {

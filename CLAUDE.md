@@ -50,11 +50,53 @@ Schedule invariants TypeScript can't express (real calendar dates, ordering, ove
 empty groups) are checked by `apps/site/src/lib/training/schedule.test.ts`. **CI does not run
 tests**, so run `pnpm --filter @omagh/site test` after editing the schedule.
 
+## The sign-in app (`apps/signin`)
+
+The registrar PWA: Vite + React + Tailwind 4, `pnpm --filter @omagh/signin dev`
+on port **4322**, so it runs beside the site on 4321. It is a separate Cloudflare
+Pages project pointed at `signin.omaghharriers.com` — build `pnpm --filter
+@omagh/signin build`, output `apps/signin/dist`.
+
+**Env vars are `VITE_` here and `PUBLIC_` on the site.** Same two values, same
+Supabase project; Vite only exposes what carries its own prefix. `.env.example`
+spells them out, and `src/supabase.ts` throws a sentence saying so if either is
+missing, rather than failing somewhere less obvious later.
+
+**Anon key and RLS, never a service-role key.** Everything this app holds is
+readable by whoever holds the phone, so what a registrar may write is the
+database's decision. The session is persisted to local storage, which is the
+whole point: a registrar signs in once and is still signed in next Monday in the
+cold.
+
+**The role is read from the token, not fetched.** `lib/registrar.ts` decodes the
+**`app_role`** claim off the stored access token — never `role`, which PostgREST
+reserves. That means the app knows what to draw with no connection at all. The
+cost is staleness: a role taken away survives until the token refreshes. That is
+the right trade for a screen and the wrong one for a write, which is why the
+write is gated by RLS and not by this function.
+
+Rules live in `src/lib/` and are unit tested without a database, the same way the
+site's are — `registrar.ts` for who gets in, `tonight.ts` for which session is
+offered. The screens decide nothing. Anything both apps need goes in
+`@omagh/training` instead, so the two cannot drift.
+
+**Tonight is Omagh's calendar day.** `tonight.ts` bounds the query to that day
+rather than fetching the table, and works the boundaries out by calendar
+arithmetic on the day number — adding 24 hours lands on the wrong day twice a
+year. A cancelled session comes back named rather than dropped, because "nothing
+on tonight" and "Monday Track was called off" send a registrar standing in the
+rain to two different places.
+
+**No service worker yet, on purpose.** The manifest and icons are there and the
+app installs, but caching belongs with the offline write queue. A cache added
+before there is anything worth caching offline only makes a stale app harder to
+debug.
+
 ## Shared Supabase types
 
 `packages/supabase` (`@omagh/supabase`) holds the `Database` type and every row,
-insert and update alias. It is the only copy. The sign-in PWA will import it too,
-and two copies would drift the first time a column was added — the app that missed
+insert and update alias. It is the only copy, imported by both
+`apps/site` and `apps/signin`. Two copies would drift the first time a column was added — the app that missed
 the change failing at the track rather than at the typechecker.
 
 **It is types and nothing else, and the three client factories stay in
@@ -69,6 +111,16 @@ Everything importing it does so with `import type`, so nothing is emitted and
 there is no build step — which is what keeps a Vite app and an Astro one sharing
 a workspace package without a transpile step between them. The package's
 `typecheck` script runs under `pnpm -r typecheck`, so CI covers it.
+
+`packages/training` (`@omagh/training`) is the other half of the same idea, for
+rules rather than shapes: `club-time.ts`, `money.ts` and `names.ts` — how Omagh's
+clock reads, how money is written, how a name typed at a track is matched against
+one typed on a membership form. Unlike the types it has runtime code, so it is
+bundled rather than erased; the member-assignment page imports `matchesName` from
+a browser `<script>` and the build inlines it tree-shaken, which is the case that
+would break first if that ever stopped working. Admin form rules stay in
+`apps/site/src/lib/` — they answer questions only the admin screens ask, and that
+is the test for what belongs in the package.
 
 Regenerate from the live schema with `pnpm supabase:types` from the repo root. It
 **overwrites the whole file**, aliases and explanatory comments included, so diff

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clubDayKey,
   formatClubDateTime,
+  formatClubTime,
   parseClubDateTime,
   toClubDateTimeInput,
 } from './club-time';
@@ -72,5 +73,15 @@ describe('clubDayKey', () => {
 
   it('reads midnight as the start of the day, not hour 24 of the last one', () => {
     expect(clubDayKey('2026-01-12T00:00:00.000Z')).toBe('2026-01-12');
+  });
+});
+
+describe('formatClubTime', () => {
+  it('reads a summer evening as the clock on the track reads it', () => {
+    expect(formatClubTime('2026-07-06T18:30:00.000Z')).toBe('19:30');
+  });
+
+  it('reads a winter evening the same way, with no offset to apply', () => {
+    expect(formatClubTime('2026-01-12T19:00:00.000Z')).toBe('19:00');
   });
 });

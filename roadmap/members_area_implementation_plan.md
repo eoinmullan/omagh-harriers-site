@@ -240,7 +240,7 @@ not in scope.
 - [x] Create `groups` table — `id`, `name`, `is_active`, `created_at`. The squads the club actually trains in — sprints, middle distance, endurance, seniors, juniors, and whatever is added next. Admins add them through the UI, so the list is never a deploy away
 - [x] Create `training_sessions` table — `id`, `name`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `location` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`
 - [x] `price_pence` is set from a **£2** constant in code at creation time. The session keeps its own copy, so changing the constant never rewrites a session that has already run, and never touches the ledger, which records what was actually charged
-- [ ] **Migration needed:** relax `training_sessions.price_pence` from `CHECK (price_pence > 0)` to `>= 0`, so a free session can exist. `0009` forbade zero on the grounds that it would produce no ledger row; that is now the wanted behaviour — see *A session that costs nothing* below. Not yet written
+- [x] Relax `training_sessions.price_pence` from `CHECK (price_pence > 0)` to `>= 0`, so a free session can exist — **migration `0012`, written and tested locally, not yet applied to the live project**
 - [x] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the Usuals list useful on day one, before any attendance history exists
 - [x] Create `guests` table — `id`, `first_name`, `surname`, `created_at`, `created_by`. A returning guest is picked from this list rather than retyped, which also stops one person becoming three through spelling
 - [x] Create `attendance` table — `id`, `session_id` (FK → `training_sessions`), `member_id` (nullable), `guest_id` (nullable), `amount_paid_pence` (nullable, guests only — they pay instead of drawing on credit), `recorded_by`, `idempotency_key` (unique), `created_at`, with a CHECK that exactly one of `member_id` and `guest_id` is set
@@ -438,6 +438,39 @@ Two things the platform forces into the UI:
 rolldown in alongside Astro 5's Vite 6 — it builds, then breaks the dev server
 with `Missing field moduleType`.
 
+#### The tick is one transaction
+
+`attendance` and `credit_transactions` are two tables, and PostgREST cannot
+write both in one statement. A phone that managed only one would leave a runner
+present and uncharged, or charged and absent — so the tick is an RPC:
+`sign_in_member(member, session [, attendance_id])`, with
+`undo_member_sign_in(attendance_id)` as its other half. **Migration `0011`.**
+
+`attendance_id` is optional and exists for the offline queue: a phone that fixes
+the row's identity at tick time can retry the same call for hours, because every
+key is derived from ids settled before the queue was written.
+
+Both are SECURITY INVOKER. RLS already says who may write what; a definer
+function would restate that rule and be where it goes stale. The role check at
+the top of each only turns a silent denial into a sentence.
+
+Proved locally against a throwaway Postgres 17 with the whole migration chain
+replayed and RLS on, acting as a registrar rather than as the owner:
+
+- a retried tick returns the same attendance row and charges once
+- the debit is negative, typed `session`, and carries the session and the member
+- an untick removes the row and returns the money, noted *"Monday Track sign-in
+  corrected for Jack"*
+- a double-tapped untick credits once
+- a re-tick mints a fresh attendance id and charges again
+- a free session records attendance and no ledger row, and unticking it gives
+  nothing back
+- a member is refused; an admin is allowed; a cancelled session is refused
+- unticking a row that is already gone is quiet, and unticking a guest says so
+
+**Neither migration has been applied to the live project.** They are files in
+`supabase/migrations/`, to be run when the attendance view is ready to use them.
+
 ### Member-facing
 
 - [ ] Training history in the members' area — which sessions each member of the household attended and when. The original goal for this area was a member checking their credit *and* when they trained; Phase 4 shipped the credit half, and the RLS planned above already allows the other, but no page was ever listed for it
@@ -498,7 +531,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 ### Idempotency
 - [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `untick:{attendance_id}` for the adjustment that gives a mis-tapped charge back, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
 - [ ] A take-back is keyed off what it reverses — `refund:{original_key}` — so a retried or double-tapped undo refunds once, which matters most on the flaky connection that prompted the retry
-- [ ] Write with `ON CONFLICT (idempotency_key) DO NOTHING` so retries / offline-then-sync never double-write
+- [x] Write with `ON CONFLICT DO NOTHING` so retries / offline-then-sync never double-write — untargeted, because a retry can trip either the unique `idempotency_key` or the unique `(member_id, session_id)`. CHECK violations still raise, which is wanted. In `sign_in_member` / `undo_member_sign_in`, migration `0011`
 - [ ] Test: queue an attendance write offline → bring app online → exactly one row appears
 - [ ] Test: trigger sync twice in rapid succession → no duplicate
 - [ ] Test: create a session in the PWA while offline → syncs as one session (deterministic client-generated `id`), attendance rows reference that `id`

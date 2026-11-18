@@ -222,6 +222,18 @@ not in scope.
   Proved against a throwaway Postgres rather than asserted — a registrar's attempts to edit a
   member, promote themselves, retitle a group or re-price a session all come back having
   touched no rows
+- **A tick is held for a moment before it is written, by coalescing the queue's
+  flush rather than by a cool-off timer.** A visible delay was considered and
+  refused: for as long as the screen says ticked and the server does not know, a
+  second phone on the same session shows that runner as absent and signs them in
+  too — and the unique index on `(member_id, session_id)`, which is the only thing
+  stopping the duplicate, cannot fire until a write lands. A deliberate delay
+  widens the window it means to protect, and a backgrounded phone suspends the
+  timer anyway. Coalescing the flush over a short window instead — well under a
+  second, not five — costs nothing, falls out of the offline queue that exists
+  regardless, and makes a tick followed immediately by an untick cancel inside the
+  queue so that neither the debit nor its reversal is ever written. Which is also
+  the cheapest answer to the question below
 - **Weekly summary emails are parked**, possibly for later. They would need an email provider the club does not pay for, as Cloudflare Email Routing is inbound-only
 
 ### Supabase additions
@@ -275,6 +287,39 @@ to untick somebody, which is the only reason they were caught before the first n
   `(member_id, session_id)`**, not the ledger key, so moving the key costs nothing
 - **Guests were never affected.** No ledger row references a guest's attendance, so unticking
   one removes the row and the cash with it, exactly as the registrar screen promises
+
+#### What gives the £2 back — undecided
+
+Unticking a member deletes the attendance row, which frees its
+`attendance:{member_id}:{session_id}` key so a re-tick works. The debit cannot be
+deleted, and a re-tick is deliberately a *new* charge, so without something going
+back the household pays twice for one session.
+
+**It cannot be a `refund`.** The word is ordinary English for giving money back,
+but in this schema `refund` means cash leaving the tin — it reverses a
+`top_up_cash`, and the sign CHECK pins it negative. tick, untick, tick would come
+to **−£6**, not −£2.
+
+There is a second reason, and it rules out `top_up_cash` as well: a session's
+*Money collected* is the sum of `top_up_cash` and `refund` rows carrying that
+`session_id` (`training/session-cash.ts`). Anything used to credit £2 back that
+is not excluded from that sum breaks the one number the registrar checks the tin
+against. Unticking moves credit, not money, so it has to be invisible to it.
+
+Two ways to go, to be chosen when the sign-in RPC is written, since that needs a
+migration regardless:
+
+- **`manual_adjustment` at `+price_pence`.** No migration. It is already free to
+  go either way, and already excluded from the cash total. The cost is the
+  member's page, where `describeEntry` renders an adjustment as its note — so the
+  wording is hand-written, and somebody has to choose a sentence a parent will
+  read
+- **A new `session_reversal` type**, constrained positive, excluded from the cash
+  total by construction. One more line in the same migration the RPC needs, and it
+  reads as a sentence without a note to invent
+
+Either way it is keyed off the attendance row it reverses, so a double-tapped
+untick credits once.
 
 ### Admin: session management (in the main site)
 - [x] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2). The start time is read as Omagh's clock rather than the Worker's UTC, so a summer session is not an hour out — `training/club-time.ts`

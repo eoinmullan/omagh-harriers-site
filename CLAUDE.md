@@ -50,6 +50,50 @@ Schedule invariants TypeScript can't express (real calendar dates, ordering, ove
 empty groups) are checked by `apps/site/src/lib/training/schedule.test.ts`. **CI does not run
 tests**, so run `pnpm --filter @omagh/site test` after editing the schedule.
 
+## The registrar app (`/registrar`)
+
+The sign-in PWA is a **prerendered route on this site**, not a separate app:
+`src/pages/registrar/index.astro` serving a single React island from
+`src/components/registrar/`. Reached from a **Sign runners in** card in the
+members' area that only renders for a registrar, admin or superuser.
+
+**It shares the members' area session, and that is the reason it lives here.**
+iOS gives a home screen web app its own cookie container, but since 17.2 copies
+Safari's cookies in once, when the icon is created — and never copies
+`localStorage`. A separate app persisting its session to local storage would
+have to be signed into again on every phone; the site's cookie session is the
+one iOS carries over. Sign in, tap the card, add to home screen: it opens
+already signed in, and the sequencing needs no explaining because the card is
+unreachable until you've signed in.
+
+**The route is prerendered on purpose.** A server round trip is a blank screen at
+a track with no signal, and a cached server-rendered page would be one
+registrar's HTML waiting for the next. So **nothing gates `/registrar` and
+nothing can** — middleware doesn't run for a static asset. That's correct, not a
+gap: the shell is empty, RLS gates every read and write, and
+`lib/training/registrar.ts` reads the **`app_role`** claim off the token to
+decide only what gets drawn. Don't "fix" it with a middleware rule; it would buy
+nothing and break opening the app offline.
+
+Rules live in `lib/training/{registrar,tonight}.ts` and are unit tested without a
+database, like everything else. The island decides nothing. It deliberately does
+**not** use `Layout.astro` — every link in the site nav is outside the manifest
+scope and would throw the registrar out of the app and into a browser.
+
+**`@astrojs/react` is pinned to 4.4.x.** The 6.x line depends on Vite 8 and drags
+rolldown in beside Astro 5's Vite 6; it builds, then fails the dev server with
+`Missing field moduleType`. React ships on this route only — every other page
+still sends no JavaScript.
+
+**No service worker yet.** When one lands, **scope it to `/registrar`**. A
+root-scoped worker would start serving stale marketing pages, which is the one
+real hazard of sharing an origin with the public site.
+
+Two platform facts the screens have to state out loud: a sign-in link tapped in
+Mail opens Safari rather than the installed iOS app, so a lapsed session there is
+recovered by deleting the icon and re-adding it; and Safari has no install
+prompt, so iOS gets a written hint where Chrome gets `beforeinstallprompt`.
+
 ## Klubfunder sync
 
 The membership data in `principals` and `members` is reconciled from a Klubfunder CSV export by `apps/site/scripts/sync-klubfunder.ts`. Run it from the repo root.

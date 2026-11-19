@@ -434,7 +434,22 @@ export type Database = {
       };
     };
     Functions: {
-      [_ in never]: never;
+      // Migration 0011. A tick is two rows in two tables and PostgREST cannot
+      // write both in one statement, so the pair goes through these.
+      sign_in_member: {
+        Args: {
+          p_member_id: string;
+          p_session_id: string;
+          // Optional, for the offline queue: a phone that fixes the row's
+          // identity at tick time can retry the same call for hours.
+          p_attendance_id?: string;
+        };
+        Returns: string;
+      };
+      undo_member_sign_in: {
+        Args: { p_attendance_id: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

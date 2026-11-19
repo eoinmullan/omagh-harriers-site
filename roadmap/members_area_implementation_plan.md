@@ -530,10 +530,60 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 ### PWA core features
 - [x] Registrar sign-in — there is no sign-in form. The session is the members' area's own cookie session, which is the whole point of *One origin, one sign-in*. A member who finds the route is told plainly that they're a member, not shown an error
 - [x] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one; a single session opens without asking. Today is Omagh's calendar day, so a late finish stays on the night it belongs to, and the query is bounded to that day rather than fetching the table — `lib/training/tonight.ts`. A cancelled session is named rather than hidden: "nothing on tonight" and "Monday Track was called off" send a registrar in the rain to two different places
-- [ ] Creating a session is the admin site's job, but the app keeps a fallback for the night nobody got round to it — a registrar blocked at the track by a missing row is exactly the failure this phase exists to avoid. The fallback asks for a group, since the Usuals list is useless without one
+- [ ] **A registrar can create a session at the track, as a first-class thing rather than a fallback** — see *Nobody should have to book the night in advance* below. It asks for a group, since the Usuals list is useless without one
 - [x] Attendance view — the Usuals described above, not the full membership. One tap of the checkbox marks attendance, through `sign_in_member` so the attendance row and the paired debit are one transaction. The tick is optimistic and taken back if the write fails — `lib/training/night.ts`
 - [ ] Record cash payment — tap the runner's cash cell, pick or key in the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared
 - [x] Household balance visible inline against each name, so the registrar can see who needs to pay without opening anything
+
+#### Nobody should have to book the night in advance
+
+Spond makes an admin create every session before it happens. Decided on
+19 Nov 2026 that this is a bug rather than a feature, and that the registrar app
+will not copy it: a registrar turns up, finds no session, makes one, picks the
+group, and starts ticking people in.
+
+The plan already had this as a *fallback for the night nobody got round to it*.
+It is promoted to the normal path. Creating a session in the admin console stays
+available and is still the tidier way to do it in advance, but nothing depends
+on it having happened.
+
+**No migration is needed.** `0010` already carries the policy, with a comment
+anticipating this exact case:
+
+> Registrars may create a session as well as read one. Creating sessions is the
+> admin site's job, but a registrar blocked at the track by a row nobody got
+> round to adding is exactly the failure this phase exists to avoid.
+
+Editing one stays with admins, which is the right split: a registrar can bring a
+session into existence but cannot re-price it or cancel it, because those have to
+agree with a ledger they cannot see the whole of. A session they create takes
+`DEFAULT_SESSION_PRICE_PENCE`.
+
+**The hazard is two registrars creating the same session.** A busy track has more
+than one phone open, and two people each adding "Monday Track" for the same group
+on the same night splits the evening in half: two headcounts, two Money collected
+figures, and members charged against whichever row their registrar was holding.
+Idempotency keys do not help — these are two genuinely different sessions as far
+as the database is concerned.
+
+What to do about it:
+
+- **Show what already exists before offering to make one.** The session picker
+  already lists tonight; the create control belongs underneath that list, not in
+  place of it
+- **Warn on a near-duplicate rather than refusing it.** If the chosen group
+  already has a session tonight, say so and name it — *"Endurance already has a
+  session at 19:00. Did you mean that one?"* — with carrying on still possible.
+  A hard constraint is wrong: the schema deliberately allows a member at two
+  sessions in a day, and a group genuinely can train twice
+- **The id is generated on the phone**, so a session created with no signal syncs
+  as one session rather than one per retry. Already required under *Idempotency*
+
+**Groups are the one thing that must exist in advance.** A session belongs to a
+group and the Usuals come from it, so a registrar cannot create a session for a
+squad nobody has set up. As of 19 Nov 2026 the live project has **no groups at
+all**, which means this feature would be unusable today — seeding the squad list
+is a prerequisite, not a detail.
 
 ### Idempotency
 - [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `untick:{attendance_id}` for the adjustment that gives a mis-tapped charge back, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`

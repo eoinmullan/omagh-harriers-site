@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
-import { formatClubTime } from "../../lib/training/club-time";
-import { clubDayKey } from "../../lib/training/club-time";
+import { useCallback, useEffect, useState } from 'react';
+import { formatClubTime } from '../../lib/training/club-time';
+import { clubDayKey } from '../../lib/training/club-time';
 import {
   clubDayWindow,
   theOnlyChoice,
   tonightsSessions,
   type SelectableSession,
   type TonightsSessions,
-} from "../../lib/training/tonight";
-import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
-import { loadSnapshot, saveSnapshot } from "../../lib/training/snapshot";
-import { AttendanceView } from "./AttendanceView";
-import { InstallHint } from "./InstallHint";
-import { BigButton, Note, Problem, Screen } from "./ui";
+} from '../../lib/training/tonight';
+import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
+import { loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
+import { planTrackSession, type SessionGroup } from '../../lib/training/track-session';
+import { AttendanceView } from './AttendanceView';
+import { StartSession } from './StartSession';
+import { useWriteQueue } from './useWriteQueue';
+import { InstallHint } from './InstallHint';
+import { BigButton, Note, Problem, Screen } from './ui';
 
 // The first screen after sign-in: which session is being run tonight.
 //
@@ -21,67 +24,89 @@ import { BigButton, Note, Problem, Screen } from "./ui";
 // there is nothing to sign into rather than pretending there is an option.
 
 type Load =
-  | { state: "loading" }
-  | { state: "loaded"; tonight: TonightsSessions }
-  | { state: "failed"; problem: string };
+  | { state: 'loading' }
+  | { state: 'loaded'; tonight: TonightsSessions }
+  | { state: 'failed'; problem: string };
 
 export function SessionPicker({ authUserId }: { authUserId: string }) {
-  const [load, setLoad] = useState<Load>({ state: "loading" });
+  const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [chosen, setChosen] = useState<SelectableSession | undefined>();
+  const [groups, setGroups] = useState<SessionGroup[]>([]);
+  const [actorId, setActorId] = useState('');
+  const [startedHere, setStartedHere] = useState<SelectableSession[]>([]);
+
+  // A session started at the track queues like any other write, so it can be
+  // made with no signal and ticked into straight away.
+  const outbox = useWriteQueue('track-sessions', actorId);
 
   const refresh = useCallback(async () => {
-    setLoad({ state: "loading" });
+    setLoad({ state: 'loading' });
 
     try {
       const now = new Date();
       const window = clubDayWindow(now);
 
-      const { data, error } = await createSupabaseBrowserClient()
-        .from("training_sessions")
+      const supabase = createSupabaseBrowserClient();
+
+      void supabase
+        .from('groups')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name')
+        .then(({ data: rows }) => setGroups((rows ?? []) as SessionGroup[]));
+
+      void supabase.auth.getSession().then(async ({ data: auth }) => {
+        const authUserId = auth.session?.user.id;
+        if (!authUserId) return;
+        const { data: principal } = await supabase
+          .from('principals')
+          .select('id')
+          .eq('auth_user_id', authUserId)
+          .maybeSingle();
+        setActorId(principal?.id ?? '');
+      });
+
+      const { data, error } = await supabase
+        .from('training_sessions')
         .select(
-          "id, name, starts_at, location, price_pence, is_cancelled, group_id, group:group_id(name)",
+          'id, name, starts_at, location, price_pence, is_cancelled, group_id, group:group_id(name)',
         )
-        .gte("starts_at", window.from)
-        .lt("starts_at", window.until)
-        .order("starts_at");
+        .gte('starts_at', window.from)
+        .lt('starts_at', window.until)
+        .order('starts_at');
 
       if (error) {
         // The picker fails before the attendance view is ever reached, so caching
         // the night's data alone would never be seen. Keyed by Omagh's day, so
         // last Monday's session is never offered as tonight's.
-        const stored = await loadSnapshot<SelectableSession[]>(
-          `tonight:${clubDayKey(now)}`,
-        );
+        const stored = await loadSnapshot<SelectableSession[]>(`tonight:${clubDayKey(now)}`);
         if (stored) {
           setLoad({
-            state: "loaded",
+            state: 'loaded',
             tonight: tonightsSessions(stored.data, now),
           });
           return;
         }
 
-        setLoad({ state: "failed", problem: error.message });
+        setLoad({ state: 'failed', problem: error.message });
         return;
       }
 
       const sessions = (data ?? []).map(asSelectable);
       void saveSnapshot(`tonight:${clubDayKey(now)}`, sessions);
-      setLoad({ state: "loaded", tonight: tonightsSessions(sessions, now) });
+      setLoad({ state: 'loaded', tonight: tonightsSessions(sessions, now) });
     } catch {
       // A request that never left the phone throws rather than returning
       // an error, and this screen comes before the attendance view, so an
       // uncaught throw hangs the app before the cache is ever consulted.
       const now = new Date();
-      const stored = await loadSnapshot<SelectableSession[]>(
-        `tonight:${clubDayKey(now)}`,
-      );
+      const stored = await loadSnapshot<SelectableSession[]>(`tonight:${clubDayKey(now)}`);
       setLoad(
         stored
-          ? { state: "loaded", tonight: tonightsSessions(stored.data, now) }
+          ? { state: 'loaded', tonight: tonightsSessions(stored.data, now) }
           : {
-              state: "failed",
-              problem:
-                "No signal, and tonight has not been loaded on this phone yet.",
+              state: 'failed',
+              problem: 'No signal, and tonight has not been loaded on this phone yet.',
             },
       );
     }
@@ -91,17 +116,37 @@ export function SessionPicker({ authUserId }: { authUserId: string }) {
     void refresh();
   }, [refresh]);
 
-  if (load.state === "loading") {
+  function startSession(group: SessionGroup) {
+    const row = planTrackSession({ group, createdBy: actorId, id: crypto.randomUUID() });
+
+    // Shown as tonight's straight away. The write goes first in the queue, so
+    // the session row reaches Postgres before any attendance that names it —
+    // attendance.session_id is a RESTRICT reference and would be refused.
+    const session: SelectableSession = {
+      id: row.id!,
+      name: row.name,
+      startsAt: row.starts_at,
+      location: null,
+      pricePence: row.price_pence,
+      isCancelled: false,
+      groupId: group.id,
+      groupName: group.name,
+    };
+
+    outbox.add({ kind: 'create_session', row });
+    setStartedHere((current) => [...current, session]);
+    setChosen(session);
+  }
+
+  if (load.state === 'loading') {
     return (
       <Screen title="Tonight">
-        <p className="text-lg text-slate-400">
-          Looking for tonight's sessions…
-        </p>
+        <p className="text-lg text-slate-400">Looking for tonight's sessions…</p>
       </Screen>
     );
   }
 
-  if (load.state === "failed") {
+  if (load.state === 'failed') {
     return (
       <Screen title="Tonight">
         <Problem>Couldn't load tonight's sessions. {load.problem}</Problem>
@@ -111,6 +156,7 @@ export function SessionPicker({ authUserId }: { authUserId: string }) {
   }
 
   const { available, cancelled } = load.tonight;
+  const tonightIncludingOurs = [...available, ...startedHere];
   const opened = chosen ?? theOnlyChoice(load.tonight);
 
   if (opened) {
@@ -127,33 +173,31 @@ export function SessionPicker({ authUserId }: { authUserId: string }) {
     <Screen title="Tonight">
       {available.length > 0 ? (
         <>
-          <p className="text-lg text-slate-300">
-            Which session are you taking?
-          </p>
+          <p className="text-lg text-slate-300">Which session are you taking?</p>
           <ul className="flex flex-col gap-3">
             {available.map((session) => (
               <li key={session.id}>
-                <SessionChoice
-                  session={session}
-                  onChoose={() => setChosen(session)}
-                />
+                <SessionChoice session={session} onChoose={() => setChosen(session)} />
               </li>
             ))}
           </ul>
         </>
       ) : (
         <p className="text-lg text-slate-300">
-          Nothing is scheduled for tonight. Sessions are created on the website,
-          under Admin → Training sessions.
+Nothing is scheduled for tonight. Start one below and sign runners in.
         </p>
       )}
 
       {cancelled.length > 0 && (
-        <Note>
-          Called off tonight:{" "}
-          {cancelled.map((session) => session.name).join(", ")}.
-        </Note>
+        <Note>Called off tonight: {cancelled.map((session) => session.name).join(', ')}.</Note>
       )}
+
+      <StartSession
+        groups={groups}
+        tonight={tonightIncludingOurs}
+        onStart={startSession}
+        onOpenExisting={setChosen}
+      />
 
       <BigButton tone="quiet" onClick={() => void refresh()}>
         Check again
@@ -177,12 +221,10 @@ function SessionChoice({
       onClick={onChoose}
       className="min-h-20 w-full rounded-xl border border-edge bg-raised px-5 py-4 text-left active:bg-slate-700"
     >
-      <span className="block text-xl font-semibold text-slate-50">
-        {session.name}
-      </span>
+      <span className="block text-xl font-semibold text-slate-50">{session.name}</span>
       <span className="mt-0.5 block text-base text-slate-400">
         {formatClubTime(session.startsAt)} · {session.groupName}
-        {session.location ? ` · ${session.location}` : ""}
+        {session.location ? ` · ${session.location}` : ''}
       </span>
     </button>
   );
@@ -209,6 +251,6 @@ function asSelectable(row: unknown): SelectableSession {
     pricePence: session.price_pence,
     isCancelled: session.is_cancelled,
     groupId: session.group_id,
-    groupName: session.group?.name ?? "Unknown group",
+    groupName: session.group?.name ?? 'Unknown group',
   };
 }

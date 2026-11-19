@@ -1,15 +1,12 @@
-import { useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import {
-  mayRunASession,
-  roleFromAccessToken,
-} from "../../lib/training/registrar";
-import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
-import { NotForYou } from "./NotForYou";
-import { SessionPicker } from "./SessionPicker";
-import { SignedOut } from "./SignedOut";
-import { Screen } from "./ui";
-import { useServiceWorker } from "./useServiceWorker";
+import { useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { mayRunASession, roleFromAccessToken } from '../../lib/training/registrar';
+import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
+import { NotForYou } from './NotForYou';
+import { SessionPicker } from './SessionPicker';
+import { SignedOut } from './SignedOut';
+import { Screen } from './ui';
+import { useServiceWorker } from './useServiceWorker';
 
 // The whole route, as one island.
 //
@@ -37,9 +34,7 @@ export function RegistrarApp() {
     // it. Calling getSession() as well would only race it.
     const {
       data: { subscription },
-    } = createSupabaseBrowserClient().auth.onAuthStateChange((_event, next) =>
-      setSession(next),
-    );
+    } = createSupabaseBrowserClient().auth.onAuthStateChange((_event, next) => setSession(next));
 
     return () => subscription.unsubscribe();
   }, []);

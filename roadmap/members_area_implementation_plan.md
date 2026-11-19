@@ -500,7 +500,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [x] **Order everyone by surname, everywhere.** Siblings arrive together, so the next two people the registrar needs are adjacent
 - [~] **Both figures in the header are filters.** Tapping the headcount shows who is here — built. **Money collected** comes with the cash cell. Tapping **Money collected** shows who has handed something over. A number and the names behind it are one control, so when the tin does not match there is nothing to go hunting for. One filter at a time — tapping either clears the other — and both answer for the whole night, not just the list that happens to be open, or the number would be describing people the registrar cannot see
 - [x] The here filter is taken from the rejected board prototype, where watching the night fill up was the one thing it did better than a list
-- [x] **One way into the full list: type part of a name.** An A–Z index was built and abandoned. With 313 members, M still returns more people than anyone can read standing at a track — a letter narrows the problem rather than solving it, and it costs a row of screen whether or not it is used. The full list simply stays on screen and shrinks as characters arrive. Typing searches the whole club whichever toggle is showing: somebody typing a name has already decided the Usuals do not hold who they want
+- [x] **One way into the full list: type part of a name.** An A–Z index was built and abandoned. With 313 members, M still returns more people than anyone can read standing at a track — a letter narrows the problem rather than solving it, and it costs a row of screen whether or not it is used. The full list simply stays on screen and shrinks as characters arrive. The box belongs to that list and appears only there — see *Match the prototype's look* below
 - [x] **Matching is forgiving on both sides.** Lower-case and strip whitespace, apostrophes, hyphens *and accents* from the stored name *and* from what is typed, so "O'Kane", "O Kane" and "okane" are one name, and Siobhán is found by typing Siobhan. Shared with the admin screens through `training/names.ts`
 - [x] Match anywhere in either name, not only the start. A registrar who knows somebody as Kane should not have to remember the O, and by three characters the list is short regardless
 
@@ -610,12 +610,14 @@ What the prototype does that the built screen does not:
 - **Round amounts drop their pence** — "£10", not "£10.00" — which is how the
   money is actually spoken at the gate
 
-Done on 19 Nov 2026, with one deliberate departure: the prototype shows its
-search box only on the full list, and the built screen shows it always, because
-somebody typing a name has already decided the Usuals do not hold who they want.
+Done on 19 Nov 2026, matching the prototype including the search box, which
+appears only on the full list and hides while a header filter is on. That
+supersedes the earlier note under *The Usuals* about typing searching the whole
+club from any tab: the Usuals are short enough to read without one, and a filter
+has already narrowed the night to an answer.
 
-The branch is `prototype/registrar-screen`, local only and never pushed. It
-should be pushed, since it is now the reference for how this screen looks.
+`prototype/registrar-screen` is pushed, since it is the reference for how this
+screen looks.
 
 #### Two rough edges in the offline work
 

@@ -104,10 +104,11 @@ neutrals for everything else.
 - **The header figures carry a ▾**, because they are filters and nothing else
   would say so
 
-One deliberate departure: the prototype shows its search box only on the full
-list, and here it is always visible. Typing searches the whole club whichever
-tab is open — somebody typing a name has already decided the Usuals do not hold
-who they want.
+- **The search box appears only on the full list**, and hides while either
+  header filter is on. The Usuals are short enough to read, and a filter has
+  already narrowed the night to an answer. Switching tab or turning a filter on
+  clears the term, so a search can never go on filtering a list that no longer
+  shows the box
 
 **The attendance view is the screen.** `components/registrar/AttendanceView.tsx`
 draws it; every decision about which rows appear is in

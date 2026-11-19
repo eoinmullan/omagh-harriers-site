@@ -110,6 +110,28 @@ draws it; every decision about which rows appear is in
   The headcount is, and tapping it filters to who is here — answering for the
   whole night, not just the list that happens to be open
 
+**Guests are a third list, not a third filter.** `lib/training/guests.ts` holds
+the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
+
+- **A guest's row carries no money control.** Ticking them in takes the session
+  price and that is the whole transaction — they hold no credit to add to. The
+  figure beside the name states what they paid and cannot be edited
+- **Their cash lives on the attendance row**, not the ledger, so unticking
+  deletes the row and takes the money with it. Safe only because attendance is
+  not append-only; the ledger is
+- **A free session records `amount_paid_pence` NULL, not 0** — the column is
+  checked `> 0`, so a zero is refused where an absent figure is fine
+- **A repeated name is never refused.** The table has no uniqueness on names on
+  purpose, because two genuine Jack Kellys would collide and a constraint
+  violation in front of a queue is the failure this phase exists to avoid.
+  `likelyAlready` offers whoever is already on file before Add is reached, and
+  the button then reads "Add anyway"
+- **Money collected has two halves**: `top_up_cash` less `refund` from the
+  ledger, **plus** `amount_paid_pence` on the session's guest rows. Leaving the
+  guest half out under-reports the tin, which is a bug I shipped and the browser
+  caught. `session-cash.ts` computes the same figure for the admin screen and
+  the two must keep agreeing
+
 **Writes are one per tap for now.** The coalescing window that would swallow a
 mis-tap before it reaches the database belongs with the offline queue; until
 then the RPC's idempotency keeps a double tap honest and an untick is a real

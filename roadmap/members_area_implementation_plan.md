@@ -381,7 +381,7 @@ Two things not to do when it lands:
 - [ ] Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it
 - [ ] Connect to the same Supabase project — `registrar`, `admin` or `superuser` required
 - [ ] Add Web App Manifest and service worker (PWA installable on iOS and Android)
-- [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns
+- [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns. **Settle what may be cached on the device first** — names and dates of birth for the whole club, sitting on a volunteer's borrowed phone, is a decision baked into the sync layer rather than one found later. See the opening of *Phase 7*
 
 ### Member-facing
 
@@ -468,6 +468,98 @@ A read-only reporting area inside `/admin` for committee operational needs. No n
 
 ---
 
+## Phase 7 — Review, before go-live
+
+Everything above is built by somebody who is also the only person reviewing it.
+This phase is the pass that treats the whole thing as somebody else's code.
+
+**The gate is go-live, not Phase 6.** Reviews run once the reporting area is
+finished and before the club is asked to rely on any of it — which is the same
+point in the calendar and states the actual constraint. Until then the database
+holds no real money and no real attendance, so a finding that costs a migration
+costs roughly what it would have cost at any earlier point. That is why this is
+one block at the end rather than a gate part-way through: reviewing the ledger
+before the cash cell, refunds and the offline queue exist would mean reviewing it
+twice, and reviewing privacy before the reporting area exists would mean looking
+at the smaller half of the problem.
+
+**One question does not wait**, because it is baked in rather than found:
+
+- [ ] **What may the registrar app keep on the device, and for how long?** The
+  offline queue decides this when it is built, and 313 members' names and dates
+  of birth sitting in IndexedDB on a volunteer's borrowed phone is exactly what
+  the privacy review below would object to. Unpicking it afterwards means
+  rewriting the sync layer. Settle it before that piece is written, not in this
+  phase
+
+### How the reviews are organised
+
+Ordered by how expensive a finding is to act on, so that the reviews whose
+findings change the shape of things run before the ones that judge the details.
+
+| Round | Reviews | Why here |
+|---|---|---|
+| 1 | Data integrity · Security · Privacy | Findings change the schema and the trust model |
+| 2 | Backend · Frontend · Code quality | The code as written |
+| 3 | Performance · Usability · Accessibility · Operational resilience | How it behaves once the code has settled |
+| 4 | Data integrity (delta) · Security (delta) | Confirm rounds 2 and 3 did not undo round 1 |
+
+**Only two reviews repeat, and only as a delta.** A second full pass over
+unchanged code finds what the first one found, at the same cost. Security and
+data integrity are the exceptions because they are the invariants the other
+reviews characteristically break: performance fixes loosen queries, add caching
+and batch writes; usability fixes add undo buttons and debounce taps. Both are
+how a double charge or a visible row that should not be gets introduced. The
+delta pass is scoped to the diff rounds 2 and 3 produced, not to the codebase.
+
+**Granularity: split by component only where the component changes the question.**
+Nine reviews across seven components is sixty-odd passes and most of them are
+empty — there is no useful performance review of a migration file. Only security
+and data integrity are split, because there the components genuinely have
+different threat models.
+
+### Round 1 — schema and trust model
+
+- [ ] **Data integrity: can the ledger lie?** Not a general backend pass. One
+  question, pursued hard: is there a sequence of events that leaves a household's
+  pot wrong? Append-only with compensating rows, a balance that is a `SUM` over a
+  view, idempotency keys, an optimistic UI that moves a balance before the write
+  lands, two registrars on the same session, and a queue flushing hours later
+  - [ ] The ledger — `credit_transactions`, `principal_balances`, `credits/ledger.ts`, the sign-in RPCs
+  - [ ] The sync reconciliation — `sync/klubfunder.ts` moving a member between households, lapsing and reactivating, and what either does to a balance
+- [ ] **Security**, split by threat model:
+  - [ ] Public site and the auth flow — `/signin`, the OAuth round trip, the email-match check in `/signin/callback`, the terms gate, middleware
+  - [ ] RLS and the database — every policy against the `app_role` claim, the append-only trigger, `SECURITY INVOKER` on the RPCs, and what a `TRUNCATE` still bypasses
+  - [ ] Admin service-role paths — every page using `createSupabaseAdminClientFromLocals`, which bypasses RLS entirely
+  - [ ] The registrar island on the anon key — what a volunteer's phone can read and write, and what a tampered token claim would get
+  - [ ] **The Klubfunder CLI** — a threat model of its own. It creates and bans auth users and re-points children between households from a CSV somebody downloaded. 995 lines, the largest module in the project, and the easiest one to leave out of a review of "the app"
+- [ ] **Privacy and data protection.** The club holds children's names and dates
+  of birth, parent emails and payment records, and a registrar can read the whole
+  club. `privacy.astro` mentions "date of birth" once and "delete" once: there is
+  no retention story, no lawful basis stated, and nothing about what happens to a
+  lapsed junior's record. Findings here may be committee work rather than code,
+  so they want lead time
+
+### Round 2 — the code as written
+
+- [ ] **Backend** — migrations, RLS policies, the RPCs, PostgREST query shapes, the sync CLI
+- [ ] **Frontend** — the registrar island, the Astro pages, state handling, the optimistic write path
+- [ ] **Code quality** — the lib-module contract (rules out of pages, unit tested without a database) and whether it has held. Includes the test suite itself: **CI runs `typecheck` and `build` but not the tests**, so 293 tests pass only when somebody remembers to run them
+
+### Round 3 — behaviour
+
+- [ ] **Performance** — the queries behind each screen, what the registrar app fetches on open, the reporting area over a few seasons of attendance
+- [ ] **Usability** — against the registrar experience bullets in Phase 5, with somebody who is not the author
+- [ ] **Accessibility** — separately from usability. The balance line deliberately uses colour as the carrier ("colour carries the warning, never the wording"), which is right for a glance and a WCAG failure if colour is the only channel. Also the custom `role="checkbox"` rows, focus handling, and the island under a screen reader
+- [ ] **Operational resilience** — what breaks at seven on a wet Monday. Supabase unreachable mid-session; the `0003` access-token hook that has to be registered by hand in the dashboard and is in no migration; the Microsoft secret that expires on a date held in a constant; a bad content deploy taking the registrar app down now that it shares an origin
+
+### Round 4 — delta
+
+- [ ] **Data integrity**, scoped to what rounds 2 and 3 changed
+- [ ] **Security**, scoped to what rounds 2 and 3 changed
+
+---
+
 ## Phase summary
 
 | Phase | What ships | Key dependency |
@@ -479,3 +571,4 @@ A read-only reporting area inside `/admin` for committee operational needs. No n
 | 4 | Training credits, admin credit tools, member transparency view | — |
 | 5 | Training sessions, groups, guests, attendance, registrar role, sign-in PWA | Phase 4 schema |
 | 6 | Admin reporting area | Phase 5 schema |
+| 7 | Review — data integrity, security, privacy, then the code, then behaviour | Phase 6, and before go-live |

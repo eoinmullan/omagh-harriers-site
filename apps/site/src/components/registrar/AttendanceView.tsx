@@ -588,6 +588,7 @@ export function AttendanceView({
             on={hereOnly}
             onClick={() => {
               setHereOnly((was) => !was);
+              setTerm('');
               setPaidOnly(false);
             }}
           />
@@ -599,6 +600,7 @@ export function AttendanceView({
             on={paidOnly}
             onClick={() => {
               setPaidOnly((was) => !was);
+              setTerm('');
               setHereOnly(false);
             }}
           />
@@ -615,7 +617,10 @@ export function AttendanceView({
             <button
               key={option}
               type="button"
-              onClick={() => setTab(option)}
+              onClick={() => {
+                setTab(option);
+                setTerm('');
+              }}
               aria-pressed={tab === option}
               className={`flex-1 rounded-lg py-3 text-sm font-semibold ${
                 tab === option ? 'bg-neutral-100 text-black' : 'bg-neutral-900 text-neutral-300'
@@ -626,21 +631,26 @@ export function AttendanceView({
           ))}
         </div>
 
-        <div className="px-2 pb-2">
-          <input
-            type="search"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            placeholder="Type any part of a name"
-            autoComplete="off"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="search"
-            aria-label="Find a runner"
-            className="w-full rounded-xl bg-neutral-900 px-4 py-4 text-lg outline-none placeholder-neutral-600 focus:ring-2 focus:ring-amber"
-          />
-        </div>
+        {/* Only on the full list, and only when neither filter is on — matching
+            the prototype. The Usuals are short enough to read, and a filter has
+            already narrowed the night to an answer. */}
+        {tab === 'everyone' && !hereOnly && !paidOnly && (
+          <div className="px-2 pb-2">
+            <input
+              type="search"
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              placeholder="Type any part of a name"
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="search"
+              aria-label="Find a runner"
+              className="w-full rounded-xl bg-neutral-900 px-4 py-4 text-lg outline-none placeholder-neutral-600 focus:ring-2 focus:ring-amber"
+            />
+          </div>
+        )}
       </header>
 
       <div className="px-4 pt-3">

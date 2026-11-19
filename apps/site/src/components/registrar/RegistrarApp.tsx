@@ -6,6 +6,7 @@ import { NotForYou } from './NotForYou';
 import { SessionPicker } from './SessionPicker';
 import { SignedOut } from './SignedOut';
 import { Screen } from './ui';
+import { useServiceWorker } from './useServiceWorker';
 
 // The whole route, as one island.
 //
@@ -21,6 +22,11 @@ type AuthState = Session | null | undefined;
 
 export function RegistrarApp() {
   const [session, setSession] = useState<AuthState>(undefined);
+
+  // Registered from here, not from the shared layout: every other page on this
+  // origin is public, and a worker registered by one of those would be able to
+  // answer for the marketing site.
+  useServiceWorker();
 
   useEffect(() => {
     // supabase-js emits INITIAL_SESSION as soon as it has read the cookies, so

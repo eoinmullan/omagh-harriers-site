@@ -16,6 +16,11 @@ import {
 } from '../../lib/training/usuals';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
 import { moneyCaveat } from '../../lib/training/queue';
+import {
+  describeSnapshotAge,
+  loadSnapshot,
+  saveSnapshot,
+} from '../../lib/training/snapshot';
 import { useWriteQueue } from './useWriteQueue';
 import {
   flip,
@@ -64,6 +69,11 @@ type State =
   | { phase: 'failed'; problem: string }
   | { phase: 'ready'; data: Loaded };
 
+/** One per session, so last Monday's list is never mistaken for tonight's. */
+function snapshotKey(sessionId: string): string {
+  return `night:${sessionId}`;
+}
+
 export function AttendanceView({
   session,
   onBack,
@@ -79,6 +89,7 @@ export function AttendanceView({
   const [paidOnly, setPaidOnly] = useState(false);
   const [cashFor, setCashFor] = useState<RosterMember | undefined>();
   const [guestProblem, setGuestProblem] = useState<string | null>(null);
+  const [showingSnapshotFrom, setShowingSnapshotFrom] = useState<number | null>(null);
 
   const actorId = state.phase === 'ready' ? state.data.actorId : '';
   const outbox = useWriteQueue(session.id, actorId);
@@ -122,9 +133,20 @@ export function AttendanceView({
       (result) => result.error,
     );
     if (failure?.error) {
+      // No signal, most likely. The shell opened from the cache; put back what
+      // this phone last believed rather than an error and an empty list.
+      const stored = await loadSnapshot<Loaded>(snapshotKey(session.id));
+      if (stored) {
+        setShowingSnapshotFrom(stored.savedAt);
+        setState({ phase: 'ready', data: stored.data });
+        return;
+      }
+
       setState({ phase: 'failed', problem: failure.error.message });
       return;
     }
+
+    setShowingSnapshotFrom(null);
 
     type MemberRow = {
       id: string;
@@ -214,6 +236,22 @@ export function AttendanceView({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Keep the snapshot level with the screen. Every optimistic change counts:
+  // the registrar who closes the app and opens it again two minutes later must
+  // see what they left, not what the network last confirmed.
+  useEffect(() => {
+    if (state.phase !== 'ready') return;
+
+    const data = state.data;
+    const save = setTimeout(() => void saveSnapshot(snapshotKey(session.id), data), 400);
+    return () => clearTimeout(save);
+  }, [state, session.id]);
+
+  useEffect(() => {
+    if (!outbox.online || showingSnapshotFrom === null) return;
+    void load();
+  }, [outbox.online, showingSnapshotFrom, load]);
 
   useEffect(() => {
     if (!outbox.refused) return;
@@ -533,6 +571,13 @@ export function AttendanceView({
       {/* The figure is only complete once every phone has synced. Say so under
           it rather than in its label, so the common case reads plainly and the
           exception announces itself. */}
+      {showingSnapshotFrom !== null && (
+        <p className="mb-3 rounded-xl bg-amber-500/15 px-4 py-2 text-sm text-amber-300" role="status">
+          {describeSnapshotAge(showingSnapshotFrom)} Ticks and cash are being kept and will send
+          when the signal is back.
+        </p>
+      )}
+
       {caveat && (
         <p
           className={`mb-3 text-sm ${outbox.online ? 'text-slate-500' : 'text-amber-400'}`}

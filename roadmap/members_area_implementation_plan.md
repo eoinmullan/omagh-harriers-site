@@ -499,7 +499,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [x] Second toggle: the full member list. Third toggle: guests seen before, so a returning non-member is a tap rather than a retype — and the picker offers whoever is already on file before Add is reached
 - [x] **Order everyone by surname, everywhere.** Siblings arrive together, so the next two people the registrar needs are adjacent
 - [~] **Both figures in the header are filters.** Tapping the headcount shows who is here — built. **Money collected** comes with the cash cell. Tapping **Money collected** shows who has handed something over. A number and the names behind it are one control, so when the tin does not match there is nothing to go hunting for. One filter at a time — tapping either clears the other — and both answer for the whole night, not just the list that happens to be open, or the number would be describing people the registrar cannot see
-- [ ] The here filter is taken from the rejected board prototype, where watching the night fill up was the one thing it did better than a list
+- [x] The here filter is taken from the rejected board prototype, where watching the night fill up was the one thing it did better than a list
 - [x] **One way into the full list: type part of a name.** An A–Z index was built and abandoned. With 313 members, M still returns more people than anyone can read standing at a track — a letter narrows the problem rather than solving it, and it costs a row of screen whether or not it is used. The full list simply stays on screen and shrinks as characters arrive. Typing searches the whole club whichever toggle is showing: somebody typing a name has already decided the Usuals do not hold who they want
 - [x] **Matching is forgiving on both sides.** Lower-case and strip whitespace, apostrophes, hyphens *and accents* from the stored name *and* from what is typed, so "O'Kane", "O Kane" and "okane" are one name, and Siobhán is found by typing Siobhan. Shared with the admin screens through `training/names.ts`
 - [x] Match anywhere in either name, not only the start. A registrar who knows somebody as Kane should not have to remember the O, and by three characters the list is short regardless
@@ -532,7 +532,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [x] Session selector — first screen after sign-in. Lists today's sessions, usually one or two, and the registrar picks one; a single session opens without asking. Today is Omagh's calendar day, so a late finish stays on the night it belongs to, and the query is bounded to that day rather than fetching the table — `lib/training/tonight.ts`. A cancelled session is named rather than hidden: "nothing on tonight" and "Monday Track was called off" send a registrar in the rain to two different places
 - [ ] **A registrar can create a session at the track, as a first-class thing rather than a fallback** — see *Nobody should have to book the night in advance* below. It asks for a group, since the Usuals list is useless without one
 - [x] Attendance view — the Usuals described above, not the full membership. One tap of the checkbox marks attendance, through `sign_in_member` so the attendance row and the paired debit are one transaction. The tick is optimistic and taken back if the write fails — `lib/training/night.ts`
-- [ ] Record cash payment — tap the runner's cash cell, pick or key in the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared
+- [x] Record cash payment — tap the runner's cash cell, pick or key in the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared
 - [x] Household balance visible inline against each name, so the registrar can see who needs to pay without opening anything
 
 #### Nobody should have to book the night in advance
@@ -584,6 +584,18 @@ group and the Usuals come from it, so a registrar cannot create a session for a
 squad nobody has set up. As of 19 Nov 2026 the live project has **no groups at
 all**, which means this feature would be unusable today — seeding the squad list
 is a prerequisite, not a detail.
+
+#### Two rough edges in the offline work
+
+Found by driving it with the network cut, recorded rather than fixed.
+
+- **After a queued write flushes, the screen does not re-render to show it.**
+  The data is right and a reload shows it; the display lags. A few lines
+- **The queue only flushes while that session's attendance view is open.** Work
+  pending for one session is not sent while the registrar sits on the picker or
+  works a different session. Nothing is lost — reopening sends it — but that is
+  less eager than "flushed when connectivity returns" suggests, and the fix is a
+  real question about where the queue should live rather than a patch
 
 ### Idempotency
 - [x] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `untick:{attendance_id}` for the adjustment that gives a mis-tapped charge back, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`

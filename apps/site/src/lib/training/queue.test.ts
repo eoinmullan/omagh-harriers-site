@@ -178,3 +178,45 @@ describe('moneyCaveat', () => {
     );
   });
 });
+
+describe('a session started at the track', () => {
+  const createSession: Write = {
+    kind: 'create_session',
+    row: {
+      id: 'client-made',
+      name: 'Endurance',
+      group_id: 'g1',
+      starts_at: '2026-11-19T19:00:00.000Z',
+      price_pence: 200,
+      created_by: 'registrar-1',
+    },
+  };
+
+  it('is never cancelled out, because attendance is queued behind it', () => {
+    const queue = [queued(createSession), queued(signIn), queued(undoSignIn)].reduce(
+      enqueue,
+      [] as Queued[],
+    );
+
+    expect(queue.map((q) => q.write.kind)).toEqual(['create_session']);
+  });
+
+  it('stays at the front, so the session exists before anything references it', () => {
+    const queue = [queued(createSession, 'first'), queued(signIn, 'second')].reduce(
+      enqueue,
+      [] as Queued[],
+    );
+
+    expect(nextToSend(queue)?.id).toBe('first');
+  });
+
+  it('survives a mis-tap cancelling the sign-in that followed it', () => {
+    const queue = [queued(createSession), queued(signIn), queued(undoSignIn)].reduce(
+      enqueue,
+      [] as Queued[],
+    );
+
+    expect(queue).toHaveLength(1);
+    expect(queue[0]!.write.kind).toBe('create_session');
+  });
+});

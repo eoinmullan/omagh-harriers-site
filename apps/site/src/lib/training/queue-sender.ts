@@ -21,6 +21,15 @@ export async function send(
   recordedBy: string,
 ): Promise<SendFailure | undefined> {
   switch (write.kind) {
+    case 'create_session': {
+      // Keyed on the id the phone minted, so a retry presents the same session
+      // rather than starting a second one.
+      const { error } = await supabase
+        .from('training_sessions')
+        .upsert(write.row, { onConflict: 'id', ignoreDuplicates: true });
+      return asFailure(error);
+    }
+
     case 'sign_in': {
       // The attendance id travels with the write, so a retry re-presents the
       // same row rather than minting a second one.

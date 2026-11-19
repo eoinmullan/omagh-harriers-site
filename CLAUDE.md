@@ -111,6 +111,25 @@ draws it; every decision about which rows appear is in
   happens to be open — otherwise the number would describe people the registrar
   cannot see
 
+**A registrar can start a session at the track.** `lib/training/track-session.ts`
+and `components/registrar/StartSession.tsx`. Spond makes an admin create every
+session in advance; this does not copy that.
+
+- **The id is minted on the phone**, so the session can be started with no
+  signal and ticked into immediately. The write queues like any other and the
+  queue is strictly FIFO, which matters here more than anywhere:
+  `attendance.session_id` is a RESTRICT reference, so an attendance row that
+  reached Postgres before its session would be refused
+- **It is named after the group and starts now.** A registrar cannot rename or
+  re-price a session afterwards, so offering a text box would be offering
+  something the app cannot keep
+- **The control sits under tonight's list, never in place of it.** A registrar
+  who cannot see what is already running starts a second Endurance beside the
+  one the other phone opened, and the evening ends up in two halves
+- **A near-duplicate warns and names what is already on, with a tap to open it —
+  it does not refuse.** The schema deliberately lets a group train twice in a
+  day, and the person holding the phone is the one who can see the track
+
 **Guests are a third list, not a third filter.** `lib/training/guests.ts` holds
 the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
 

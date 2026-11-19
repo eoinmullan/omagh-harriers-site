@@ -1,27 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatPounds } from "../../lib/credits/money";
-import { formatClubTime } from "../../lib/training/club-time";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { formatPounds } from '../../lib/credits/money';
+import { formatClubTime } from '../../lib/training/club-time';
 import {
   cashTonight,
   householdsWhoPaid,
   moneyCollected,
   planCashChange,
   type CashRow,
-} from "../../lib/training/cash";
+} from '../../lib/training/cash';
 import {
   rosterToShow,
   usualsFor,
   type RosterMember,
   type Showing,
-} from "../../lib/training/usuals";
-import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
-import { moneyCaveat } from "../../lib/training/queue";
-import {
-  describeSnapshotAge,
-  loadSnapshot,
-  saveSnapshot,
-} from "../../lib/training/snapshot";
-import { useWriteQueue } from "./useWriteQueue";
+} from '../../lib/training/usuals';
+import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
+import { moneyCaveat } from '../../lib/training/queue';
+import { describeSnapshotAge, loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
+import { useWriteQueue } from './useWriteQueue';
 import {
   flip,
   headcount as countHere,
@@ -30,19 +26,14 @@ import {
   settle,
   type Household,
   type NightState,
-} from "../../lib/training/night";
-import {
-  guestsToShow,
-  planGuestSignIn,
-  planNewGuest,
-  type Guest,
-} from "../../lib/training/guests";
-import type { SelectableSession } from "../../lib/training/tonight";
-import { AddGuest } from "./AddGuest";
-import { CashSheet } from "./CashSheet";
-import { GuestRow } from "./GuestRow";
-import { RunnerRow } from "./RunnerRow";
-import { BigButton, Note, Problem, Screen } from "./ui";
+} from '../../lib/training/night';
+import { guestsToShow, planGuestSignIn, planNewGuest, type Guest } from '../../lib/training/guests';
+import type { SelectableSession } from '../../lib/training/tonight';
+import { AddGuest } from './AddGuest';
+import { CashSheet } from './CashSheet';
+import { GuestRow } from './GuestRow';
+import { RunnerRow } from './RunnerRow';
+import { BigButton, Note, Problem, Screen } from './ui';
 
 // The night itself: who is expected, who is here, and what each tick costs.
 //
@@ -65,9 +56,7 @@ interface Loaded extends NightState {
 }
 
 type State =
-  | { phase: "loading" }
-  | { phase: "failed"; problem: string }
-  | { phase: "ready"; data: Loaded };
+  { phase: 'loading' } | { phase: 'failed'; problem: string } | { phase: 'ready'; data: Loaded };
 
 /**
  * How long the night's data gets before the screen gives up on it.
@@ -87,10 +76,7 @@ function within<T>(ms: number, work: Promise<T>): Promise<T> {
   return Promise.race([
     work,
     new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Timed out waiting for the network.")),
-        ms,
-      ),
+      setTimeout(() => reject(new Error('Timed out waiting for the network.')), ms),
     ),
   ]);
 }
@@ -110,93 +96,72 @@ export function AttendanceView({
   session: SelectableSession;
   onBack?: () => void;
 }) {
-  const [state, setState] = useState<State>({ phase: "loading" });
-  const [tab, setTab] = useState<Showing | "guests">("usuals");
-  const showing: Showing = tab === "guests" ? "usuals" : tab;
-  const [term, setTerm] = useState("");
+  const [state, setState] = useState<State>({ phase: 'loading' });
+  const [tab, setTab] = useState<Showing | 'guests'>('usuals');
+  const showing: Showing = tab === 'guests' ? 'usuals' : tab;
+  const [term, setTerm] = useState('');
   const [hereOnly, setHereOnly] = useState(false);
   const [paidOnly, setPaidOnly] = useState(false);
   const [cashFor, setCashFor] = useState<RosterMember | undefined>();
   const [guestProblem, setGuestProblem] = useState<string | null>(null);
-  const [showingSnapshotFrom, setShowingSnapshotFrom] = useState<number | null>(
-    null,
-  );
+  const [showingSnapshotFrom, setShowingSnapshotFrom] = useState<number | null>(null);
 
-  const actorId = state.phase === "ready" ? state.data.actorId : "";
+  const actorId = state.phase === 'ready' ? state.data.actorId : '';
   const outbox = useWriteQueue(session.id, actorId);
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [problem, setProblem] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setState({ phase: "loading" });
+    setState({ phase: 'loading' });
 
     try {
       const supabase = createSupabaseBrowserClient();
 
-      const [
-        members,
-        balances,
-        groupRows,
-        attendanceRows,
-        historyRows,
-        cashRows,
-        guestRows,
-      ] = await within(
-        LOAD_DEADLINE_MS,
-        Promise.all([
-          supabase
-            .from("members")
-            .select(
-              "id, first_name, surname, principal_id, principal:principal_id(display_name)",
-            )
-            .eq("is_active", true),
-          supabase
-            .from("principal_balances")
-            .select("principal_id, balance_pence"),
-          supabase
-            .from("member_groups")
-            .select("member_id")
-            .eq("group_id", session.groupId),
-          supabase
-            .from("attendance")
-            .select("id, member_id, guest_id, amount_paid_pence")
-            .eq("session_id", session.id),
-          // Who has turned up to this group before, which is how the Usuals learn.
-          // The group filter is an inner join on the embed so the database does the
-          // narrowing — otherwise this is every attendance row the club has ever
-          // recorded, fetched to a phone, to answer a question about one squad.
-          supabase
-            .from("attendance")
-            .select("member_id, session:session_id!inner(group_id)")
-            .eq("session.group_id", session.groupId)
-            .not("member_id", "is", null),
-          supabase
-            .from("credit_transactions")
-            .select("principal_id, type, amount_pence")
-            .eq("session_id", session.id),
-          supabase.from("guests").select("id, first_name, surname"),
-        ]),
-      );
+      const [members, balances, groupRows, attendanceRows, historyRows, cashRows, guestRows] =
+        await within(
+          LOAD_DEADLINE_MS,
+          Promise.all([
+            supabase
+              .from('members')
+              .select('id, first_name, surname, principal_id, principal:principal_id(display_name)')
+              .eq('is_active', true),
+            supabase.from('principal_balances').select('principal_id, balance_pence'),
+            supabase.from('member_groups').select('member_id').eq('group_id', session.groupId),
+            supabase
+              .from('attendance')
+              .select('id, member_id, guest_id, amount_paid_pence')
+              .eq('session_id', session.id),
+            // Who has turned up to this group before, which is how the Usuals learn.
+            // The group filter is an inner join on the embed so the database does the
+            // narrowing — otherwise this is every attendance row the club has ever
+            // recorded, fetched to a phone, to answer a question about one squad.
+            supabase
+              .from('attendance')
+              .select('member_id, session:session_id!inner(group_id)')
+              .eq('session.group_id', session.groupId)
+              .not('member_id', 'is', null),
+            supabase
+              .from('credit_transactions')
+              .select('principal_id, type, amount_pence')
+              .eq('session_id', session.id),
+            supabase.from('guests').select('id, first_name, surname'),
+          ]),
+        );
 
-      const failure = [
-        members,
-        balances,
-        groupRows,
-        attendanceRows,
-        historyRows,
-        cashRows,
-      ].find((result) => result.error);
+      const failure = [members, balances, groupRows, attendanceRows, historyRows, cashRows].find(
+        (result) => result.error,
+      );
       if (failure?.error) {
         // No signal, most likely. The shell opened from the cache; put back what
         // this phone last believed rather than an error and an empty list.
         const stored = await loadSnapshot<Loaded>(snapshotKey(session.id));
         if (stored) {
           setShowingSnapshotFrom(stored.savedAt);
-          setState({ phase: "ready", data: stored.data });
+          setState({ phase: 'ready', data: stored.data });
           return;
         }
 
-        setState({ phase: "failed", problem: failure.error.message });
+        setState({ phase: 'failed', problem: failure.error.message });
         return;
       }
 
@@ -229,7 +194,7 @@ export function AttendanceView({
         });
         if (!households.has(row.principal_id)) {
           households.set(row.principal_id, {
-            name: row.principal?.display_name ?? "Household",
+            name: row.principal?.display_name ?? 'Household',
             balancePence: balanceOf.get(row.principal_id) ?? 0,
           });
         }
@@ -251,9 +216,7 @@ export function AttendanceView({
         }
       }
 
-      const attendedBefore = (
-        (historyRows.data ?? []) as { member_id: string | null }[]
-      )
+      const attendedBefore = ((historyRows.data ?? []) as { member_id: string | null }[])
         .map((row) => row.member_id)
         .filter((id): id is string => id !== null);
 
@@ -266,14 +229,14 @@ export function AttendanceView({
       const actor =
         (
           await supabase
-            .from("principals")
-            .select("id")
-            .eq("auth_user_id", authUserId)
+            .from('principals')
+            .select('id')
+            .eq('auth_user_id', authUserId)
             .maybeSingle()
-        ).data?.id ?? "";
+        ).data?.id ?? '';
 
       setState({
-        phase: "ready",
+        phase: 'ready',
         data: {
           cash: (cashRows.data ?? []).map((row): CashRow => ({
             principalId: row.principal_id,
@@ -296,9 +259,7 @@ export function AttendanceView({
           guestPayments,
           members: roster,
           households,
-          inGroup: ((groupRows.data ?? []) as { member_id: string }[]).map(
-            (r) => r.member_id,
-          ),
+          inGroup: ((groupRows.data ?? []) as { member_id: string }[]).map((r) => r.member_id),
           attendedBefore,
           here,
         },
@@ -309,15 +270,15 @@ export function AttendanceView({
       // "Getting tonight's list…" for ever — which is precisely the
       // moment this cache exists for.
       const stored = await loadSnapshot<Loaded>(snapshotKey(session.id));
-      console.log(stored ? "found" : "MISSING", snapshotKey(session.id));
+      console.log(stored ? 'found' : 'MISSING', snapshotKey(session.id));
       if (stored) {
         setShowingSnapshotFrom(stored.savedAt);
-        setState({ phase: "ready", data: stored.data });
+        setState({ phase: 'ready', data: stored.data });
         return;
       }
       setState({
-        phase: "failed",
-        problem: "No signal, and nothing saved for this session yet.",
+        phase: 'failed',
+        problem: 'No signal, and nothing saved for this session yet.',
       });
     }
   }, [session.id, session.groupId, authUserId]);
@@ -330,13 +291,10 @@ export function AttendanceView({
   // the registrar who closes the app and opens it again two minutes later must
   // see what they left, not what the network last confirmed.
   useEffect(() => {
-    if (state.phase !== "ready") return;
+    if (state.phase !== 'ready') return;
 
     const data = state.data;
-    const save = setTimeout(
-      () => void saveSnapshot(snapshotKey(session.id), data),
-      400,
-    );
+    const save = setTimeout(() => void saveSnapshot(snapshotKey(session.id), data), 400);
     return () => clearTimeout(save);
   }, [state, session.id]);
 
@@ -359,7 +317,7 @@ export function AttendanceView({
     void load();
   }, [outbox.refused, load]);
 
-  const data = state.phase === "ready" ? state.data : undefined;
+  const data = state.phase === 'ready' ? state.data : undefined;
 
   const usuals = useMemo(
     () =>
@@ -393,19 +351,8 @@ export function AttendanceView({
     // Money collected is a filter in the same way the headcount is: the number
     // and the names behind it are one control, so when the tin does not match
     // there is nothing to go hunting for.
-    return paidOnly
-      ? shown.filter((member) => paidHouseholds.has(member.principalId))
-      : shown;
-  }, [
-    data,
-    usuals,
-    showing,
-    term,
-    hereOnly,
-    present,
-    paidOnly,
-    paidHouseholds,
-  ]);
+    return paidOnly ? shown.filter((member) => paidHouseholds.has(member.principalId)) : shown;
+  }, [data, usuals, showing, term, hereOnly, present, paidOnly, paidHouseholds]);
 
   // One write per tap. The queue that coalesces a mis-tap before it reaches the
   // database belongs with the offline work; until then the RPC's idempotency is
@@ -432,9 +379,9 @@ export function AttendanceView({
 
     setProblem(null);
     setState((current) =>
-      current.phase === "ready"
+      current.phase === 'ready'
         ? {
-            phase: "ready",
+            phase: 'ready',
             data: {
               ...current.data,
               ...flip(current.data, { ...tap, attendanceId }),
@@ -445,9 +392,9 @@ export function AttendanceView({
 
     outbox.add(
       wasHere
-        ? { kind: "undo_sign_in", attendanceId }
+        ? { kind: 'undo_sign_in', attendanceId }
         : {
-            kind: "sign_in",
+            kind: 'sign_in',
             memberId: member.id,
             sessionId: session.id,
             attendanceId,
@@ -480,7 +427,7 @@ export function AttendanceView({
 
     setProblem(null);
     setState((current) => {
-      if (current.phase !== "ready") return current;
+      if (current.phase !== 'ready') return current;
 
       const households = new Map(current.data.households);
       const household = households.get(member.principalId);
@@ -492,7 +439,7 @@ export function AttendanceView({
       }
 
       return {
-        phase: "ready",
+        phase: 'ready',
         data: {
           ...current.data,
           households,
@@ -508,7 +455,7 @@ export function AttendanceView({
       };
     });
 
-    outbox.add({ kind: "cash", row });
+    outbox.add({ kind: 'cash', row });
   }
 
   function toggleGuest(guest: Guest) {
@@ -519,7 +466,7 @@ export function AttendanceView({
 
     setProblem(null);
     setState((current) => {
-      if (current.phase !== "ready") return current;
+      if (current.phase !== 'ready') return current;
       const guestsHere = new Map(current.data.guestsHere);
       if (wasHere) guestsHere.delete(guest.id);
       else guestsHere.set(guest.id, crypto.randomUUID());
@@ -529,16 +476,16 @@ export function AttendanceView({
         : [...current.data.guestPayments, paid];
 
       return {
-        phase: "ready",
+        phase: 'ready',
         data: { ...current.data, guestsHere, guestPayments },
       };
     });
 
     outbox.add(
       wasHere
-        ? { kind: "guest_undo", guestId: guest.id, sessionId: session.id }
+        ? { kind: 'guest_undo', guestId: guest.id, sessionId: session.id }
         : {
-            kind: "guest_sign_in",
+            kind: 'guest_sign_in',
             guestId: guest.id,
             sessionId: session.id,
             pricePence: session.pricePence,
@@ -554,23 +501,23 @@ export function AttendanceView({
     if (!data) return;
 
     const plan = planNewGuest({ firstName, surname, createdBy: data.actorId });
-    if ("problem" in plan) {
+    if ('problem' in plan) {
       setGuestProblem(plan.problem);
       return;
     }
 
     setGuestProblem(null);
     const { data: created, error } = await createSupabaseBrowserClient()
-      .from("guests")
+      .from('guests')
       .insert(plan.insert)
-      .select("id, first_name, surname")
+      .select('id, first_name, surname')
       .single();
 
     if (error || !created) {
       setGuestProblem(
         outbox.online
-          ? (error?.message ?? "Could not add that guest.")
-          : "Offline — a new guest cannot be added until the signal is back. Take the name on paper.",
+          ? (error?.message ?? 'Could not add that guest.')
+          : 'Offline — a new guest cannot be added until the signal is back. Take the name on paper.',
       );
       return;
     }
@@ -582,9 +529,9 @@ export function AttendanceView({
     };
 
     setState((current) =>
-      current.phase === "ready"
+      current.phase === 'ready'
         ? {
-            phase: "ready",
+            phase: 'ready',
             data: { ...current.data, guests: [...current.data.guests, guest] },
           }
         : current,
@@ -595,7 +542,7 @@ export function AttendanceView({
     toggleGuest(guest);
   }
 
-  if (state.phase === "loading") {
+  if (state.phase === 'loading') {
     return (
       <Screen title={session.name}>
         <p className="text-lg text-slate-400">Getting tonight's list…</p>
@@ -603,7 +550,7 @@ export function AttendanceView({
     );
   }
 
-  if (state.phase === "failed") {
+  if (state.phase === 'failed') {
     return (
       <Screen title={session.name}>
         <Problem>Couldn't load the list. {state.problem}</Problem>
@@ -624,9 +571,7 @@ export function AttendanceView({
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-6">
       <header className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold text-slate-50">
-            {session.name}
-          </h1>
+          <h1 className="truncate text-2xl font-bold text-slate-50">{session.name}</h1>
           <p className="truncate text-base text-slate-400">
             {formatClubTime(session.startsAt)} · {session.groupName}
           </p>
@@ -642,14 +587,10 @@ export function AttendanceView({
             }}
             aria-pressed={hereOnly}
             className={`min-h-12 rounded-xl border px-3 text-center transition-colors ${
-              hereOnly
-                ? "border-emerald-400 bg-emerald-500/15"
-                : "border-edge bg-raised"
+              hereOnly ? 'border-emerald-400 bg-emerald-500/15' : 'border-edge bg-raised'
             }`}
           >
-            <span className="block text-xl font-bold text-slate-50">
-              {headcount}
-            </span>
+            <span className="block text-xl font-bold text-slate-50">{headcount}</span>
             <span className="block text-xs text-slate-400">here</span>
           </button>
           <button
@@ -660,14 +601,10 @@ export function AttendanceView({
             }}
             aria-pressed={paidOnly}
             className={`min-h-12 rounded-xl border px-3 text-center transition-colors ${
-              paidOnly
-                ? "border-emerald-400 bg-emerald-500/15"
-                : "border-edge bg-raised"
+              paidOnly ? 'border-emerald-400 bg-emerald-500/15' : 'border-edge bg-raised'
             }`}
           >
-            <span className="block text-xl font-bold text-slate-50">
-              {formatPounds(collected)}
-            </span>
+            <span className="block text-xl font-bold text-slate-50">{formatPounds(collected)}</span>
             <span className="block text-xs text-slate-400">collected</span>
           </button>
         </div>
@@ -688,7 +625,7 @@ export function AttendanceView({
         />
         <div className="mt-2 flex items-center justify-between gap-3">
           <div className="flex gap-2">
-            {(["usuals", "everyone", "guests"] as const).map((option) => (
+            {(['usuals', 'everyone', 'guests'] as const).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -696,20 +633,16 @@ export function AttendanceView({
                 aria-pressed={tab === option}
                 className={`min-h-11 rounded-lg px-3 text-base transition-colors ${
                   tab === option
-                    ? "bg-slate-50 font-semibold text-slate-900"
-                    : "border border-edge bg-raised text-slate-300"
+                    ? 'bg-slate-50 font-semibold text-slate-900'
+                    : 'border border-edge bg-raised text-slate-300'
                 }`}
               >
-                {option === "usuals"
-                  ? "Usuals"
-                  : option === "everyone"
-                    ? "Everyone"
-                    : "Guests"}
+                {option === 'usuals' ? 'Usuals' : option === 'everyone' ? 'Everyone' : 'Guests'}
               </button>
             ))}
           </div>
           <p className="text-sm text-slate-500">
-            {tab === "guests" ? guestRows.length : rows.length} shown
+            {tab === 'guests' ? guestRows.length : rows.length} shown
           </p>
         </div>
       </div>
@@ -722,14 +655,14 @@ export function AttendanceView({
           className="mb-3 rounded-xl bg-amber-500/15 px-4 py-2 text-sm text-amber-300"
           role="status"
         >
-          {describeSnapshotAge(showingSnapshotFrom)} Ticks and cash are being
-          kept and will send when the signal is back.
+          {describeSnapshotAge(showingSnapshotFrom)} Ticks and cash are being kept and will send
+          when the signal is back.
         </p>
       )}
 
       {caveat && (
         <p
-          className={`mb-3 text-sm ${outbox.online ? "text-slate-500" : "text-amber-400"}`}
+          className={`mb-3 text-sm ${outbox.online ? 'text-slate-500' : 'text-amber-400'}`}
           role="status"
         >
           {caveat}
@@ -742,7 +675,7 @@ export function AttendanceView({
         </div>
       )}
 
-      {tab === "guests" ? (
+      {tab === 'guests' ? (
         <div className="flex flex-col gap-2 pb-6">
           {guestRows.map((guest) => (
             <GuestRow
@@ -758,7 +691,7 @@ export function AttendanceView({
             <Note>
               {term
                 ? `No guest matches "${term}".`
-                : "No guests on file yet. Add one below and they are signed in straight away."}
+                : 'No guests on file yet. Add one below and they are signed in straight away.'}
             </Note>
           )}
           <AddGuest
@@ -789,25 +722,21 @@ export function AttendanceView({
         <div className="py-6">
           <Note>
             {hereOnly
-              ? "Nobody is signed in yet."
+              ? 'Nobody is signed in yet.'
               : paidOnly
-                ? "Nobody has handed anything over yet."
+                ? 'Nobody has handed anything over yet.'
                 : term
                   ? `Nobody matches "${term}". Guests are not in this list yet.`
-                  : "Nobody is on tonight’s list. Try Everyone, or assign the squad on the website."}
+                  : 'Nobody is on tonight’s list. Try Everyone, or assign the squad on the website.'}
           </Note>
         </div>
       )}
 
       {cashFor && (
         <CashSheet
-          householdName={
-            data!.households.get(cashFor.principalId)?.name ?? "This household"
-          }
+          householdName={data!.households.get(cashFor.principalId)?.name ?? 'This household'}
           memberNames={data!.members
-            .filter(
-              (candidate) => candidate.principalId === cashFor.principalId,
-            )
+            .filter((candidate) => candidate.principalId === cashFor.principalId)
             .map((candidate) => `${candidate.firstName} ${candidate.surname}`)}
           currentPence={cashTonight(data!.cash, cashFor.principalId)}
           onSave={(target) => void saveCash(cashFor, target)}
@@ -827,12 +756,7 @@ export function AttendanceView({
 }
 
 /** Drops one matching payment, so an untick takes exactly its own money back. */
-function removeOne(
-  payments: (number | null)[],
-  pence: number | null,
-): (number | null)[] {
+function removeOne(payments: (number | null)[], pence: number | null): (number | null)[] {
   const at = payments.indexOf(pence);
-  return at === -1
-    ? payments
-    : [...payments.slice(0, at), ...payments.slice(at + 1)];
+  return at === -1 ? payments : [...payments.slice(0, at), ...payments.slice(at + 1)];
 }

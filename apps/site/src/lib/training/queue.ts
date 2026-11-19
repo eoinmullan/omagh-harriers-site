@@ -1,4 +1,4 @@
-import type { CreditTransactionInsert } from '../supabase/types';
+import type { CreditTransactionInsert, TrainingSessionInsert } from '../supabase/types';
 
 // The write queue: what a tap becomes before it reaches the database.
 //
@@ -15,6 +15,21 @@ import type { CreditTransactionInsert } from '../supabase/types';
 //   2. The attendance row's id is generated here, not by Postgres. That is what
 //      lets an untick name the row it reverses while that row is still only a
 //      promise sitting in this queue.
+
+/**
+ * A session started at the track.
+ *
+ * It queues like everything else, which is what lets a registrar start one with
+ * no signal and tick people in immediately. The order matters more here than
+ * anywhere: `attendance.session_id` is a RESTRICT reference, so an attendance
+ * row that reaches Postgres before its session is refused outright. The queue
+ * is strictly first-in-first-out and stops on a failure rather than skipping
+ * ahead, so the session is always written first.
+ */
+export interface CreateSession {
+  kind: 'create_session';
+  row: TrainingSessionInsert;
+}
 
 export interface SignIn {
   kind: 'sign_in';
@@ -47,7 +62,7 @@ export interface Cash {
   row: CreditTransactionInsert;
 }
 
-export type Write = SignIn | UndoSignIn | GuestSignIn | GuestUndo | Cash;
+export type Write = CreateSession | SignIn | UndoSignIn | GuestSignIn | GuestUndo | Cash;
 
 export interface Queued {
   /** Stable across retries, and what the store keys on. */
@@ -94,6 +109,9 @@ function whatItCancels(write: Write): ((pending: Write) => boolean) | undefined 
   // Cash is never cancelled. Each entry is a difference from the figure that
   // was on screen when it was made, so dropping one silently changes what the
   // others mean.
+  //
+  // Nor is a session. Cancelling one is a soft disable the admin site does, and
+  // dropping the row would strand every attendance queued behind it.
   return undefined;
 }
 

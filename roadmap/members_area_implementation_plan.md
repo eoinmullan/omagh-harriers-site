@@ -381,7 +381,7 @@ Two things not to do when it lands:
 - [ ] Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it
 - [ ] Connect to the same Supabase project — `registrar`, `admin` or `superuser` required
 - [ ] Add Web App Manifest and service worker (PWA installable on iOS and Android)
-- [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns. **Settle what may be cached on the device first** — names and dates of birth for the whole club, sitting on a volunteer's borrowed phone, is a decision baked into the sync layer rather than one found later. See the opening of *Phase 7*
+- [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns
 
 ### Member-facing
 
@@ -482,15 +482,6 @@ one block at the end rather than a gate part-way through: reviewing the ledger
 before the cash cell, refunds and the offline queue exist would mean reviewing it
 twice, and reviewing privacy before the reporting area exists would mean looking
 at the smaller half of the problem.
-
-**One question does not wait**, because it is baked in rather than found:
-
-- [ ] **What may the registrar app keep on the device, and for how long?** The
-  offline queue decides this when it is built, and 313 members' names and dates
-  of birth sitting in IndexedDB on a volunteer's borrowed phone is exactly what
-  the privacy review below would object to. Unpicking it afterwards means
-  rewriting the sync layer. Settle it before that piece is written, not in this
-  phase
 
 ### How the reviews are organised
 

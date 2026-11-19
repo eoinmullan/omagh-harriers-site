@@ -20,28 +20,28 @@ export function SignedOut() {
     <Screen title="Sign in first">
       {trapped ? (
         <>
-          <p className="text-lg text-slate-300">
+          <p className="text-lg text-neutral-300">
             This app has been signed out, and on an iPhone the sign-in link can't open in here
             — it opens in Safari instead.
           </p>
           <Note>
-            <p className="font-semibold text-slate-100">To get back in</p>
+            <p className="font-semibold text-neutral-100">To get back in</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5">
               <li>Delete this icon from your home screen.</li>
               <li>
-                Open <strong className="text-slate-100">omaghharriers.com</strong> in Safari and
+                Open <strong className="text-neutral-100">omaghharriers.com</strong> in Safari and
                 sign in to the members' area.
               </li>
-              <li>Tap <strong className="text-slate-100">Sign runners in</strong>, then add it to your home screen again.</li>
+              <li>Tap <strong className="text-neutral-100">Sign runners in</strong>, then add it to your home screen again.</li>
             </ol>
-            <p className="mt-2 text-slate-400">
+            <p className="mt-2 text-neutral-400">
               It only happens if the app has sat unused for a long time.
             </p>
           </Note>
         </>
       ) : (
         <>
-          <p className="text-lg text-slate-300">
+          <p className="text-lg text-neutral-300">
             Sign in to the members' area and this will pick it up.
           </p>
           <BigButton href="/signin">Go to sign in</BigButton>

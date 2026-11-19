@@ -6,8 +6,8 @@ import { BigButton, Screen } from './ui';
 export function NotForYou({ email }: { email: string | null }) {
   return (
     <Screen title="Not set up to sign runners in">
-      <p className="text-lg text-slate-300">
-        {email ? <strong className="text-slate-100">{email}</strong> : 'This account'} is a club
+      <p className="text-lg text-neutral-300">
+        {email ? <strong className="text-neutral-100">{email}</strong> : 'This account'} is a club
         member rather than a registrar. If you've been asked to take sign-ins, a club admin can
         add that to your account.
       </p>

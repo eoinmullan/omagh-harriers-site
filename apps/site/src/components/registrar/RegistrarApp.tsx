@@ -42,7 +42,7 @@ export function RegistrarApp() {
   if (session === undefined) {
     return (
       <Screen>
-        <p className="text-lg text-slate-400">Opening…</p>
+        <p className="text-lg text-neutral-400">Opening…</p>
       </Screen>
     );
   }

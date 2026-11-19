@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { cashLabel } from './cash-label';
 import { formatBalance, formatPounds, parsePounds } from './money';
 
 describe('formatPounds', () => {
@@ -80,5 +81,25 @@ describe('parsePounds', () => {
 
   it('refuses an empty entry', () => {
     expect(parsePounds('')).toBeUndefined();
+  });
+});
+
+describe('cashLabel', () => {
+  it('drops the pence when there are none, the way money is spoken at a gate', () => {
+    expect(cashLabel(1000)).toBe('£10');
+    expect(cashLabel(200)).toBe('£2');
+  });
+
+  it('keeps the pence when there are some', () => {
+    expect(cashLabel(1050)).toBe('£10.50');
+    expect(cashLabel(199)).toBe('£1.99');
+  });
+
+  it('reads a take-back as a plain amount, direction being the control', () => {
+    expect(cashLabel(-500)).toBe('£5');
+  });
+
+  it('is nothing at all, not an empty string', () => {
+    expect(cashLabel(0)).toBe('£0');
   });
 });

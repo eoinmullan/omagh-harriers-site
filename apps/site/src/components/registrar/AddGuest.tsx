@@ -28,11 +28,11 @@ export function AddGuest({
   const already = likelyAlready(guests, firstName, surname);
   const ready = firstName.trim() !== '' && surname.trim() !== '';
 
-  const field = 'min-h-14 w-full rounded-xl border border-edge bg-raised px-4 text-lg text-slate-50 placeholder:text-slate-500';
+  const field = 'min-h-14 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 text-lg text-white placeholder:text-white0';
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-edge bg-raised/50 p-4">
-      <p className="text-base font-semibold text-slate-200">Someone new</p>
+    <div className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
+      <p className="text-base font-semibold text-neutral-200">Someone new</p>
 
       <div className="flex gap-2">
         <input
@@ -70,7 +70,7 @@ export function AddGuest({
                     setFirstName('');
                     setSurname('');
                   }}
-                  className="min-h-12 w-full rounded-lg border border-edge bg-ground px-3 text-left text-lg text-slate-100 active:bg-slate-700"
+                  className="min-h-12 w-full rounded-lg border border-neutral-800 bg-black px-3 text-left text-lg text-neutral-100 active:bg-neutral-800"
                 >
                   {guest.firstName} {guest.surname}
                 </button>

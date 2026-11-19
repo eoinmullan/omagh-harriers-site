@@ -38,9 +38,9 @@ export function StartSession({
     const clashes = alreadyOnTonight(tonight, checking.id);
 
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-raised/50 p-4">
+      <div className="flex flex-col gap-3 rounded-xl border border-amber/40 bg-neutral-900/50 p-4">
         <Note>
-          <p className="font-semibold text-slate-100">
+          <p className="font-semibold text-neutral-100">
             {checking.name} already has a session tonight.
           </p>
           <p className="mt-1">
@@ -57,10 +57,10 @@ export function StartSession({
                 onClick={() => onOpenExisting(session)}
                 className="min-h-16 w-full rounded-xl border border-emerald-500/60 bg-emerald-500/10 px-5 text-left active:bg-emerald-500/20"
               >
-                <span className="block text-lg font-semibold text-slate-50">
+                <span className="block text-lg font-semibold text-white">
                   Open {session.name}
                 </span>
-                <span className="block text-base text-slate-400">
+                <span className="block text-base text-neutral-400">
                   started {formatClubTime(session.startsAt)}
                 </span>
               </button>
@@ -94,8 +94,8 @@ export function StartSession({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-edge bg-raised/50 p-4">
-      <p className="text-base font-semibold text-slate-200">Which squad is training?</p>
+    <div className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
+      <p className="text-base font-semibold text-neutral-200">Which squad is training?</p>
       <ul className="flex flex-col gap-2">
         {groups.map((group) => (
           <li key={group.id}>
@@ -106,7 +106,7 @@ export function StartSession({
                   ? setChecking(group)
                   : onStart(group)
               }
-              className="min-h-14 w-full rounded-xl border border-edge bg-ground px-4 text-left text-lg text-slate-100 active:bg-slate-700"
+              className="min-h-14 w-full rounded-xl border border-neutral-800 bg-black px-4 text-left text-lg text-neutral-100 active:bg-neutral-800"
             >
               {group.name}
             </button>

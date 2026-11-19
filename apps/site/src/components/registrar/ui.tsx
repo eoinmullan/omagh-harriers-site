@@ -8,8 +8,8 @@ export function Screen({ children, title }: { children: ReactNode; title?: strin
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-6 px-5 py-8">
       <header>
-        <p className="text-sm font-medium tracking-wide text-slate-400 uppercase">Omagh Harriers</p>
-        {title && <h1 className="mt-1 text-3xl font-bold text-slate-50">{title}</h1>}
+        <p className="text-sm font-medium tracking-wide text-neutral-400 uppercase">Omagh Harriers</p>
+        {title && <h1 className="mt-1 text-3xl font-bold text-white">{title}</h1>}
       </header>
       {children}
     </main>
@@ -32,8 +32,8 @@ export function BigButton({
   disabled?: boolean;
 }) {
   const tones = {
-    primary: 'bg-slate-50 text-slate-900 active:bg-slate-300',
-    quiet: 'border border-edge bg-raised text-slate-100 active:bg-slate-700',
+    primary: 'bg-neutral-100 text-black active:bg-neutral-300',
+    quiet: 'border border-neutral-800 bg-neutral-900 text-neutral-100 active:bg-neutral-800',
   };
   const shared = `flex min-h-14 w-full items-center justify-center rounded-xl px-5 text-lg font-semibold transition-colors disabled:opacity-50 ${tones[tone]}`;
 
@@ -54,7 +54,7 @@ export function BigButton({
 
 export function Note({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-edge bg-raised px-4 py-3 text-base text-slate-300">
+    <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-base text-neutral-300">
       {children}
     </div>
   );

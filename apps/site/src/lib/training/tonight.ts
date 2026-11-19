@@ -10,6 +10,7 @@ export interface SelectableSession {
   location: string | null;
   pricePence: number;
   isCancelled: boolean;
+  groupId: string;
   groupName: string;
 }
 

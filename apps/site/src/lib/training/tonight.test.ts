@@ -14,6 +14,7 @@ function session(overrides: Partial<SelectableSession> = {}): SelectableSession 
     location: 'Omagh Leisure Complex',
     pricePence: 200,
     isCancelled: false,
+    groupId: 'group-1',
     groupName: 'Endurance',
     ...overrides,
   };

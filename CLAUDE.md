@@ -85,6 +85,36 @@ rolldown in beside Astro 5's Vite 6; it builds, then fails the dev server with
 `Missing field moduleType`. React ships on this route only — every other page
 still sends no JavaScript.
 
+**The attendance view is the screen.** `components/registrar/AttendanceView.tsx`
+draws it; every decision about which rows appear is in
+`lib/training/usuals.ts` and every optimistic state change is in
+`lib/training/night.ts`, both unit tested without a database.
+
+- **The Usuals are seeded from `member_groups` and learn from history.** Anyone
+  ticked tonight is on the list by definition, which is how "the registrar can
+  add somebody by hand" works without a second control. The history query is an
+  inner join filtered on the group, so the database narrows it — not the phone
+- **Frequency decides who is on the list; surname decides the order.** The plan
+  once asked for both as the ordering, which cannot hold at once. Siblings
+  arrive together, so they must be adjacent
+- **Typing searches the whole club whichever toggle is showing.** Somebody
+  typing a name has already decided the Usuals do not hold who they want
+- **The tick is optimistic and so is the pot.** The row flips and the household
+  balance moves before the write lands, and `night.ts` takes both back exactly if
+  it fails. A row mid-flight carries a `PENDING` id and cannot be unticked —
+  there is nothing to undo yet
+- **Balance colour carries the warning, never the wording**: neutral in credit,
+  amber below the price of a session, red overdrawn. Exactly the price is still
+  credit, because it covers tonight
+- **No cash cell and no guests yet**, so Money collected is not in the header.
+  The headcount is, and tapping it filters to who is here — answering for the
+  whole night, not just the list that happens to be open
+
+**Writes are one per tap for now.** The coalescing window that would swallow a
+mis-tap before it reaches the database belongs with the offline queue; until
+then the RPC's idempotency keeps a double tap honest and an untick is a real
+reversal.
+
 **No service worker yet.** When one lands, **scope it to `/registrar`**. A
 root-scoped worker would start serving stale marketing pages, which is the one
 real hazard of sharing an origin with the public site.

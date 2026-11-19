@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatClubTime } from '../../lib/training/club-time';
-import { formatPounds } from '../../lib/credits/money';
 import {
   clubDayWindow,
   theOnlyChoice,
@@ -9,6 +8,7 @@ import {
   type TonightsSessions,
 } from '../../lib/training/tonight';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
+import { AttendanceView } from './AttendanceView';
 import { InstallHint } from './InstallHint';
 import { BigButton, Note, Problem, Screen } from './ui';
 
@@ -35,7 +35,7 @@ export function SessionPicker() {
 
     const { data, error } = await createSupabaseBrowserClient()
       .from('training_sessions')
-      .select('id, name, starts_at, location, price_pence, is_cancelled, group:group_id(name)')
+      .select('id, name, starts_at, location, price_pence, is_cancelled, group_id, group:group_id(name)')
       .gte('starts_at', window.from)
       .lt('starts_at', window.until)
       .order('starts_at');
@@ -74,7 +74,7 @@ export function SessionPicker() {
 
   if (opened) {
     return (
-      <Chosen
+      <AttendanceView
         session={opened}
         onBack={available.length > 1 ? () => setChosen(undefined) : undefined}
       />
@@ -138,30 +138,6 @@ function SessionChoice({
   );
 }
 
-// The attendance view is the next piece of work. Until it exists this confirms
-// what was picked, so the route can be deployed and installed on its own.
-function Chosen({ session, onBack }: { session: SelectableSession; onBack?: () => void }) {
-  return (
-    <Screen title={session.name}>
-      <p className="text-lg text-slate-300">
-        {formatClubTime(session.startsAt)} · {session.groupName}
-        {session.location ? ` · ${session.location}` : ''}
-      </p>
-      <p className="text-lg text-slate-300">{formatPounds(session.pricePence)} a runner.</p>
-      <Note>
-        The list of runners comes next. This screen exists so the sign-in and the session
-        selector can be installed and used before the attendance view is built.
-      </Note>
-      {onBack && (
-        <BigButton tone="quiet" onClick={onBack}>
-          Pick a different session
-        </BigButton>
-      )}
-      <InstallHint />
-    </Screen>
-  );
-}
-
 type SessionRow = {
   id: string;
   name: string;
@@ -169,6 +145,7 @@ type SessionRow = {
   location: string | null;
   price_pence: number;
   is_cancelled: boolean;
+  group_id: string;
   group: { name: string } | null;
 };
 
@@ -181,6 +158,7 @@ function asSelectable(row: unknown): SelectableSession {
     location: session.location,
     pricePence: session.price_pence,
     isCancelled: session.is_cancelled,
+    groupId: session.group_id,
     groupName: session.group?.name ?? 'Unknown group',
   };
 }

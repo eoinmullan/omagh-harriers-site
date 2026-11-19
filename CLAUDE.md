@@ -247,6 +247,13 @@ tick returns the attendance row that is already there and writes no second
 charge; a repeated untick credits once; a re-tick after an untick mints a fresh
 attendance id and so correctly charges again.
 
+**A role guard writes `IS NOT TRUE`, never `NOT`.** `current_app_role()` is NULL
+for a token carrying no `app_role` claim, so `can_run_a_session()` is NULL, and
+`NOT NULL` is NULL rather than true — an `IF NOT ...` guard silently does not
+fire and execution falls through. `0011` had this and `0013` fixed it. RLS was
+never fooled (its policies refuse a NULL just as firmly), but the function's own
+guard did nothing. Copy the `IS NOT TRUE` form into anything new.
+
 **A guest never goes through these.** Their cash lives on the attendance row, so
 ticking and unticking a guest is a single-table write through PostgREST.
 `undo_member_sign_in` refuses one with a sentence saying so.

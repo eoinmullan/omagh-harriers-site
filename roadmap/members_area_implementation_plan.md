@@ -585,6 +585,34 @@ squad nobody has set up. As of 19 Nov 2026 the live project has **no groups at
 all**, which means this feature would be unusable today — seeding the squad list
 is a prerequisite, not a detail.
 
+#### Match the prototype's look, not just its shape
+
+The prototype settled *what the screen is* — a list, not a search or a board —
+and the plan recorded that. Nobody wrote down that it should also look like it,
+so the built screen was made from the written spec and the prototype's visual
+treatment was never carried across. Decided on 19 Nov 2026 that it should be:
+**match the final `prototype/registrar-screen` version exactly.**
+
+What the prototype does that the built screen does not:
+
+- **The club's amber is the accent.** A ticked checkbox is amber on black, cash
+  figures are amber, and `--color-amber` is already in `global.css` because the
+  public site uses it. The built screen is slate and emerald throughout and
+  carries no club colour at all
+- **The surname is bold and upper-case, the first name is not.** Scanning a list
+  of three hundred names for one surname is the job, and the typography does
+  that job rather than leaving both halves the same weight
+- **It is a list, not a stack of cards.** Rows separated by a hairline, no gaps
+  and no rounded corners, which fits more names on a phone and reads as one
+  thing to run a finger down
+- **The cash cell has two lines**: the amount, and a small upper-case *added* or
+  *paid* beneath it, so the figure says what it is without a legend
+- **Round amounts drop their pence** — "£10", not "£10.00" — which is how the
+  money is actually spoken at the gate
+
+The branch is `prototype/registrar-screen`, local only and never pushed. It
+should be pushed before anything depends on it.
+
 #### Two rough edges in the offline work
 
 Found by driving it with the network cut, recorded rather than fixed.

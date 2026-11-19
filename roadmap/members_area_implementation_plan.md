@@ -468,8 +468,15 @@ replayed and RLS on, acting as a registrar rather than as the owner:
 - a member is refused; an admin is allowed; a cancelled session is refused
 - unticking a row that is already gone is quiet, and unticking a guest says so
 
-**Neither migration has been applied to the live project.** They are files in
-`supabase/migrations/`, to be run when the attendance view is ready to use them.
+**Applied to the live project** (`0011`, `0012`, and `0013`) on 19 Nov 2026 via
+`supabase db push`, after `supabase migration list` confirmed the remote history
+was in sync and a `--dry-run` showed only those files would go.
+
+`0013` repairs a guard in `0011` found by calling the functions with the anon key
+straight after pushing: `IF NOT can_run_a_session()` does not fire when the claim
+is missing, because `NOT NULL` is NULL rather than true. Nothing was exposed —
+an anon caller has no `auth.uid()`, and RLS refuses a NULL role on every insert
+regardless — but the guard was not doing the job it was written to do.
 
 ### Member-facing
 

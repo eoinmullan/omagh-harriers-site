@@ -56,7 +56,11 @@ export function RunnerRow({
         aria-label={`${member.firstName} ${member.surname}`}
         onClick={onToggle}
         disabled={isSaving}
-        className="flex min-h-18 flex-1 items-center gap-4 px-4 py-3 text-left transition-colors active:bg-slate-700/40"
+        // min-w-0 or this never shrinks: a flex item defaults to
+        // min-width:auto, so a long household name holds the button at its
+        // content width and pushes the cash cell out past overflow-hidden,
+        // where it is clipped away entirely but still in the a11y tree.
+        className="flex min-h-18 min-w-0 flex-1 items-center gap-4 px-4 py-3 text-left transition-colors active:bg-slate-700/40"
       >
         <span
           aria-hidden="true"

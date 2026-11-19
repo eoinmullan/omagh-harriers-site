@@ -92,3 +92,28 @@ describe('describeEntry', () => {
     expect(description).toBe('£10.00 deducted — refunded, recorded by Eoin Mullan');
   });
 });
+
+describe('a refund says why', () => {
+  it('uses the note, the way an adjustment does', () => {
+    expect(
+      describeEntry({
+        type: 'refund',
+        amountPence: -1000,
+        notes: 'Cash handed back at training',
+        recordedBy: 'Eoin Mullan',
+      }),
+    ).toBe('£10.00 deducted — Cash handed back at training, recorded by Eoin Mullan');
+  });
+
+  it('falls back to the bare word when there is no note', () => {
+    expect(describeEntry({ type: 'refund', amountPence: -500, recordedBy: 'Eoin Mullan' })).toBe(
+      '£5.00 deducted — refunded, recorded by Eoin Mullan',
+    );
+  });
+
+  it('ignores a note that is only whitespace', () => {
+    expect(describeEntry({ type: 'refund', amountPence: -500, notes: '   ' })).toBe(
+      '£5.00 deducted — refunded',
+    );
+  });
+});

@@ -27,9 +27,13 @@ function reasonFor(entry: LedgerEntry): string {
     case 'session':
       return entry.memberName ? `training session for ${entry.memberName}` : 'training session';
     case 'refund':
-      return attributed('refunded', entry.recordedBy);
+      // A refund carries its reason the way an adjustment does. "£10.00
+      // deducted — refunded" does not say why, and a keying slip corrected in
+      // front of the member deserves a sentence they can check against the
+      // evening they remember.
+      return attributed(noteOr(entry.notes, 'refunded'), entry.recordedBy);
     case 'manual_adjustment':
-      return attributed(adjustmentReason(entry.notes), entry.recordedBy);
+      return attributed(noteOr(entry.notes, 'adjusted by the club'), entry.recordedBy);
     case 'transfer_in':
       return attributed('transferred in from another account', entry.recordedBy);
     case 'transfer_out':
@@ -37,8 +41,8 @@ function reasonFor(entry: LedgerEntry): string {
   }
 }
 
-function adjustmentReason(notes?: string | null): string {
-  return notes?.trim() || 'adjusted by the club';
+function noteOr(notes: string | null | undefined, fallback: string): string {
+  return notes?.trim() || fallback;
 }
 
 function attributed(reason: string, recordedBy?: string | null): string {

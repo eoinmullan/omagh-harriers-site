@@ -124,6 +124,24 @@ Mail opens Safari rather than the installed iOS app, so a lapsed session there i
 recovered by deleting the icon and re-adding it; and Safari has no install
 prompt, so iOS gets a written hint where Chrome gets `beforeinstallprompt`.
 
+## Don't run a build while the dev server is up
+
+`astro build` and `astro dev` share `apps/site/node_modules/.vite`. Running
+`pnpm --filter @omagh/site build` while the dev server is running rewrites the
+optimized-dep cache and its `browserHash`, and the dev server carries on serving
+pages that reference the old hash. Every module request then 504s with **Outdated
+Optimize Dep** and the page renders blank — which looks exactly like a syntax
+error in whatever you last touched, and is not.
+
+The fix is to restart the dev server. Check the hash before blaming your code:
+
+```sh
+curl -s localhost:4321/registrar | grep -o 'deps/react.js?v=[a-z0-9]*'
+python3 -c "import json;print(json.load(open('apps/site/node_modules/.vite/deps/_metadata.json'))['browserHash'])"
+```
+
+Two different values is this, not you.
+
 ## Klubfunder sync
 
 The membership data in `principals` and `members` is reconciled from a Klubfunder CSV export by `apps/site/scripts/sync-klubfunder.ts`. Run it from the repo root.

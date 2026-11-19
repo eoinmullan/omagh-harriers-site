@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatPounds } from '../../lib/credits/money';
 import { formatClubTime } from '../../lib/training/club-time';
+import {
+  cashTonight,
+  householdsWhoPaid,
+  moneyCollected,
+  planCashChange,
+  type CashRow,
+} from '../../lib/training/cash';
 import {
   rosterToShow,
   usualsFor,
@@ -17,6 +25,7 @@ import {
   type NightState,
 } from '../../lib/training/night';
 import type { SelectableSession } from '../../lib/training/tonight';
+import { CashSheet } from './CashSheet';
 import { RunnerRow } from './RunnerRow';
 import { BigButton, Note, Problem, Screen } from './ui';
 
@@ -30,6 +39,9 @@ interface Loaded extends NightState {
   members: RosterMember[];
   inGroup: string[];
   attendedBefore: string[];
+  /** Every cash row against this session, which is what each cell reads. */
+  cash: CashRow[];
+  actorId: string;
 }
 
 type State =
@@ -48,6 +60,8 @@ export function AttendanceView({
   const [showing, setShowing] = useState<Showing>('usuals');
   const [term, setTerm] = useState('');
   const [hereOnly, setHereOnly] = useState(false);
+  const [paidOnly, setPaidOnly] = useState(false);
+  const [cashFor, setCashFor] = useState<RosterMember | undefined>();
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -55,7 +69,8 @@ export function AttendanceView({
     setState({ phase: 'loading' });
     const supabase = createSupabaseBrowserClient();
 
-    const [members, balances, groupRows, attendanceRows, historyRows] = await Promise.all([
+    const [members, balances, groupRows, attendanceRows, historyRows, cashRows, me] =
+      await Promise.all([
       supabase
         .from('members')
         .select('id, first_name, surname, principal_id, principal:principal_id(display_name)')
@@ -72,9 +87,14 @@ export function AttendanceView({
         .select('member_id, session:session_id!inner(group_id)')
         .eq('session.group_id', session.groupId)
         .not('member_id', 'is', null),
+      supabase
+        .from('credit_transactions')
+        .select('principal_id, type, amount_pence')
+        .eq('session_id', session.id),
+      supabase.auth.getUser(),
     ]);
 
-    const failure = [members, balances, groupRows, attendanceRows, historyRows].find(
+    const failure = [members, balances, groupRows, attendanceRows, historyRows, cashRows].find(
       (result) => result.error,
     );
     if (failure?.error) {
@@ -121,9 +141,27 @@ export function AttendanceView({
       .map((row) => row.member_id)
       .filter((id): id is string => id !== null);
 
+    // Whose principal row records the cash, which is how the night is later
+    // split by who took it.
+    const actor = me.data.user
+      ? ((await supabase
+          .from('principals')
+          .select('id')
+          .eq('auth_user_id', me.data.user.id)
+          .maybeSingle()).data?.id ?? '')
+      : '';
+
     setState({
       phase: 'ready',
       data: {
+        cash: (cashRows.data ?? []).map(
+          (row): CashRow => ({
+            principalId: row.principal_id,
+            type: row.type,
+            amountPence: row.amount_pence,
+          }),
+        ),
+        actorId: actor,
         members: roster,
         households,
         inGroup: ((groupRows.data ?? []) as { member_id: string }[]).map((r) => r.member_id),
@@ -151,20 +189,28 @@ export function AttendanceView({
 
   const present = useMemo(() => new Set(data ? data.here.keys() : []), [data]);
 
-  const rows = useMemo(
-    () =>
-      data
-        ? rosterToShow({
-            members: data.members,
-            usuals,
-            showing,
-            term,
-            presentOnly: hereOnly,
-            present,
-          })
-        : [],
-    [data, usuals, showing, term, hereOnly, present],
+  const paidHouseholds = useMemo(
+    () => (data ? householdsWhoPaid(data.cash) : new Set<string>()),
+    [data],
   );
+
+  const rows = useMemo(() => {
+    if (!data) return [];
+
+    const shown = rosterToShow({
+      members: data.members,
+      usuals,
+      showing,
+      term,
+      presentOnly: hereOnly,
+      present,
+    });
+
+    // Money collected is a filter in the same way the headcount is: the number
+    // and the names behind it are one control, so when the tin does not match
+    // there is nothing to go hunting for.
+    return paidOnly ? shown.filter((member) => paidHouseholds.has(member.principalId)) : shown;
+  }, [data, usuals, showing, term, hereOnly, present, paidOnly, paidHouseholds]);
 
   // One write per tap. The queue that coalesces a mis-tap before it reaches the
   // database belongs with the offline work; until then the RPC's idempotency is
@@ -227,6 +273,72 @@ export function AttendanceView({
     if (error) setProblem(`${member.firstName} ${member.surname}: ${error.message}`);
   }
 
+  // Cash is a household fact, so the row that is written names the principal and
+  // leaves member_id null. What changes is the difference between the figure on
+  // screen and the one the registrar asked for — a top-up going up, a refund
+  // coming down, never a negative top-up.
+  async function saveCash(member: RosterMember, targetPence: number) {
+    if (!data) return;
+
+    const currentPence = cashTonight(data.cash, member.principalId);
+    const row = planCashChange({
+      currentPence,
+      targetPence,
+      principalId: member.principalId,
+      sessionId: session.id,
+      recordedBy: data.actorId,
+      clientId: crypto.randomUUID(),
+    });
+
+    setCashFor(undefined);
+    if (!row) return;
+
+    const optimistic: CashRow = {
+      principalId: member.principalId,
+      type: row.type,
+      amountPence: row.amount_pence,
+    };
+
+    setProblem(null);
+    setState((current) =>
+      current.phase === 'ready'
+        ? { phase: 'ready', data: { ...current.data, cash: [...current.data.cash, optimistic] } }
+        : current,
+    );
+
+    const { error } = await createSupabaseBrowserClient().from('credit_transactions').insert(row);
+
+    if (error) {
+      setProblem(`Cash for ${member.surname}: ${error.message}`);
+      setState((current) =>
+        current.phase === 'ready'
+          ? {
+              phase: 'ready',
+              data: {
+                ...current.data,
+                cash: current.data.cash.filter((entry) => entry !== optimistic),
+              },
+            }
+          : current,
+      );
+      return;
+    }
+
+    // The money is in the pot as well as in the tin, so the balance moves too.
+    setState((current) => {
+      if (current.phase !== 'ready') return current;
+      const households = new Map(current.data.households);
+      const household = households.get(member.principalId);
+      if (household) {
+        households.set(member.principalId, {
+          ...household,
+          balancePence: household.balancePence + row.amount_pence,
+        });
+      }
+      return { phase: 'ready', data: { ...current.data, households } };
+    });
+  }
+
   if (state.phase === 'loading') {
     return (
       <Screen title={session.name}>
@@ -245,6 +357,7 @@ export function AttendanceView({
   }
 
   const headcount = countHere(data!);
+  const collected = moneyCollected(data!.cash);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-6">
@@ -255,18 +368,38 @@ export function AttendanceView({
             {formatClubTime(session.startsAt)} · {session.groupName}
           </p>
         </div>
-        {/* The number and the names behind it are one control. */}
-        <button
-          type="button"
-          onClick={() => setHereOnly((on) => !on)}
-          aria-pressed={hereOnly}
-          className={`min-h-12 shrink-0 rounded-xl border px-4 text-right transition-colors ${
-            hereOnly ? 'border-emerald-400 bg-emerald-500/15' : 'border-edge bg-raised'
-          }`}
-        >
-          <span className="block text-xl font-bold text-slate-50">{headcount}</span>
-          <span className="block text-xs text-slate-400">here</span>
-        </button>
+        {/* Both numbers are filters, and the names behind them are the same
+            control. One at a time: tapping either clears the other. */}
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setHereOnly((on) => !on);
+              setPaidOnly(false);
+            }}
+            aria-pressed={hereOnly}
+            className={`min-h-12 rounded-xl border px-3 text-center transition-colors ${
+              hereOnly ? 'border-emerald-400 bg-emerald-500/15' : 'border-edge bg-raised'
+            }`}
+          >
+            <span className="block text-xl font-bold text-slate-50">{headcount}</span>
+            <span className="block text-xs text-slate-400">here</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPaidOnly((on) => !on);
+              setHereOnly(false);
+            }}
+            aria-pressed={paidOnly}
+            className={`min-h-12 rounded-xl border px-3 text-center transition-colors ${
+              paidOnly ? 'border-emerald-400 bg-emerald-500/15' : 'border-edge bg-raised'
+            }`}
+          >
+            <span className="block text-xl font-bold text-slate-50">{formatPounds(collected)}</span>
+            <span className="block text-xs text-slate-400">collected</span>
+          </button>
+        </div>
       </header>
 
       <div className="sticky top-0 z-10 -mx-5 mt-4 bg-ground px-5 pt-2 pb-3">
@@ -318,9 +451,11 @@ export function AttendanceView({
                 member={member}
                 household={data!.households.get(member.principalId)}
                 pricePence={session.pricePence}
+                cashPence={cashTonight(data!.cash, member.principalId)}
                 isHere={present.has(member.id)}
                 isSaving={saving.has(member.id)}
                 onToggle={() => void toggle(member)}
+                onCash={() => setCashFor(member)}
               />
             </li>
           ))}
@@ -330,11 +465,25 @@ export function AttendanceView({
           <Note>
             {hereOnly
               ? 'Nobody is signed in yet.'
-              : term
+              : paidOnly
+                ? 'Nobody has handed anything over yet.'
+                : term
                 ? `Nobody matches "${term}". Guests are not in this list yet.`
                 : 'Nobody is on tonight’s list. Try Everyone, or assign the squad on the website.'}
           </Note>
         </div>
+      )}
+
+      {cashFor && (
+        <CashSheet
+          householdName={data!.households.get(cashFor.principalId)?.name ?? 'This household'}
+          memberNames={data!.members
+            .filter((candidate) => candidate.principalId === cashFor.principalId)
+            .map((candidate) => `${candidate.firstName} ${candidate.surname}`)}
+          currentPence={cashTonight(data!.cash, cashFor.principalId)}
+          onSave={(target) => void saveCash(cashFor, target)}
+          onClose={() => setCashFor(undefined)}
+        />
       )}
 
       {onBack && (

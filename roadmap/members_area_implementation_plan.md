@@ -381,7 +381,7 @@ Two things not to do when it lands:
 - [x] ~~Configure Cloudflare Pages deployment from `apps/signin`, point `signin.omaghharriers.com` at it~~ — **dropped.** One origin, one deployment, one set of env vars, no second redirect allow-list and no DNS record
 - [x] Connect to the same Supabase project — the site's own cookie session, through the existing `createSupabaseBrowserClient`, with the role read from the **`app_role`** claim on the token so the app knows what to draw with no signal. RLS gates every write — `lib/training/registrar.ts`
 - [x] Web App Manifest, icons and the standalone metadata, served only on `/registrar` so Add to Home Screen anywhere else bookmarks an ordinary page. Scope `/registrar` keeps the installed window out of the rest of the site
-- [ ] Service worker — deliberately not yet. It belongs with the offline queue below, and a cache added before there is anything worth caching offline only makes a stale app harder to debug. **Scope it to `/registrar`**: a root-scoped worker would start serving stale marketing pages, which is the one genuine hazard of sharing an origin
+- [x] Service worker — `public/registrar/sw.js`, registered only from the island. Served from `/registrar/` so the browser caps its scope there, which is also why the app is canonically `/registrar/` with the trailing slash. Network-first for the shell, cache-first for hashed assets, cross-origin never touched. **Reads are not cached yet**, so opening with no signal gives the shell and an empty list
 - [x] Offline write queue — IndexedDB store, flushed when connectivity returns, with a two-second coalescing window so a mis-tap never reaches the database. `lib/training/queue.ts`
 
 #### One origin, one sign-in

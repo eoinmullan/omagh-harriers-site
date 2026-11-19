@@ -106,9 +106,10 @@ draws it; every decision about which rows appear is in
 - **Balance colour carries the warning, never the wording**: neutral in credit,
   amber below the price of a session, red overdrawn. Exactly the price is still
   credit, because it covers tonight
-- **No cash cell and no guests yet**, so Money collected is not in the header.
-  The headcount is, and tapping it filters to who is here — answering for the
-  whole night, not just the list that happens to be open
+- **The headcount and Money collected are both filters**, and tapping either
+  clears the other. Both answer for the whole night, not just the list that
+  happens to be open — otherwise the number would describe people the registrar
+  cannot see
 
 **Guests are a third list, not a third filter.** `lib/training/guests.ts` holds
 the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
@@ -160,14 +161,36 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   night needs the id Postgres gives back. Offline, the registrar is told to take
   the name on paper
 
-**There is still no service worker**, so the app cannot be *opened* with no
-signal — the queue covers a connection that drops while it is already open,
-which is the common case at a venue with patchy coverage. When one lands, scope
-it to `/registrar`.
+**The service worker lets the app be opened with no signal at all**, which the
+queue cannot do on its own. `public/registrar/sw.js`, registered by
+`useServiceWorker.ts` from inside the island.
 
-**No service worker yet.** When one lands, **scope it to `/registrar`**. A
-root-scoped worker would start serving stale marketing pages, which is the one
-real hazard of sharing an origin with the public site.
+**It is served from `/registrar/` on purpose, and must stay there.** The one
+real hazard of sharing an origin with the public site is a worker that starts
+answering for the marketing pages, and a stale homepage served to the public is
+a worse failure than the one this solves. Two things prevent it: a worker
+cannot claim a scope above its own directory, so `/registrar/` is a ceiling the
+browser enforces; and a worker only sees requests from pages inside its scope,
+so marketing requests never reach the code. **Do not move the file up a
+directory and do not add a `Service-Worker-Allowed` header to widen it.** It is
+registered from the island rather than `Layout.astro` for the same reason —
+every other page on this origin is public.
+
+That is also why the app is canonically **`/registrar/` with the trailing
+slash**: a worker at `/registrar/sw.js` tops out at scope `/registrar/`, which
+does not cover a bare `/registrar`. The manifest's `start_url` and `scope` and
+the members' area card all use the slash.
+
+Navigations are network-first so a deploy lands the moment there is signal, with
+the cached shell as the fallback. Hashed `/_astro/` assets are cache-first,
+because the hash *is* the version. **Cross-origin requests are never touched** —
+caching a Supabase read would mean showing last week's balances as tonight's.
+There is no `skipWaiting()`: a new version waits rather than swapping assets
+under a registrar mid-session.
+
+**Reads are still not cached**, so opening with no signal gives the shell and an
+empty list. The night's data wants saving on each successful load and showing
+with a caveat when it is stale — that is the next piece.
 
 Two platform facts the screens have to state out loud: a sign-in link tapped in
 Mail opens Safari rather than the installed iOS app, so a lapsed session there is

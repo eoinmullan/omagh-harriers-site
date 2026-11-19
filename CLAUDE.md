@@ -132,10 +132,38 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   caught. `session-cash.ts` computes the same figure for the admin screen and
   the two must keep agreeing
 
-**Writes are one per tap for now.** The coalescing window that would swallow a
-mis-tap before it reaches the database belongs with the offline queue; until
-then the RPC's idempotency keeps a double tap honest and an untick is a real
-reversal.
+**Every write goes through a queue**, in `lib/training/queue.ts` (rules),
+`queue-store.ts` (IndexedDB) and `queue-sender.ts` (the calls), driven by
+`components/registrar/useWriteQueue.ts`.
+
+- **A tap is held for two seconds before it is sent.** A tick and its own untick
+  inside that window cancel each other and the database never hears about
+  either — a mis-tap should not leave a charge and a compensating adjustment on
+  a member's statement for something that never happened. Once a write has left,
+  the untick is a real reversal. That is the difference between this and an undo
+  button
+- **The attendance row's id is minted at tick time, not by Postgres**, which is
+  what lets an untick name the row it reverses while that row is still only a
+  promise in the queue. `sign_in_member` takes it as `p_attendance_id`
+- **Cash is never coalesced.** Each entry is a difference from the figure that
+  was on screen when it was made, so dropping one silently changes what the
+  others mean
+- **Retry forever on a dropped connection; give up on a refusal.** Abandoning a
+  sign-in because a leisure centre's wifi blinked is how somebody ends up
+  unrecorded; retrying a Postgres refusal just hides the bug until the end of
+  the night. A refusal reloads the list, because the screen is then wrong and
+  guessing which optimistic change to unpick is worse than asking the database
+- **Money collected says when it is only this phone's view** — pending count
+  while sending, and an amber line when offline. Under the figure, not in its
+  label, so the common case reads plainly
+- **Adding a guest is the one write that cannot be queued**: the rest of the
+  night needs the id Postgres gives back. Offline, the registrar is told to take
+  the name on paper
+
+**There is still no service worker**, so the app cannot be *opened* with no
+signal — the queue covers a connection that drops while it is already open,
+which is the common case at a venue with patchy coverage. When one lands, scope
+it to `/registrar`.
 
 **No service worker yet.** When one lands, **scope it to `/registrar`**. A
 root-scoped worker would start serving stale marketing pages, which is the one

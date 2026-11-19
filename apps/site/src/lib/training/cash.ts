@@ -41,7 +41,10 @@ export function moneyCollected(rows: CashRow[], guestPaymentsPence: (number | nu
     .filter((row) => MONEY_TYPES.includes(row.type))
     .reduce((total, row) => total + row.amountPence, 0);
 
-  const fromGuests = guestPaymentsPence.reduce((total, pence) => total + (pence ?? 0), 0);
+  const fromGuests = guestPaymentsPence.reduce<number>(
+    (total, pence) => total + (pence ?? 0),
+    0,
+  );
 
   return fromMembers + fromGuests;
 }

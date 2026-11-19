@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatClubTime } from '../../lib/training/club-time';
+import { clubDayKey } from '../../lib/training/club-time';
 import {
   clubDayWindow,
   theOnlyChoice,
@@ -8,6 +9,7 @@ import {
   type TonightsSessions,
 } from '../../lib/training/tonight';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
+import { loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
 import { AttendanceView } from './AttendanceView';
 import { InstallHint } from './InstallHint';
 import { BigButton, Note, Problem, Screen } from './ui';
@@ -41,11 +43,22 @@ export function SessionPicker() {
       .order('starts_at');
 
     if (error) {
+      // The picker fails before the attendance view is ever reached, so caching
+      // the night's data alone would never be seen. Keyed by Omagh's day, so
+      // last Monday's session is never offered as tonight's.
+      const stored = await loadSnapshot<SelectableSession[]>(`tonight:${clubDayKey(now)}`);
+      if (stored) {
+        setLoad({ state: 'loaded', tonight: tonightsSessions(stored.data, now) });
+        return;
+      }
+
       setLoad({ state: 'failed', problem: error.message });
       return;
     }
 
-    setLoad({ state: 'loaded', tonight: tonightsSessions((data ?? []).map(asSelectable), now) });
+    const sessions = (data ?? []).map(asSelectable);
+    void saveSnapshot(`tonight:${clubDayKey(now)}`, sessions);
+    setLoad({ state: 'loaded', tonight: tonightsSessions(sessions, now) });
   }, []);
 
   useEffect(() => {

@@ -188,9 +188,21 @@ caching a Supabase read would mean showing last week's balances as tonight's.
 There is no `skipWaiting()`: a new version waits rather than swapping assets
 under a registrar mid-session.
 
-**Reads are still not cached**, so opening with no signal gives the shell and an
-empty list. The night's data wants saving on each successful load and showing
-with a caveat when it is stale — that is the next piece.
+**Reads are cached too**, in `lib/training/snapshot.ts` over the shared
+`idb.ts`. Two snapshots: tonight's session list, keyed by Omagh's day, and the
+night's data, keyed by session. The picker fails before the attendance view is
+ever reached, so caching only the latter would never be seen.
+
+**The snapshot is taken on every change the registrar sees, not on a successful
+load.** A tick made offline is part of what this phone believes even though the
+write is still queued, and a registrar who closes the app and opens it again
+two minutes later must see the screen they left. The queue replays the writes
+separately and every one is idempotent, so a write already reflected in the
+snapshot lands harmlessly.
+
+A screen restored from a snapshot says so in amber, naming the time it was
+taken rather than an age — "4 minutes ago" goes stale while it is being read.
+Coming back online reloads rather than leaving the registrar on a stale screen.
 
 Two platform facts the screens have to state out loud: a sign-in link tapped in
 Mail opens Safari rather than the installed iOS app, so a lapsed session there is

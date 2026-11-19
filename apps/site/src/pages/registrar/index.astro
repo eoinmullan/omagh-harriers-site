@@ -42,22 +42,22 @@ export const prerender = true;
 
     <title>Sign runners in — Omagh Harriers AC</title>
   </head>
-  <body class="bg-ground text-slate-50 antialiased">
+  <body class="bg-black text-white antialiased">
     <RegistrarApp client:only="react" />
     <noscript>
       <main class="mx-auto max-w-xl px-5 py-10">
         <h1 class="text-2xl font-bold">Sign runners in</h1>
-        <p class="mt-3 text-lg text-slate-300">This needs JavaScript switched on.</p>
+        <p class="mt-3 text-lg text-neutral-300">This needs JavaScript switched on.</p>
       </main>
     </noscript>
   </body>
 </html>
 
 <style is:global>
-  /* The palette lives in global.css, because @theme is only read from the
-     stylesheet Tailwind processes. What is left here is structural and belongs
-     to this page alone — it is inlined into this page's HTML and never reaches
-     the public site's shared bundle. */
+  /* Structural only, and belongs to this page alone — it is inlined into this
+     page's HTML and never reaches the public site's shared bundle. The accent
+     is the club's amber from global.css; everything else is Tailwind's own
+     neutrals, matching the prototype. */
   :root {
     color-scheme: dark;
   }

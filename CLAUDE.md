@@ -85,6 +85,30 @@ rolldown in beside Astro 5's Vite 6; it builds, then fails the dev server with
 `Missing field moduleType`. React ships on this route only — every other page
 still sends no JavaScript.
 
+**The look is the prototype's, deliberately.** `prototype/registrar-screen`
+settled what the screen is; it also settled how it looks, and the built screen
+matches it: black ground, the club's **amber** as the only accent, Tailwind's
+neutrals for everything else.
+
+- **The surname is bold and upper-case, the first name is not.** Finding one
+  name among three hundred is the job, so the half being scanned for is the half
+  that carries the weight
+- **Rows are a hairline-separated list, not a stack of cards** — more names on a
+  phone, and it reads as one thing to run a finger down. 76px rows, a 36px
+  checkbox, a 72px cash cell
+- **The cash cell has two lines**: the figure in amber, then a small upper-case
+  *added* (member) or *paid* (guest), so it explains itself without a legend
+- **Round amounts drop their pence.** `credits/cash-label.ts` — "£10", not
+  "£10.00", which is how money is spoken at a gate. Balances keep their pence,
+  because a balance is a statement figure rather than a handful of notes
+- **The header figures carry a ▾**, because they are filters and nothing else
+  would say so
+
+One deliberate departure: the prototype shows its search box only on the full
+list, and here it is always visible. Typing searches the whole club whichever
+tab is open — somebody typing a name has already decided the Usuals do not hold
+who they want.
+
 **The attendance view is the screen.** `components/registrar/AttendanceView.tsx`
 draws it; every decision about which rows appear is in
 `lib/training/usuals.ts` and every optimistic state change is in

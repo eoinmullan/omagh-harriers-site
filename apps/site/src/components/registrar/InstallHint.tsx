@@ -65,14 +65,14 @@ export function InstallHint() {
   return (
     <Note>
       <p>
-        <strong className="text-slate-100">Keep this on your home screen.</strong> Tap the Share
-        button, then <strong className="text-slate-100">Add to Home Screen</strong>. It'll open
+        <strong className="text-neutral-100">Keep this on your home screen.</strong> Tap the Share
+        button, then <strong className="text-neutral-100">Add to Home Screen</strong>. It'll open
         straight here, already signed in.
       </p>
       <button
         type="button"
         onClick={hide}
-        className="mt-2 min-h-11 text-base text-slate-400 underline"
+        className="mt-2 min-h-11 text-base text-neutral-400 underline"
       >
         Don't show this again
       </button>

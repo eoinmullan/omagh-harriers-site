@@ -141,7 +141,7 @@ export function SessionPicker({ authUserId }: { authUserId: string }) {
   if (load.state === 'loading') {
     return (
       <Screen title="Tonight">
-        <p className="text-lg text-slate-400">Looking for tonight's sessions…</p>
+        <p className="text-lg text-neutral-400">Looking for tonight's sessions…</p>
       </Screen>
     );
   }
@@ -173,7 +173,7 @@ export function SessionPicker({ authUserId }: { authUserId: string }) {
     <Screen title="Tonight">
       {available.length > 0 ? (
         <>
-          <p className="text-lg text-slate-300">Which session are you taking?</p>
+          <p className="text-lg text-neutral-300">Which session are you taking?</p>
           <ul className="flex flex-col gap-3">
             {available.map((session) => (
               <li key={session.id}>
@@ -183,7 +183,7 @@ export function SessionPicker({ authUserId }: { authUserId: string }) {
           </ul>
         </>
       ) : (
-        <p className="text-lg text-slate-300">
+        <p className="text-lg text-neutral-300">
 Nothing is scheduled for tonight. Start one below and sign runners in.
         </p>
       )}
@@ -219,10 +219,10 @@ function SessionChoice({
     <button
       type="button"
       onClick={onChoose}
-      className="min-h-20 w-full rounded-xl border border-edge bg-raised px-5 py-4 text-left active:bg-slate-700"
+      className="min-h-20 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-5 py-4 text-left active:bg-neutral-800"
     >
-      <span className="block text-xl font-semibold text-slate-50">{session.name}</span>
-      <span className="mt-0.5 block text-base text-slate-400">
+      <span className="block text-xl font-semibold text-white">{session.name}</span>
+      <span className="mt-0.5 block text-base text-neutral-400">
         {formatClubTime(session.startsAt)} · {session.groupName}
         {session.location ? ` · ${session.location}` : ''}
       </span>

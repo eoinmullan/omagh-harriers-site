@@ -585,7 +585,7 @@ squad nobody has set up. As of 19 Nov 2026 the live project has **no groups at
 all**, which means this feature would be unusable today — seeding the squad list
 is a prerequisite, not a detail.
 
-#### Match the prototype's look, not just its shape
+#### Match the prototype's look, not just its shape — done
 
 The prototype settled *what the screen is* — a list, not a search or a board —
 and the plan recorded that. Nobody wrote down that it should also look like it,
@@ -610,8 +610,12 @@ What the prototype does that the built screen does not:
 - **Round amounts drop their pence** — "£10", not "£10.00" — which is how the
   money is actually spoken at the gate
 
+Done on 19 Nov 2026, with one deliberate departure: the prototype shows its
+search box only on the full list, and the built screen shows it always, because
+somebody typing a name has already decided the Usuals do not hold who they want.
+
 The branch is `prototype/registrar-screen`, local only and never pushed. It
-should be pushed before anything depends on it.
+should be pushed, since it is now the reference for how this screen looks.
 
 #### Two rough edges in the offline work
 

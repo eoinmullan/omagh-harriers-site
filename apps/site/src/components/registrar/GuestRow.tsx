@@ -1,13 +1,12 @@
-import { formatPounds } from '../../lib/credits/money';
+import { cashLabel } from '../../lib/credits/cash-label';
 import type { Guest } from '../../lib/training/guests';
 
 // A guest's row carries no money control.
 //
-// Ticking them in takes the session price in cash and that is the whole
-// transaction — there is nothing to add funds to, because they hold no credit
-// to add them to. The figure beside the name states what they paid and cannot
-// be edited; a wrong tick is cleared by unticking, which takes the attendance
-// row and the cash with it.
+// Ticking them in takes the session price and that is the whole transaction —
+// there is nothing to add funds to, because they hold no credit to add them to.
+// The cell states what they paid and cannot be tapped; a wrong tick is cleared
+// by unticking, which takes the attendance row and the cash with it.
 
 export function GuestRow({
   guest,
@@ -22,37 +21,59 @@ export function GuestRow({
   isSaving: boolean;
   onToggle: () => void;
 }) {
+  const paid = isHere && pricePence > 0;
+
   return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={isHere}
-      aria-label={`${guest.firstName} ${guest.surname}, guest`}
-      onClick={onToggle}
-      disabled={isSaving}
-      className={`flex min-h-18 w-full items-center gap-4 rounded-xl border px-4 py-3 text-left transition-colors ${
-        isHere
-          ? 'border-emerald-500/60 bg-emerald-500/10 active:bg-emerald-500/20'
-          : 'border-edge bg-raised active:bg-slate-700'
+    <li
+      className={`flex items-stretch border-b border-neutral-800 ${
+        isHere ? 'bg-emerald-950/60' : ''
       } ${isSaving ? 'opacity-60' : ''}`}
     >
-      <span
-        aria-hidden="true"
-        className={`flex size-8 shrink-0 items-center justify-center rounded-lg border-2 text-lg font-bold ${
-          isHere ? 'border-emerald-400 bg-emerald-400 text-slate-900' : 'border-slate-500'
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={isHere}
+        aria-label={`${guest.firstName} ${guest.surname}, guest`}
+        onClick={onToggle}
+        disabled={isSaving}
+        className="flex min-h-[76px] min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left active:bg-neutral-800"
+      >
+        <span
+          aria-hidden="true"
+          className={`flex size-9 shrink-0 items-center justify-center rounded-lg border-2 text-xl font-black ${
+            isHere ? 'border-amber bg-amber text-black' : 'border-neutral-600 text-transparent'
+          }`}
+        >
+          ✓
+        </span>
+
+        <span className="min-w-0">
+          <span className="block truncate text-lg leading-tight">
+            <span className="font-bold tracking-wide uppercase">{guest.surname}</span>
+            {', '}
+            <span className="font-normal">{guest.firstName}</span>
+          </span>
+          <span className="block truncate text-sm text-neutral-400">
+            Guest — holds no credit
+          </span>
+        </span>
+      </button>
+
+      {/* Not a button: there is nothing here to tap. */}
+      <div
+        className={`flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-neutral-800 leading-none ${
+          paid ? 'bg-amber/10' : ''
         }`}
       >
-        {isHere ? '✓' : ''}
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-xl font-semibold text-slate-50">
-          {guest.surname}, {guest.firstName}
-        </span>
-        <span className="block truncate text-base text-slate-400">
-          Guest{isHere && pricePence > 0 ? ` · paid ${formatPounds(pricePence)}` : ''}
-        </span>
-      </span>
-    </button>
+        {paid && (
+          <>
+            <span className="text-base font-bold text-amber">{cashLabel(pricePence)}</span>
+            <span className="mt-1 block text-[10px] tracking-wider text-neutral-500 uppercase">
+              paid
+            </span>
+          </>
+        )}
+      </div>
+    </li>
   );
 }

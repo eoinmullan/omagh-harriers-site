@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cashLabel } from '../../lib/credits/cash-label';
 import { formatPounds } from '../../lib/credits/money';
 import { appendDigit, dropDigit, QUICK_AMOUNTS_PENCE } from '../../lib/training/cash';
 
@@ -43,16 +44,16 @@ export function CashSheet({
         className="flex-1 cursor-default"
       />
 
-      <div className="rounded-t-2xl border-t border-edge bg-ground px-5 pt-5 pb-8">
-        <h2 className="text-xl font-bold text-slate-50">{householdName}</h2>
-        <p className="mt-0.5 text-base text-slate-400">{memberNames.join(' · ')}</p>
+      <div className="rounded-t-2xl border-t border-neutral-800 bg-black px-5 pt-5 pb-8">
+        <h2 className="text-xl font-bold text-white">{householdName} household</h2>
+        <p className="mt-0.5 text-base text-neutral-400">{memberNames.join(' · ')}</p>
 
-        <p className="mt-5 text-center text-5xl font-bold tabular-nums text-slate-50">
+        <p className="mt-5 text-center text-5xl font-bold tabular-nums text-white">
           {formatPounds(pence)}
         </p>
-        <p className="mt-1 text-center text-sm text-slate-500">
+        <p className="mt-1 text-center text-sm text-white0">
           {currentPence > 0
-            ? `Handed over tonight: ${formatPounds(currentPence)}`
+            ? `Handed over tonight: ${cashLabel(currentPence)}`
             : 'Nothing handed over yet tonight'}
         </p>
 
@@ -62,9 +63,9 @@ export function CashSheet({
               key={amount}
               type="button"
               onClick={() => setPence(amount)}
-              className="min-h-14 rounded-xl border border-edge bg-raised text-lg font-semibold text-slate-100 active:bg-slate-700"
+              className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-lg font-semibold text-neutral-100 active:bg-neutral-800"
             >
-              {formatPounds(amount)}
+              {cashLabel(amount)}
             </button>
           ))}
         </div>
@@ -77,7 +78,7 @@ export function CashSheet({
               key={digit}
               type="button"
               onClick={() => setPence((current) => appendDigit(current, digit))}
-              className="min-h-14 rounded-xl border border-edge bg-raised text-2xl font-semibold text-slate-100 active:bg-slate-700"
+              className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-2xl font-semibold text-neutral-100 active:bg-neutral-800"
             >
               {digit}
             </button>
@@ -85,14 +86,14 @@ export function CashSheet({
           <button
             type="button"
             onClick={() => setPence(0)}
-            className="min-h-14 rounded-xl border border-edge bg-raised text-base text-slate-300 active:bg-slate-700"
+            className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-base text-neutral-300 active:bg-neutral-800"
           >
             Clear
           </button>
           <button
             type="button"
             onClick={() => setPence((current) => appendDigit(current, '0'))}
-            className="min-h-14 rounded-xl border border-edge bg-raised text-2xl font-semibold text-slate-100 active:bg-slate-700"
+            className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-2xl font-semibold text-neutral-100 active:bg-neutral-800"
           >
             0
           </button>
@@ -100,7 +101,7 @@ export function CashSheet({
             type="button"
             aria-label="Delete last digit"
             onClick={() => setPence(dropDigit)}
-            className="min-h-14 rounded-xl border border-edge bg-raised text-2xl text-slate-100 active:bg-slate-700"
+            className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-2xl text-neutral-100 active:bg-neutral-800"
           >
             ⌫
           </button>
@@ -110,7 +111,7 @@ export function CashSheet({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-14 flex-1 rounded-xl border border-edge bg-raised text-lg font-semibold text-slate-200 active:bg-slate-700"
+            className="min-h-14 flex-1 rounded-xl border border-neutral-800 bg-neutral-900 text-lg font-semibold text-neutral-200 active:bg-neutral-800"
           >
             Cancel
           </button>
@@ -118,7 +119,7 @@ export function CashSheet({
             type="button"
             disabled={unchanged}
             onClick={() => onSave(pence)}
-            className="min-h-14 flex-2 rounded-xl bg-slate-50 text-lg font-semibold text-slate-900 active:bg-slate-300 disabled:opacity-40"
+            className="min-h-14 flex-2 rounded-xl bg-neutral-100 text-lg font-semibold text-black active:bg-neutral-300 disabled:opacity-40"
           >
             {describeSave(currentPence, pence)}
           </button>
@@ -132,7 +133,7 @@ export function CashSheet({
 // registrar's head between tapping an amount and tapping save.
 function describeSave(currentPence: number, targetPence: number): string {
   if (targetPence === currentPence) return 'No change';
-  if (targetPence === 0) return `Give back ${formatPounds(currentPence)}`;
-  if (targetPence > currentPence) return `Take ${formatPounds(targetPence - currentPence)}`;
-  return `Give back ${formatPounds(currentPence - targetPence)}`;
+  if (targetPence === 0) return `Give back ${cashLabel(currentPence)}`;
+  if (targetPence > currentPence) return `Take ${cashLabel(targetPence - currentPence)}`;
+  return `Give back ${cashLabel(currentPence - targetPence)}`;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatPounds } from '../../lib/credits/money';
+import { cashLabel } from '../../lib/credits/cash-label';
 import { formatClubTime } from '../../lib/training/club-time';
 import {
   cashTonight,
@@ -545,7 +545,7 @@ export function AttendanceView({
   if (state.phase === 'loading') {
     return (
       <Screen title={session.name}>
-        <p className="text-lg text-slate-400">Getting tonight's list…</p>
+        <p className="text-lg text-neutral-400">Getting tonight's list…</p>
       </Screen>
     );
   }
@@ -568,184 +568,177 @@ export function AttendanceView({
   });
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-6">
-      <header className="flex items-baseline justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold text-slate-50">{session.name}</h1>
-          <p className="truncate text-base text-slate-400">
-            {formatClubTime(session.startsAt)} · {session.groupName}
+    <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col">
+      <header className="sticky top-0 z-20 border-b border-neutral-800 bg-black">
+        <div className="flex items-baseline justify-between px-4 pt-3 pb-2">
+          <h1 className="truncate text-xl font-bold">{session.name}</h1>
+          <p className="shrink-0 pl-3 text-sm text-neutral-400">
+            {formatClubTime(session.startsAt)}
           </p>
         </div>
+
         {/* Both numbers are filters, and the names behind them are the same
-            control. One at a time: tapping either clears the other. */}
-        <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
+            control. The caret says so without a legend. One at a time: tapping
+            either clears the other. */}
+        <div className="flex divide-x divide-neutral-800 border-y border-neutral-800 text-center">
+          <Tile
+            figure={String(headcount)}
+            label="here"
+            activeLabel="showing who is here"
+            on={hereOnly}
             onClick={() => {
-              setHereOnly((on) => !on);
+              setHereOnly((was) => !was);
               setPaidOnly(false);
             }}
-            aria-pressed={hereOnly}
-            className={`min-h-12 rounded-xl border px-3 text-center transition-colors ${
-              hereOnly ? 'border-emerald-400 bg-emerald-500/15' : 'border-edge bg-raised'
-            }`}
-          >
-            <span className="block text-xl font-bold text-slate-50">{headcount}</span>
-            <span className="block text-xs text-slate-400">here</span>
-          </button>
-          <button
-            type="button"
+          />
+          <Tile
+            figure={cashLabel(collected)}
+            label="money collected"
+            activeLabel="showing who paid"
+            accent
+            on={paidOnly}
             onClick={() => {
-              setPaidOnly((on) => !on);
+              setPaidOnly((was) => !was);
               setHereOnly(false);
             }}
-            aria-pressed={paidOnly}
-            className={`min-h-12 rounded-xl border px-3 text-center transition-colors ${
-              paidOnly ? 'border-emerald-400 bg-emerald-500/15' : 'border-edge bg-raised'
-            }`}
-          >
-            <span className="block text-xl font-bold text-slate-50">{formatPounds(collected)}</span>
-            <span className="block text-xs text-slate-400">collected</span>
-          </button>
+          />
+        </div>
+
+        <div className="flex gap-1 border-t border-neutral-800 p-2">
+          {(
+            [
+              ['usuals', 'Usuals', usuals.size],
+              ['everyone', 'All', data!.members.length],
+              ['guests', 'Guests', data!.guests.length],
+            ] as const
+          ).map(([option, label, count]) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setTab(option)}
+              aria-pressed={tab === option}
+              className={`flex-1 rounded-lg py-3 text-sm font-semibold ${
+                tab === option ? 'bg-neutral-100 text-black' : 'bg-neutral-900 text-neutral-300'
+              }`}
+            >
+              {label} {count}
+            </button>
+          ))}
+        </div>
+
+        <div className="px-2 pb-2">
+          <input
+            type="search"
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+            placeholder="Type any part of a name"
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="search"
+            aria-label="Find a runner"
+            className="w-full rounded-xl bg-neutral-900 px-4 py-4 text-lg outline-none placeholder-neutral-600 focus:ring-2 focus:ring-amber"
+          />
         </div>
       </header>
 
-      <div className="sticky top-0 z-10 -mx-5 mt-4 bg-ground px-5 pt-2 pb-3">
-        <input
-          type="search"
-          value={term}
-          onChange={(event) => setTerm(event.target.value)}
-          placeholder="Type part of a name…"
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          aria-label="Find a runner"
-          className="min-h-14 w-full rounded-xl border border-edge bg-raised px-4 text-lg text-slate-50 placeholder:text-slate-500"
-        />
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <div className="flex gap-2">
-            {(['usuals', 'everyone', 'guests'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setTab(option)}
-                aria-pressed={tab === option}
-                className={`min-h-11 rounded-lg px-3 text-base transition-colors ${
-                  tab === option
-                    ? 'bg-slate-50 font-semibold text-slate-900'
-                    : 'border border-edge bg-raised text-slate-300'
-                }`}
-              >
-                {option === 'usuals' ? 'Usuals' : option === 'everyone' ? 'Everyone' : 'Guests'}
-              </button>
-            ))}
-          </div>
-          <p className="text-sm text-slate-500">
-            {tab === 'guests' ? guestRows.length : rows.length} shown
+      <div className="px-4 pt-3">
+        {showingSnapshotFrom !== null && (
+          <p className="mb-3 rounded-xl bg-amber/10 px-4 py-2 text-sm text-amber" role="status">
+            {describeSnapshotAge(showingSnapshotFrom)} Ticks and cash are being kept and will send
+            when the signal is back.
           </p>
-        </div>
-      </div>
+        )}
 
-      {/* The figure is only complete once every phone has synced. Say so under
-          it rather than in its label, so the common case reads plainly and the
-          exception announces itself. */}
-      {showingSnapshotFrom !== null && (
-        <p
-          className="mb-3 rounded-xl bg-amber-500/15 px-4 py-2 text-sm text-amber-300"
-          role="status"
-        >
-          {describeSnapshotAge(showingSnapshotFrom)} Ticks and cash are being kept and will send
-          when the signal is back.
-        </p>
-      )}
+        {caveat && (
+          <p
+            className={`mb-3 text-sm ${outbox.online ? 'text-white0' : 'text-amber'}`}
+            role="status"
+          >
+            {caveat}
+          </p>
+        )}
 
-      {caveat && (
-        <p
-          className={`mb-3 text-sm ${outbox.online ? 'text-slate-500' : 'text-amber-400'}`}
-          role="status"
-        >
-          {caveat}
-        </p>
-      )}
+        {problem && (
+          <div className="mb-3">
+            <Problem>{problem}</Problem>
+          </div>
+        )}
 
-      {problem && (
-        <div className="mb-3">
-          <Problem>{problem}</Problem>
-        </div>
-      )}
-
-      {tab === 'guests' ? (
-        <div className="flex flex-col gap-2 pb-6">
-          {guestRows.map((guest) => (
-            <GuestRow
-              key={guest.id}
-              guest={guest}
-              pricePence={session.pricePence}
-              isHere={data!.guestsHere.has(guest.id)}
-              isSaving={saving.has(guest.id)}
-              onToggle={() => void toggleGuest(guest)}
+        {tab === 'guests' ? (
+          <div className="pb-6">
+            <ul className="-mx-4">
+              {guestRows.map((guest) => (
+                <GuestRow
+                  key={guest.id}
+                  guest={guest}
+                  pricePence={session.pricePence}
+                  isHere={data!.guestsHere.has(guest.id)}
+                  isSaving={saving.has(guest.id)}
+                  onToggle={() => toggleGuest(guest)}
+                />
+              ))}
+            </ul>
+            {guestRows.length === 0 && (
+              <Note>
+                {term
+                  ? `No guest matches "${term}".`
+                  : 'No guests on file yet. Add one below and they are signed in straight away.'}
+              </Note>
+            )}
+            <AddGuest
+              guests={data!.guests}
+              onPick={(guest) => void toggleGuest(guest)}
+              onAdd={(firstName, surname) => void addGuest(firstName, surname)}
+              problem={guestProblem}
             />
-          ))}
-          {guestRows.length === 0 && (
-            <Note>
-              {term
-                ? `No guest matches "${term}".`
-                : 'No guests on file yet. Add one below and they are signed in straight away.'}
-            </Note>
-          )}
-          <AddGuest
-            guests={data!.guests}
-            onPick={(guest) => void toggleGuest(guest)}
-            onAdd={(firstName, surname) => void addGuest(firstName, surname)}
-            problem={guestProblem}
-          />
-        </div>
-      ) : rows.length > 0 ? (
-        <ul className="flex flex-col gap-2 pb-6">
-          {rows.map((member) => (
-            <li key={member.id}>
+          </div>
+        ) : rows.length > 0 ? (
+          <ul className="-mx-4 pb-6">
+            {rows.map((member) => (
               <RunnerRow
+                key={member.id}
                 member={member}
                 household={data!.households.get(member.principalId)}
                 pricePence={session.pricePence}
                 cashPence={cashTonight(data!.cash, member.principalId)}
                 isHere={present.has(member.id)}
                 isSaving={saving.has(member.id)}
-                onToggle={() => void toggle(member)}
+                onToggle={() => toggle(member)}
                 onCash={() => setCashFor(member)}
               />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="py-6">
-          <Note>
-            {hereOnly
-              ? 'Nobody is signed in yet.'
-              : paidOnly
-                ? 'Nobody has handed anything over yet.'
-                : term
-                  ? `Nobody matches "${term}". Guests are not in this list yet.`
-                  : 'Nobody is on tonight’s list. Try Everyone, or assign the squad on the website.'}
-          </Note>
-        </div>
-      )}
+            ))}
+          </ul>
+        ) : (
+          <div className="py-6">
+            <Note>
+              {hereOnly
+                ? 'Nobody is signed in yet.'
+                : paidOnly
+                  ? 'Nobody has handed anything over yet.'
+                  : term
+                    ? `Nobody matches "${term}". Guests are not in this list yet.`
+                    : 'Nobody is on tonight’s list. Try Everyone, or assign the squad on the website.'}
+            </Note>
+          </div>
+        )}
 
-      {cashFor && (
-        <CashSheet
-          householdName={data!.households.get(cashFor.principalId)?.name ?? 'This household'}
-          memberNames={data!.members
-            .filter((candidate) => candidate.principalId === cashFor.principalId)
-            .map((candidate) => `${candidate.firstName} ${candidate.surname}`)}
-          currentPence={cashTonight(data!.cash, cashFor.principalId)}
-          onSave={(target) => void saveCash(cashFor, target)}
-          onClose={() => setCashFor(undefined)}
-        />
-      )}
+        {cashFor && (
+          <CashSheet
+            householdName={data!.households.get(cashFor.principalId)?.name ?? 'This household'}
+            memberNames={data!.members
+              .filter((candidate) => candidate.principalId === cashFor.principalId)
+              .map((candidate) => `${candidate.firstName} ${candidate.surname}`)}
+            currentPence={cashTonight(data!.cash, cashFor.principalId)}
+            onSave={(target) => void saveCash(cashFor, target)}
+            onClose={() => setCashFor(undefined)}
+          />
+        )}
+      </div>
 
       {onBack && (
-        <div className="mt-auto pt-4 pb-6">
+        <div className="mt-auto px-4 pt-4 pb-6">
           <BigButton tone="quiet" onClick={onBack}>
             Pick a different session
           </BigButton>
@@ -759,4 +752,39 @@ export function AttendanceView({
 function removeOne(payments: (number | null)[], pence: number | null): (number | null)[] {
   const at = payments.indexOf(pence);
   return at === -1 ? payments : [...payments.slice(0, at), ...payments.slice(at + 1)];
+}
+
+/** A figure in the header, and the names behind it, as one control. */
+function Tile({
+  figure,
+  label,
+  activeLabel,
+  on,
+  accent,
+  onClick,
+}: {
+  figure: string;
+  label: string;
+  activeLabel: string;
+  on: boolean;
+  accent?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      className={`flex-1 py-2 ${on ? 'bg-amber text-black' : ''}`}
+    >
+      <p className={`text-2xl font-bold ${!on && accent ? 'text-amber' : ''}`}>{figure}</p>
+      <p
+        className={`text-[11px] tracking-wider uppercase ${
+          on ? 'text-black/70' : 'text-neutral-500'
+        }`}
+      >
+        {on ? activeLabel : `${label} ▾`}
+      </p>
+    </button>
+  );
 }

@@ -69,6 +69,20 @@ describe('moneyCollected', () => {
   it('is nothing before anybody has paid', () => {
     expect(moneyCollected([])).toBe(0);
   });
+
+  it('counts what the guests handed over, which is not in the ledger at all', () => {
+    expect(
+      moneyCollected([{ principalId: ASHBY, type: 'top_up_cash', amountPence: 1000 }], [200, 200]),
+    ).toBe(1400);
+  });
+
+  it('counts a guest at a free session as nothing rather than crashing on a null', () => {
+    expect(moneyCollected([], [null])).toBe(0);
+  });
+
+  it('is just the guests when no member handed anything over', () => {
+    expect(moneyCollected([], [200])).toBe(200);
+  });
 });
 
 describe('householdsWhoPaid', () => {

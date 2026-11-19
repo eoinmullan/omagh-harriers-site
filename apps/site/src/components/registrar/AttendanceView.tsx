@@ -24,8 +24,16 @@ import {
   type Household,
   type NightState,
 } from '../../lib/training/night';
+import {
+  guestsToShow,
+  planGuestSignIn,
+  planNewGuest,
+  type Guest,
+} from '../../lib/training/guests';
 import type { SelectableSession } from '../../lib/training/tonight';
+import { AddGuest } from './AddGuest';
 import { CashSheet } from './CashSheet';
+import { GuestRow } from './GuestRow';
 import { RunnerRow } from './RunnerRow';
 import { BigButton, Note, Problem, Screen } from './ui';
 
@@ -42,6 +50,11 @@ interface Loaded extends NightState {
   /** Every cash row against this session, which is what each cell reads. */
   cash: CashRow[];
   actorId: string;
+  guests: Guest[];
+  /** guest id → the attendance row's id, which is what an untick deletes. */
+  guestsHere: Map<string, string>;
+  /** What tonight's guests handed over, which never reaches the ledger. */
+  guestPayments: (number | null)[];
 }
 
 type State =
@@ -57,11 +70,13 @@ export function AttendanceView({
   onBack?: () => void;
 }) {
   const [state, setState] = useState<State>({ phase: 'loading' });
-  const [showing, setShowing] = useState<Showing>('usuals');
+  const [tab, setTab] = useState<Showing | 'guests'>('usuals');
+  const showing: Showing = tab === 'guests' ? 'usuals' : tab;
   const [term, setTerm] = useState('');
   const [hereOnly, setHereOnly] = useState(false);
   const [paidOnly, setPaidOnly] = useState(false);
   const [cashFor, setCashFor] = useState<RosterMember | undefined>();
+  const [guestProblem, setGuestProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -69,7 +84,7 @@ export function AttendanceView({
     setState({ phase: 'loading' });
     const supabase = createSupabaseBrowserClient();
 
-    const [members, balances, groupRows, attendanceRows, historyRows, cashRows, me] =
+    const [members, balances, groupRows, attendanceRows, historyRows, cashRows, me, guestRows] =
       await Promise.all([
       supabase
         .from('members')
@@ -77,7 +92,10 @@ export function AttendanceView({
         .eq('is_active', true),
       supabase.from('principal_balances').select('principal_id, balance_pence'),
       supabase.from('member_groups').select('member_id').eq('group_id', session.groupId),
-      supabase.from('attendance').select('id, member_id').eq('session_id', session.id),
+      supabase
+        .from('attendance')
+        .select('id, member_id, guest_id, amount_paid_pence')
+        .eq('session_id', session.id),
       // Who has turned up to this group before, which is how the Usuals learn.
       // The group filter is an inner join on the embed so the database does the
       // narrowing — otherwise this is every attendance row the club has ever
@@ -92,6 +110,7 @@ export function AttendanceView({
         .select('principal_id, type, amount_pence')
         .eq('session_id', session.id),
       supabase.auth.getUser(),
+      supabase.from('guests').select('id, first_name, surname'),
     ]);
 
     const failure = [members, balances, groupRows, attendanceRows, historyRows, cashRows].find(
@@ -133,8 +152,19 @@ export function AttendanceView({
     }
 
     const here = new Map<string, string>();
-    for (const row of (attendanceRows.data ?? []) as { id: string; member_id: string | null }[]) {
+    const guestsHere = new Map<string, string>();
+    const guestPayments: (number | null)[] = [];
+    for (const row of (attendanceRows.data ?? []) as {
+      id: string;
+      member_id: string | null;
+      guest_id: string | null;
+      amount_paid_pence: number | null;
+    }[]) {
       if (row.member_id) here.set(row.member_id, row.id);
+      if (row.guest_id) {
+        guestsHere.set(row.guest_id, row.id);
+        guestPayments.push(row.amount_paid_pence);
+      }
     }
 
     const attendedBefore = ((historyRows.data ?? []) as { member_id: string | null }[])
@@ -162,6 +192,11 @@ export function AttendanceView({
           }),
         ),
         actorId: actor,
+        guests: ((guestRows.data ?? []) as { id: string; first_name: string; surname: string }[]).map(
+          (row): Guest => ({ id: row.id, firstName: row.first_name, surname: row.surname }),
+        ),
+        guestsHere,
+        guestPayments,
         members: roster,
         households,
         inGroup: ((groupRows.data ?? []) as { member_id: string }[]).map((r) => r.member_id),
@@ -339,6 +374,105 @@ export function AttendanceView({
     });
   }
 
+  // Signing a guest in is one row, and the cash is on it: they have no pot to
+  // draw on, so what they handed over is recorded here rather than in the
+  // ledger. Unticking deletes the row and takes the money with it, which is
+  // only safe because attendance is not append-only — the ledger is.
+  async function toggleGuest(guest: Guest) {
+    if (!data || saving.has(guest.id)) return;
+
+    const supabase = createSupabaseBrowserClient();
+    const attendanceId = data.guestsHere.get(guest.id);
+    const wasHere = attendanceId !== undefined;
+
+    setProblem(null);
+    setSaving((current) => new Set(current).add(guest.id));
+
+    const { error } = wasHere
+      ? await supabase.from('attendance').delete().eq('id', attendanceId)
+      : await supabase.from('attendance').upsert(
+          planGuestSignIn({
+            guestId: guest.id,
+            sessionId: session.id,
+            recordedBy: data.actorId,
+            pricePence: session.pricePence,
+          }),
+          { onConflict: 'idempotency_key', ignoreDuplicates: true },
+        );
+
+    setSaving((current) => {
+      const next = new Set(current);
+      next.delete(guest.id);
+      return next;
+    });
+
+    if (error) {
+      setProblem(`${guest.firstName} ${guest.surname}: ${error.message}`);
+      return;
+    }
+
+    // The row's id is what an untick deletes, so read back what is actually
+    // there rather than guessing at it.
+    const { data: rows } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('session_id', session.id)
+      .eq('guest_id', guest.id);
+
+    setState((current) => {
+      if (current.phase !== 'ready') return current;
+      const guestsHere = new Map(current.data.guestsHere);
+      const landed = rows?.[0]?.id;
+      if (landed) guestsHere.set(guest.id, landed);
+      else guestsHere.delete(guest.id);
+
+      const paid = session.pricePence > 0 ? session.pricePence : null;
+      const guestPayments = landed
+        ? [...current.data.guestPayments, paid]
+        : removeOne(current.data.guestPayments, paid);
+
+      return { phase: 'ready', data: { ...current.data, guestsHere, guestPayments } };
+    });
+  }
+
+  async function addGuest(firstName: string, surname: string) {
+    if (!data) return;
+
+    const plan = planNewGuest({ firstName, surname, createdBy: data.actorId });
+    if ('problem' in plan) {
+      setGuestProblem(plan.problem);
+      return;
+    }
+
+    setGuestProblem(null);
+    const { data: created, error } = await createSupabaseBrowserClient()
+      .from('guests')
+      .insert(plan.insert)
+      .select('id, first_name, surname')
+      .single();
+
+    if (error || !created) {
+      setGuestProblem(error?.message ?? 'Could not add that guest.');
+      return;
+    }
+
+    const guest: Guest = {
+      id: created.id,
+      firstName: created.first_name,
+      surname: created.surname,
+    };
+
+    setState((current) =>
+      current.phase === 'ready'
+        ? { phase: 'ready', data: { ...current.data, guests: [...current.data.guests, guest] } }
+        : current,
+    );
+
+    // Somebody added at the track is standing in front of the registrar, so
+    // sign them straight in rather than making them find the new row.
+    await toggleGuest(guest);
+  }
+
   if (state.phase === 'loading') {
     return (
       <Screen title={session.name}>
@@ -356,8 +490,9 @@ export function AttendanceView({
     );
   }
 
-  const headcount = countHere(data!);
-  const collected = moneyCollected(data!.cash);
+  const headcount = countHere(data!) + data!.guestsHere.size;
+  const collected = moneyCollected(data!.cash, data!.guestPayments);
+  const guestRows = guestsToShow(data!.guests, term);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-6">
@@ -417,23 +552,25 @@ export function AttendanceView({
         />
         <div className="mt-2 flex items-center justify-between gap-3">
           <div className="flex gap-2">
-            {(['usuals', 'everyone'] as const).map((option) => (
+            {(['usuals', 'everyone', 'guests'] as const).map((option) => (
               <button
                 key={option}
                 type="button"
-                onClick={() => setShowing(option)}
-                aria-pressed={showing === option}
+                onClick={() => setTab(option)}
+                aria-pressed={tab === option}
                 className={`min-h-11 rounded-lg px-3 text-base transition-colors ${
-                  showing === option
+                  tab === option
                     ? 'bg-slate-50 font-semibold text-slate-900'
                     : 'border border-edge bg-raised text-slate-300'
                 }`}
               >
-                {option === 'usuals' ? 'Usuals' : 'Everyone'}
+                {option === 'usuals' ? 'Usuals' : option === 'everyone' ? 'Everyone' : 'Guests'}
               </button>
             ))}
           </div>
-          <p className="text-sm text-slate-500">{rows.length} shown</p>
+          <p className="text-sm text-slate-500">
+            {tab === 'guests' ? guestRows.length : rows.length} shown
+          </p>
         </div>
       </div>
 
@@ -443,7 +580,33 @@ export function AttendanceView({
         </div>
       )}
 
-      {rows.length > 0 ? (
+      {tab === 'guests' ? (
+        <div className="flex flex-col gap-2 pb-6">
+          {guestRows.map((guest) => (
+            <GuestRow
+              key={guest.id}
+              guest={guest}
+              pricePence={session.pricePence}
+              isHere={data!.guestsHere.has(guest.id)}
+              isSaving={saving.has(guest.id)}
+              onToggle={() => void toggleGuest(guest)}
+            />
+          ))}
+          {guestRows.length === 0 && (
+            <Note>
+              {term
+                ? `No guest matches "${term}".`
+                : 'No guests on file yet. Add one below and they are signed in straight away.'}
+            </Note>
+          )}
+          <AddGuest
+            guests={data!.guests}
+            onPick={(guest) => void toggleGuest(guest)}
+            onAdd={(firstName, surname) => void addGuest(firstName, surname)}
+            problem={guestProblem}
+          />
+        </div>
+      ) : rows.length > 0 ? (
         <ul className="flex flex-col gap-2 pb-6">
           {rows.map((member) => (
             <li key={member.id}>
@@ -495,4 +658,10 @@ export function AttendanceView({
       )}
     </div>
   );
+}
+
+/** Drops one matching payment, so an untick takes exactly its own money back. */
+function removeOne(payments: (number | null)[], pence: number | null): (number | null)[] {
+  const at = payments.indexOf(pence);
+  return at === -1 ? payments : [...payments.slice(0, at), ...payments.slice(at + 1)];
 }

@@ -28,11 +28,22 @@ export function cashTonight(rows: CashRow[], principalId: string): number {
     .reduce((total, row) => total + row.amountPence, 0);
 }
 
-/** Everything taken tonight, which is the figure the tin is checked against. */
-export function moneyCollected(rows: CashRow[]): number {
-  return rows
+/**
+ * Everything taken tonight, which is the figure the tin is checked against.
+ *
+ * Two halves, and leaving either out makes the tin wrong. Members' money is in
+ * the ledger as `top_up_cash` less `refund`; a guest has no pot, so what they
+ * handed over sits on their attendance row. `session-cash.ts` computes the same
+ * figure for the admin screen and must keep agreeing with this one.
+ */
+export function moneyCollected(rows: CashRow[], guestPaymentsPence: (number | null)[] = []): number {
+  const fromMembers = rows
     .filter((row) => MONEY_TYPES.includes(row.type))
     .reduce((total, row) => total + row.amountPence, 0);
+
+  const fromGuests = guestPaymentsPence.reduce((total, pence) => total + (pence ?? 0), 0);
+
+  return fromMembers + fromGuests;
 }
 
 export function householdsWhoPaid(rows: CashRow[]): Set<string> {

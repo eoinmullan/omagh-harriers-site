@@ -32,11 +32,17 @@ interface Tap {
   pricePence: number;
 }
 
-/** The tap, applied at once: the row flips and the pot moves with it. */
-export function flip(state: NightState, tap: Tap): NightState {
+/**
+ * The tap, applied at once: the row flips and the pot moves with it.
+ *
+ * `attendanceId` is minted by the caller at tick time rather than by Postgres,
+ * which is what lets an untick name the row it reverses while that row is still
+ * only a promise sitting in the write queue.
+ */
+export function flip(state: NightState, tap: Tap & { attendanceId?: string }): NightState {
   const here = new Map(state.here);
   if (tap.wasHere) here.delete(tap.memberId);
-  else here.set(tap.memberId, PENDING);
+  else here.set(tap.memberId, tap.attendanceId ?? PENDING);
 
   return { here, households: moveBalance(state.households, tap, tap.wasHere ? 1 : -1) };
 }

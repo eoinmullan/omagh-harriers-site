@@ -382,7 +382,7 @@ Two things not to do when it lands:
 - [x] Connect to the same Supabase project — the site's own cookie session, through the existing `createSupabaseBrowserClient`, with the role read from the **`app_role`** claim on the token so the app knows what to draw with no signal. RLS gates every write — `lib/training/registrar.ts`
 - [x] Web App Manifest, icons and the standalone metadata, served only on `/registrar` so Add to Home Screen anywhere else bookmarks an ordinary page. Scope `/registrar` keeps the installed window out of the rest of the site
 - [ ] Service worker — deliberately not yet. It belongs with the offline queue below, and a cache added before there is anything worth caching offline only makes a stale app harder to debug. **Scope it to `/registrar`**: a root-scoped worker would start serving stale marketing pages, which is the one genuine hazard of sharing an origin
-- [ ] Implement offline write queue — IndexedDB store, flushed when connectivity returns
+- [x] Offline write queue — IndexedDB store, flushed when connectivity returns, with a two-second coalescing window so a mis-tap never reaches the database. `lib/training/queue.ts`
 
 #### One origin, one sign-in
 
@@ -522,7 +522,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [x] **Taking a cash payment back writes a `refund`, not a negative top-up.** The sign CHECK forbids a negative `top_up_cash`, and a `manual_adjustment` would be both unattached to the session and misleading on the member's page. `refund` is already constrained negative and already means money going back out, so the running total nets out on its own
 - [x] Unticking a guest deletes the attendance row. Guests have no ledger to compensate against, and attendance is not append-only — only `credit_transactions` is
 - [x] `describeEntry` should surface a refund's note the way it does for an adjustment. *"£10.00 deducted — refunded"* does not say why, and a keying slip corrected in front of the member deserves a reason
-- [ ] The total is only complete once every device has synced. A registrar working offline sees what their own phone has taken, not the session's — say so on screen rather than showing a confident wrong number. The figure is labelled **Money collected**, so that caveat has to appear under it when it applies rather than hiding in the label, which is the right trade: the common case reads plainly and the exception announces itself
+- [x] The total is only complete once every device has synced. A registrar working offline sees what their own phone has taken, not the session's — say so on screen rather than showing a confident wrong number. The figure is labelled **Money collected**, so that caveat has to appear under it when it applies rather than hiding in the label, which is the right trade: the common case reads plainly and the exception announces itself
 - [ ] **Two registrars at once.** A busy track will have more than one phone open on the same session. Idempotency keys stop a double charge; the view should also not fight itself when somebody else's sign-in arrives
 - [x] **Built for the conditions.** Large targets, high contrast, legible under floodlights and in rain, usable one-handed and with cold fingers. No small text, no long presses, no precision gestures
 - [ ] Paper fallback — a printable session list, for the night a phone dies
@@ -586,10 +586,11 @@ all**, which means this feature would be unusable today — seeding the squad li
 is a prerequisite, not a detail.
 
 ### Idempotency
-- [ ] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `untick:{attendance_id}` for the adjustment that gives a mis-tapped charge back, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
+- [x] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `untick:{attendance_id}` for the adjustment that gives a mis-tapped charge back, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`
+- [~] A take-back is keyed off what it reverses — **not as written**. Cash entries are keyed `cash:{principal_id}:{client_uuid}` and `refund:{principal_id}:{client_uuid}`, one uuid per action, because a partial change has no single "original" to key off. A double-tapped undo is stopped a step earlier instead: the second tap finds the figure already where it was asked to be and plans no row at all. The uuid must be preserved across retries of the same action, which the queue does by storing the planned row rather than replanning it
 - [ ] A take-back is keyed off what it reverses — `refund:{original_key}` — so a retried or double-tapped undo refunds once, which matters most on the flaky connection that prompted the retry
 - [x] Write with `ON CONFLICT DO NOTHING` so retries / offline-then-sync never double-write — untargeted, because a retry can trip either the unique `idempotency_key` or the unique `(member_id, session_id)`. CHECK violations still raise, which is wanted. In `sign_in_member` / `undo_member_sign_in`, migration `0011`
-- [ ] Test: queue an attendance write offline → bring app online → exactly one row appears
+- [~] Test: queue an attendance write offline → bring app online → exactly one row appears. **Driven against the live database, but with the connection up**: a tick landed as exactly one attendance row and one debit, a tick-then-untick inside the window wrote nothing at all, and an untick after the write had gone produced a real reversal. A genuine signal-loss test still wants doing on a phone
 - [ ] Test: trigger sync twice in rapid succession → no duplicate
 - [ ] Test: create a session in the PWA while offline → syncs as one session (deterministic client-generated `id`), attendance rows reference that `id`
 

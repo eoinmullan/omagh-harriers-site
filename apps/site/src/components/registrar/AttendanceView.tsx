@@ -15,6 +15,8 @@ import {
   type Showing,
 } from '../../lib/training/usuals';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
+import { moneyCaveat } from '../../lib/training/queue';
+import { useWriteQueue } from './useWriteQueue';
 import {
   flip,
   headcount as countHere,
@@ -77,6 +79,9 @@ export function AttendanceView({
   const [paidOnly, setPaidOnly] = useState(false);
   const [cashFor, setCashFor] = useState<RosterMember | undefined>();
   const [guestProblem, setGuestProblem] = useState<string | null>(null);
+
+  const actorId = state.phase === 'ready' ? state.data.actorId : '';
+  const outbox = useWriteQueue(session.id, actorId);
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -210,6 +215,12 @@ export function AttendanceView({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!outbox.refused) return;
+    setProblem(`${outbox.refused} — the list has been reloaded.`);
+    void load();
+  }, [outbox.refused, load]);
+
   const data = state.phase === 'ready' ? state.data : undefined;
 
   const usuals = useMemo(
@@ -254,15 +265,14 @@ export function AttendanceView({
   // Every state change here is a pure transition from `lib/training/night.ts`,
   // which is where the promise the screen makes — the row flips and the pot
   // moves before the write lands — is taken back if the write fails.
-  async function toggle(member: RosterMember) {
-    if (!data || saving.has(member.id)) return;
+  function toggle(member: RosterMember) {
+    if (!data) return;
 
-    const attendanceId = data.here.get(member.id);
-    const wasHere = attendanceId !== undefined;
+    const existing = data.here.get(member.id);
+    const wasHere = existing !== undefined;
 
-    // Mid-flight there is no attendance id to undo, so the untick has nothing
-    // to send. Waiting is the honest answer.
-    if (wasHere && !isSettled(data, member.id)) return;
+    // Minted here, so the untick has a row to name before the tick has landed.
+    const attendanceId = wasHere ? existing : crypto.randomUUID();
 
     const tap = {
       memberId: member.id,
@@ -272,52 +282,35 @@ export function AttendanceView({
     };
 
     setProblem(null);
-    setSaving((current) => new Set(current).add(member.id));
     setState((current) =>
       current.phase === 'ready'
-        ? { phase: 'ready', data: { ...current.data, ...flip(current.data, tap) } }
+        ? {
+            phase: 'ready',
+            data: { ...current.data, ...flip(current.data, { ...tap, attendanceId }) },
+          }
         : current,
     );
 
-    const supabase = createSupabaseBrowserClient();
-    const { data: result, error } = wasHere
-      ? await supabase.rpc('undo_member_sign_in', { p_attendance_id: attendanceId! })
-      : await supabase.rpc('sign_in_member', {
-          p_member_id: member.id,
-          p_session_id: session.id,
-        });
-
-    setSaving((current) => {
-      const next = new Set(current);
-      next.delete(member.id);
-      return next;
-    });
-
-    setState((current) => {
-      if (current.phase !== 'ready') return current;
-
-      const next = error
-        ? restore(current.data, { ...tap, attendanceId })
-        : wasHere
-          ? current.data
-          : settle(current.data, { memberId: member.id, attendanceId: String(result) });
-
-      return { phase: 'ready', data: { ...current.data, ...next } };
-    });
-
-    if (error) setProblem(`${member.firstName} ${member.surname}: ${error.message}`);
+    outbox.add(
+      wasHere
+        ? { kind: 'undo_sign_in', attendanceId }
+        : { kind: 'sign_in', memberId: member.id, sessionId: session.id, attendanceId },
+    );
   }
 
   // Cash is a household fact, so the row that is written names the principal and
   // leaves member_id null. What changes is the difference between the figure on
   // screen and the one the registrar asked for — a top-up going up, a refund
   // coming down, never a negative top-up.
-  async function saveCash(member: RosterMember, targetPence: number) {
+  // Cash is a household fact, so the row names the principal and leaves
+  // member_id null. What is written is the difference between the figure on
+  // screen and the one the registrar asked for — a top-up going up, a refund
+  // coming down, never a negative top-up.
+  function saveCash(member: RosterMember, targetPence: number) {
     if (!data) return;
 
-    const currentPence = cashTonight(data.cash, member.principalId);
     const row = planCashChange({
-      currentPence,
+      currentPence: cashTonight(data.cash, member.principalId),
       targetPence,
       principalId: member.principalId,
       sessionId: session.id,
@@ -328,40 +321,10 @@ export function AttendanceView({
     setCashFor(undefined);
     if (!row) return;
 
-    const optimistic: CashRow = {
-      principalId: member.principalId,
-      type: row.type,
-      amountPence: row.amount_pence,
-    };
-
     setProblem(null);
-    setState((current) =>
-      current.phase === 'ready'
-        ? { phase: 'ready', data: { ...current.data, cash: [...current.data.cash, optimistic] } }
-        : current,
-    );
-
-    const { error } = await createSupabaseBrowserClient().from('credit_transactions').insert(row);
-
-    if (error) {
-      setProblem(`Cash for ${member.surname}: ${error.message}`);
-      setState((current) =>
-        current.phase === 'ready'
-          ? {
-              phase: 'ready',
-              data: {
-                ...current.data,
-                cash: current.data.cash.filter((entry) => entry !== optimistic),
-              },
-            }
-          : current,
-      );
-      return;
-    }
-
-    // The money is in the pot as well as in the tin, so the balance moves too.
     setState((current) => {
       if (current.phase !== 'ready') return current;
+
       const households = new Map(current.data.households);
       const household = households.get(member.principalId);
       if (household) {
@@ -370,71 +333,59 @@ export function AttendanceView({
           balancePence: household.balancePence + row.amount_pence,
         });
       }
-      return { phase: 'ready', data: { ...current.data, households } };
+
+      return {
+        phase: 'ready',
+        data: {
+          ...current.data,
+          households,
+          cash: [
+            ...current.data.cash,
+            { principalId: member.principalId, type: row.type, amountPence: row.amount_pence },
+          ],
+        },
+      };
     });
+
+    outbox.add({ kind: 'cash', row });
   }
 
-  // Signing a guest in is one row, and the cash is on it: they have no pot to
-  // draw on, so what they handed over is recorded here rather than in the
-  // ledger. Unticking deletes the row and takes the money with it, which is
-  // only safe because attendance is not append-only — the ledger is.
-  async function toggleGuest(guest: Guest) {
-    if (!data || saving.has(guest.id)) return;
+  function toggleGuest(guest: Guest) {
+    if (!data) return;
 
-    const supabase = createSupabaseBrowserClient();
-    const attendanceId = data.guestsHere.get(guest.id);
-    const wasHere = attendanceId !== undefined;
+    const wasHere = data.guestsHere.has(guest.id);
+    const paid = session.pricePence > 0 ? session.pricePence : null;
 
     setProblem(null);
-    setSaving((current) => new Set(current).add(guest.id));
-
-    const { error } = wasHere
-      ? await supabase.from('attendance').delete().eq('id', attendanceId)
-      : await supabase.from('attendance').upsert(
-          planGuestSignIn({
-            guestId: guest.id,
-            sessionId: session.id,
-            recordedBy: data.actorId,
-            pricePence: session.pricePence,
-          }),
-          { onConflict: 'idempotency_key', ignoreDuplicates: true },
-        );
-
-    setSaving((current) => {
-      const next = new Set(current);
-      next.delete(guest.id);
-      return next;
-    });
-
-    if (error) {
-      setProblem(`${guest.firstName} ${guest.surname}: ${error.message}`);
-      return;
-    }
-
-    // The row's id is what an untick deletes, so read back what is actually
-    // there rather than guessing at it.
-    const { data: rows } = await supabase
-      .from('attendance')
-      .select('id')
-      .eq('session_id', session.id)
-      .eq('guest_id', guest.id);
-
     setState((current) => {
       if (current.phase !== 'ready') return current;
       const guestsHere = new Map(current.data.guestsHere);
-      const landed = rows?.[0]?.id;
-      if (landed) guestsHere.set(guest.id, landed);
-      else guestsHere.delete(guest.id);
+      if (wasHere) guestsHere.delete(guest.id);
+      else guestsHere.set(guest.id, crypto.randomUUID());
 
-      const paid = session.pricePence > 0 ? session.pricePence : null;
-      const guestPayments = landed
-        ? [...current.data.guestPayments, paid]
-        : removeOne(current.data.guestPayments, paid);
+      const guestPayments = wasHere
+        ? removeOne(current.data.guestPayments, paid)
+        : [...current.data.guestPayments, paid];
 
       return { phase: 'ready', data: { ...current.data, guestsHere, guestPayments } };
     });
+
+    outbox.add(
+      wasHere
+        ? { kind: 'guest_undo', guestId: guest.id, sessionId: session.id }
+        : {
+            kind: 'guest_sign_in',
+            guestId: guest.id,
+            sessionId: session.id,
+            pricePence: session.pricePence,
+          },
+    );
   }
 
+  // Adding a guest is the one write that cannot be queued: the rest of the
+  // night needs the id Postgres gives back before anything can reference it.
+  // Offline, the registrar is told to take the name down on paper rather than
+  // handed a row that will never exist.
   async function addGuest(firstName: string, surname: string) {
     if (!data) return;
 
@@ -452,7 +403,11 @@ export function AttendanceView({
       .single();
 
     if (error || !created) {
-      setGuestProblem(error?.message ?? 'Could not add that guest.');
+      setGuestProblem(
+        outbox.online
+          ? (error?.message ?? 'Could not add that guest.')
+          : 'Offline — a new guest cannot be added until the signal is back. Take the name on paper.',
+      );
       return;
     }
 
@@ -470,7 +425,7 @@ export function AttendanceView({
 
     // Somebody added at the track is standing in front of the registrar, so
     // sign them straight in rather than making them find the new row.
-    await toggleGuest(guest);
+    toggleGuest(guest);
   }
 
   if (state.phase === 'loading') {
@@ -493,6 +448,7 @@ export function AttendanceView({
   const headcount = countHere(data!) + data!.guestsHere.size;
   const collected = moneyCollected(data!.cash, data!.guestPayments);
   const guestRows = guestsToShow(data!.guests, term);
+  const caveat = moneyCaveat({ pending: outbox.pending, online: outbox.online });
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-6">
@@ -573,6 +529,18 @@ export function AttendanceView({
           </p>
         </div>
       </div>
+
+      {/* The figure is only complete once every phone has synced. Say so under
+          it rather than in its label, so the common case reads plainly and the
+          exception announces itself. */}
+      {caveat && (
+        <p
+          className={`mb-3 text-sm ${outbox.online ? 'text-slate-500' : 'text-amber-400'}`}
+          role="status"
+        >
+          {caveat}
+        </p>
+      )}
 
       {problem && (
         <div className="mb-3">

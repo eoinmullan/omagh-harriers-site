@@ -198,7 +198,11 @@ Confirmed, several of them live, so a later change knows the ground it rests on:
   read balances RLS would otherwise hide.
 - **The registrar island writes nothing to `principals`/`members`** — every one
   of its references is a SELECT; its writes are attendance, guests and ledger
-  rows through RLS-gated policies and the two RPCs.
+  rows through RLS-gated policies and the two RPCs. **That is true of the app
+  and not of the token, which this pass didn't check.** The four policies that
+  gate those writes check only the caller's role, not the row, so a registrar
+  calling the API directly can credit any household, sign a member in without
+  charging, or set a session's price. See Round 2 backend, finding B1.
 - **The OAuth email-match check** on the server sign-in path does what it claims.
   (An earlier version of this list said the same of the enumeration timing-delay.
   It doesn't: the delay runs only when the lookup fails, and the messages differ

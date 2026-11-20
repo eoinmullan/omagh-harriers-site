@@ -771,7 +771,7 @@ different threat models.
 
 ### Round 2 — the code as written
 
-- [ ] **Backend** — migrations, RLS policies, the RPCs, PostgREST query shapes, the sync CLI
+- [x] **Backend** ([findings](reviews/round-2-backend.md)) — migrations, RLS policies, the RPCs, PostgREST query shapes, the sync CLI
 - [ ] **Frontend** — the registrar island, the Astro pages, state handling, the optimistic write path
 - [ ] **Code quality** — the lib-module contract (rules out of pages, unit tested without a database) and whether it has held. Includes the test suite itself: **CI runs `typecheck` and `build` but not the tests**, so 293 tests pass only when somebody remembers to run them
 

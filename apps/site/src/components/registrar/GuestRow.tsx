@@ -12,13 +12,11 @@ export function GuestRow({
   guest,
   pricePence,
   isHere,
-  isSaving,
   onToggle,
 }: {
   guest: Guest;
   pricePence: number;
   isHere: boolean;
-  isSaving: boolean;
   onToggle: () => void;
 }) {
   const paid = isHere && pricePence > 0;
@@ -27,7 +25,7 @@ export function GuestRow({
     <li
       className={`flex items-stretch border-b border-neutral-800 ${
         isHere ? 'bg-emerald-950/60' : ''
-      } ${isSaving ? 'opacity-60' : ''}`}
+      }`}
     >
       <button
         type="button"
@@ -35,7 +33,6 @@ export function GuestRow({
         aria-checked={isHere}
         aria-label={`${guest.firstName} ${guest.surname}, guest`}
         onClick={onToggle}
-        disabled={isSaving}
         className="flex min-h-[76px] min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left active:bg-neutral-800"
       >
         <span

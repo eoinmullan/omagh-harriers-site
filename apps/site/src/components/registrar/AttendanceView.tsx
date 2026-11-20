@@ -22,13 +22,10 @@ import type { Outbox } from './useWriteQueue';
 import {
   flip,
   headcount as countHere,
-  isSettled,
-  restore,
-  settle,
   type Household,
   type NightState,
 } from '../../lib/training/night';
-import { guestsToShow, planGuestSignIn, planNewGuest, type Guest } from '../../lib/training/guests';
+import { guestsToShow, planNewGuest, type Guest } from '../../lib/training/guests';
 import type { SelectableSession } from '../../lib/training/tonight';
 import { AddGuest } from './AddGuest';
 import { CashSheet } from './CashSheet';
@@ -110,8 +107,6 @@ export function AttendanceView({
   const [guestProblem, setGuestProblem] = useState<string | null>(null);
   const [showingSnapshotFrom, setShowingSnapshotFrom] = useState<number | null>(null);
 
-  const actorId = state.phase === 'ready' ? state.data.actorId : '';
-  const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [problem, setProblem] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -386,7 +381,7 @@ export function AttendanceView({
       const conditions = {
         online: outbox.online,
         pending: outbox.pending,
-        busy: cashFor !== undefined || saving.size > 0,
+        busy: cashFor !== undefined,
         visible: typeof document === 'undefined' || document.visibilityState === 'visible',
       };
       if (safeToRefresh(conditions)) void catchUpOnTheOtherPhone();
@@ -405,7 +400,6 @@ export function AttendanceView({
     outbox.online,
     outbox.pending,
     cashFor,
-    saving,
     catchUpOnTheOtherPhone,
   ]);
 
@@ -793,8 +787,7 @@ export function AttendanceView({
                   guest={guest}
                   pricePence={session.pricePence}
                   isHere={data!.guestsHere.has(guest.id)}
-                  isSaving={saving.has(guest.id)}
-                  onToggle={() => toggleGuest(guest)}
+                    onToggle={() => toggleGuest(guest)}
                 />
               ))}
             </ul>
@@ -822,7 +815,6 @@ export function AttendanceView({
                 pricePence={session.pricePence}
                 cashPence={cashTonight(data!.cash, member.principalId)}
                 isHere={present.has(member.id)}
-                isSaving={saving.has(member.id)}
                 onToggle={() => toggle(member)}
                 onCash={() => setCashFor(member)}
               />

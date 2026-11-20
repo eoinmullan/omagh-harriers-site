@@ -19,7 +19,6 @@ export function RunnerRow({
   pricePence,
   cashPence,
   isHere,
-  isSaving,
   onToggle,
   onCash,
 }: {
@@ -28,7 +27,6 @@ export function RunnerRow({
   pricePence: number;
   cashPence: number;
   isHere: boolean;
-  isSaving: boolean;
   onToggle: () => void;
   onCash: () => void;
 }) {
@@ -46,7 +44,7 @@ export function RunnerRow({
     <li
       className={`flex items-stretch border-b border-neutral-800 ${
         isHere ? 'bg-emerald-950/60' : ''
-      } ${isSaving ? 'opacity-60' : ''}`}
+      }`}
     >
       <button
         type="button"
@@ -54,7 +52,6 @@ export function RunnerRow({
         aria-checked={isHere}
         aria-label={`${member.firstName} ${member.surname}`}
         onClick={onToggle}
-        disabled={isSaving}
         // min-w-0 or this never shrinks: a flex item defaults to
         // min-width:auto, so a long household name holds the button at its
         // content width and pushes the cash cell out past the row's edge.

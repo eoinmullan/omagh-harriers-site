@@ -600,6 +600,20 @@ back either a row to write or one sentence to show the admin.
 
 ## Roles
 
+**The trust model: registrars and admins are trusted volunteers.** A registrar
+takes cash at the gate, so a dishonest one could simply pocket it, and no
+database rule could stop that. Registrars aren't technical either: what the UI
+doesn't offer, they won't do. So the system is built to stop **honest mistakes
+and our own bugs**, not to defend against the people the club has chosen to
+trust. A volunteer bypassing the app to misuse their own access is not a
+finding (Round 2 backend, B1). These still count, whatever the role:
+
+- anything the UI lets a well-meaning volunteer get wrong
+- database checks that catch malformed rows, because they catch our bugs too
+- privacy, because keeping data to what's needed is about the data, not the
+  person
+- outsiders: a lost phone, a stolen login, the public site
+
 `member`, `registrar`, `admin`, `superuser`. Who may hand out which role lives in
 `src/lib/auth/roles.ts`; the screen is `/admin/households/[id]`, which has always
 been superuser-only. A superuser cannot change their own role there — it would lock

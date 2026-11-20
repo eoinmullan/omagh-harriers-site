@@ -11,7 +11,21 @@ security S2, S3 and S5, and privacy P3 to P6. Everything below is new.
 
 ## B1. A registrar's write rules accept any row
 
-**Severity: high. This one was missed in Round 1.**
+**Severity: low. Accepted under the club's trust model, and no change will be
+made.**
+
+> **Decision.** The club trusts its registrars. A registrar handles cash at the
+> gate, so a dishonest one has far easier ways to cheat than writing API
+> calls, and no database rule could stop that. Registrars aren't technical
+> either: what the UI doesn't offer, they won't do. The system is built to
+> stop honest mistakes and our own bugs, not to defend against the volunteers
+> the club has chosen to trust. Neither option below will be pursued. The
+> analysis stays here so a later reader can see the decision was made
+> knowingly, and it's recorded in CLAUDE.md under Roles.
+
+The description that follows is still accurate. It was graded high on the
+assumption that the registrar might be an adversary, which isn't the club's
+model.
 
 Four INSERT policies serve the registrar, and each checks one thing: that the
 caller may run a session.
@@ -77,6 +91,8 @@ what"*. These policies only say who may write. They don't say what.
 
 Either way, **tying `created_by` and `recorded_by` to the caller** is a
 policy-only change that can land first.
+
+*None of this is being done; see the decision above.*
 
 The session price is the awkward part of A. The price lives in TypeScript
 (`DEFAULT_SESSION_PRICE_PENCE`), so a database check needs either a second

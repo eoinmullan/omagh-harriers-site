@@ -604,6 +604,19 @@ sign-in app holds no service-role key — and they write only the night's
 sessions, attendance, guests and cash. They cannot edit a member, change a role,
 rename a group or re-price a session.
 
+**A login reads columns, not rows.** RLS decides which rows; column privileges
+decide which columns, for every login alike. Through anything but the service
+role, `principals` exposes only `id, auth_user_id, display_name, role,
+is_active, terms_accepted_at`, and `members` only `id, principal_id,
+first_name, surname, is_active`. A registrar can read every name in the club
+and no date of birth, gender, Athletics NI number or email. A page that needs a
+hidden column reads it with the service role, scoped to the signed-in
+principal; `members/index.astro` does this for a member's own children.
+**Adding a column the registrar app or middleware reads means adding it to
+the grant in a migration**, or the query fails with `42501`. A
+`GRANT SELECT ON ALL TABLES` would quietly hand back whole rows. Migration
+`0018`.
+
 RLS gates on the **`app_role`** JWT claim, never `role`. PostgREST reserves
 `role` for the PostgreSQL session role, which is why `0004` moved it. `0008`
 was written against the old name and so never matched anybody; `0010` repairs

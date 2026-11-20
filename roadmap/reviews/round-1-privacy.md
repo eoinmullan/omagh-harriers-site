@@ -79,7 +79,7 @@ in is the clearest demonstration of why this was worth doing first.
 
 ## P2. A registrar's token reads far more than the app uses
 
-**Severity: high.**
+**Severity: high. Fixed by migration `0018`.**
 
 A registrar is a volunteer, often on a borrowed phone. The registrar app selects
 exactly this from the people tables:
@@ -117,6 +117,36 @@ Either way it needs a migration plus a query change in `AttendanceView.tsx`. The
 same question applies to admins on the anon key. They hold whole-row SELECT too,
 but every admin page reads through the service role, so the anon-key grant may be
 unused, as the INSERT/UPDATE grants were in S1. Check that before deciding.
+
+**Done, with column privileges rather than either of those.** A
+`security_invoker` view leaves the registrar's whole-row access underneath it.
+A definer view bypasses RLS and has to restate the role rule, and dropping the
+registrar's row access would also empty `principal_balances`, which joins
+`principals` as the caller. Column grants keep every row rule as it was and
+limit columns for every login. Every non-service-role read was audited first:
+`principals` keeps `id, auth_user_id, display_name, role, is_active,
+terms_accepted_at`, and `members` keeps `id, principal_id, first_name, surname,
+is_active`. The one page that needed more, the members' area showing a
+parent their children's dates of birth, now reads through the service role
+scoped to its own principal. Admin anon-key reads are covered by the same
+ceiling.
+
+Verified live, as a logged-in token before and after applying:
+
+| Request | Before | After |
+|---|---|---|
+| `members` `date_of_birth, gender` | 200, rows | **403** `42501` |
+| `members` `select=*` | — | **403** `42501` |
+| `principals` `email` | 200, rows | **403** `42501` |
+| registrar roster with household names | 200 | 200, 314 rows |
+| `principal_balances` | 200 | 200, 220 rows |
+
+Every other query the registrar app makes still returns 200, the members'
+area and `/members/credits` render, and the admin gate still admits an admin.
+
+Checking this turned up a separate break: the registrar's session picker had
+been failing since `0014`, because its query still asked for the dropped `name`
+and `location` columns. It is fixed in its own commit.
 
 ## P3. The registrar's phone keeps a full-club snapshot forever
 

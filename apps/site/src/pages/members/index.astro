@@ -3,6 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { formatBalance } from '../../lib/credits/money';
 import { mayRunASession } from '../../lib/training/registrar';
+import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 
 // Middleware guarantees auth + active principal + terms accepted before we get here.
 // Defensive fallback only.
@@ -43,7 +44,11 @@ const { data: balance } = await Astro.locals.supabase
 
 const balancePence = balance?.balance_pence ?? 0;
 
-const { data: members } = await Astro.locals.supabase
+// Read with the service role because a login can no longer see a date of birth
+// or a gender (migration 0018 limits it to the columns the registrar app
+// needs). Scoped to this household's principal, found through the member's own
+// session above. The same pattern /members/credits uses for the ledger.
+const { data: members } = await createSupabaseAdminClientFromLocals(Astro.locals)
   .from('members')
   .select('id, first_name, surname, date_of_birth, status, gender')
   .eq('principal_id', principal.id)

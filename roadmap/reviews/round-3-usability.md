@@ -29,7 +29,7 @@ Ticked as each one lands, in the order they're tackled.
   that filters to overdrawn households, and a new "In credit" does the same,
   because most households sit at £0. These are filter chips with a pressed
   state, and clicking again clears.
-- [ ] **Training times: current first, then upcoming, with past periods in an
+- [x] **Training times: current first, then upcoming, with past periods in an
   expander** (`<details>`) below.
 - [ ] **Admins see what members see: training and transaction history** on a
   member's and a household's page.

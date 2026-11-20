@@ -144,3 +144,20 @@ export function findScheduleProblems(schedule: TrainingSchedule): string[] {
 
   return problems;
 }
+
+/**
+ * Splits dated previews for the admin page: what's showing today and what
+ * comes after it, oldest first, then what has already run, newest first.
+ * A preview with no end runs for ever after its start, which is how the
+ * lapsed-schedule fallback is shown.
+ */
+export function splitAroundToday<T extends { end?: string }>(
+  previews: T[],
+  today: string,
+): { currentAndUpcoming: T[]; past: T[] } {
+  const hasRun = (preview: T) => preview.end !== undefined && preview.end < today;
+  return {
+    currentAndUpcoming: previews.filter((preview) => !hasRun(preview)),
+    past: previews.filter(hasRun).reverse(),
+  };
+}

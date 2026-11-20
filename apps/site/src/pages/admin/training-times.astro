@@ -3,18 +3,28 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import TrainingTimesSection from '../../components/TrainingTimesSection.astro';
 import { trainingSchedule } from '../../data/training-schedule';
 import { seasonLabel, seasonSegments } from '../../lib/training/season';
-import { dayAfter, formatDate, type ActiveTraining } from '../../lib/training/schedule';
+import {
+  dayAfter,
+  formatDate,
+  resolveToday,
+  splitAroundToday,
+  type ActiveTraining,
+} from '../../lib/training/schedule';
 
 interface Preview {
   caption: string;
   label: string;
   active: ActiveTraining;
+  start: string;
+  end?: string;
 }
 
 const periodPreviews: Preview[] = trainingSchedule.flatMap((period) =>
   seasonSegments(period.start, period.end).map((segment) => ({
     caption: `${formatDate(segment.start)} to ${formatDate(segment.end)}`,
     label: segment.label,
+    start: segment.start,
+    end: segment.end,
     active: { status: 'current', period } as ActiveTraining,
   })),
 );
@@ -25,9 +35,14 @@ const stalePreview: Preview | undefined = lastPeriod && {
   caption: `After ${formatDate(lastPeriod.end)}`,
   label: seasonLabel(dayAfter(lastPeriod.end)),
   active: { status: 'stale', period: lastPeriod },
+  start: dayAfter(lastPeriod.end),
 };
 
-const previews = [...periodPreviews, ...(stalePreview ? [stalePreview] : [])];
+const today = resolveToday(Astro.url, import.meta.env.DEV);
+const { currentAndUpcoming, past } = splitAroundToday(
+  [...periodPreviews, ...(stalePreview ? [stalePreview] : [])],
+  today,
+);
 ---
 
 <AdminLayout section="times" title="Training times" wide>
@@ -43,15 +58,36 @@ const previews = [...periodPreviews, ...(stalePreview ? [stalePreview] : [])];
   </section>
 
   {
-    previews.map((preview) => (
+    currentAndUpcoming.map((preview, index) => (
       <section class="py-8 border-t-4 border-gray-200 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6 flex items-center gap-3">
           <p class="font-mono text-sm text-amber bg-black inline-block px-3 py-1 rounded">
             {preview.caption}
           </p>
+          {index === 0 && preview.start <= today && <p class="text-sm font-semibold">Showing now</p>}
         </div>
         <TrainingTimesSection label={preview.label} active={preview.active} />
       </section>
     ))
+  }
+
+  {
+    past.length > 0 && (
+      <details class="border-t-4 border-gray-200 bg-white">
+        <summary class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-semibold cursor-pointer select-none">
+          Past periods ({past.length})
+        </summary>
+        {past.map((preview) => (
+          <section class="py-8 border-t border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+              <p class="font-mono text-sm text-amber bg-black inline-block px-3 py-1 rounded">
+                {preview.caption}
+              </p>
+            </div>
+            <TrainingTimesSection label={preview.label} active={preview.active} />
+          </section>
+        ))}
+      </details>
+    )
   }
 </AdminLayout>

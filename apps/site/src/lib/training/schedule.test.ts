@@ -8,6 +8,7 @@ import {
   monthAndYear,
   resolveToday,
   selectTraining,
+  splitAroundToday,
   todayInOmagh,
   type JuniorSession,
   type SeniorSession,
@@ -228,5 +229,36 @@ describe('resolveToday', () => {
 describe('trainingSchedule', () => {
   it('satisfies every schedule invariant', () => {
     expect(findScheduleProblems(trainingSchedule)).toEqual([]);
+  });
+});
+
+describe('splitAroundToday', () => {
+  const spring = { name: 'spring', end: '2026-05-31' };
+  const summer = { name: 'summer', end: '2026-08-31' };
+  const autumn = { name: 'autumn', end: '2026-11-30' };
+  const afterwards: { name: string; end?: string } = { name: 'lapsed' };
+
+  it('puts the period covering today first, then what comes after it', () => {
+    const { currentAndUpcoming } = splitAroundToday([spring, summer, autumn, afterwards], '2026-07-15');
+
+    expect(currentAndUpcoming).toEqual([summer, autumn, afterwards]);
+  });
+
+  it('lists what has already run newest first', () => {
+    const { past } = splitAroundToday([spring, summer, autumn, afterwards], '2026-10-01');
+
+    expect(past).toEqual([summer, spring]);
+  });
+
+  it('counts a period as current on its last day', () => {
+    const { currentAndUpcoming } = splitAroundToday([spring, summer], '2026-05-31');
+
+    expect(currentAndUpcoming[0]).toBe(spring);
+  });
+
+  it('leaves only the lapsed fallback once every period has run', () => {
+    const { currentAndUpcoming } = splitAroundToday([spring, afterwards], '2027-01-01');
+
+    expect(currentAndUpcoming).toEqual([afterwards]);
   });
 });

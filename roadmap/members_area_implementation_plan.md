@@ -779,7 +779,7 @@ different threat models.
 
 - [x] **Performance** ([findings](reviews/round-3-performance.md)) — the queries behind each screen, what the registrar app fetches on open, the reporting area over a few seasons of attendance
 - [ ] **Usability** — against the registrar experience bullets in Phase 5, with somebody who is not the author
-- [ ] **Accessibility** — separately from usability. The balance line deliberately uses colour as the carrier ("colour carries the warning, never the wording"), which is right for a glance and a WCAG failure if colour is the only channel. Also the custom `role="checkbox"` rows, focus handling, and the island under a screen reader
+- [x] **Accessibility** ([findings](reviews/round-3-accessibility.md)) — separately from usability. The balance line deliberately uses colour as the carrier ("colour carries the warning, never the wording"), which is right for a glance and a WCAG failure if colour is the only channel. Also the custom `role="checkbox"` rows, focus handling, and the island under a screen reader
 - [ ] **Operational resilience** — what breaks at seven on a wet Monday. Supabase unreachable mid-session; the `0003` access-token hook that has to be registered by hand in the dashboard and is in no migration; the Microsoft secret that expires on a date held in a constant; a bad content deploy taking the registrar app down now that it shares an origin
 
 ### Round 4 — delta

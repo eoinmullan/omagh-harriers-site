@@ -209,10 +209,10 @@ const roleBadge: Record<string, string> = {
             <th class="pb-3 font-semibold">Email</th>
             <th class="pb-3 font-semibold">Role</th>
             <th class="pb-3 font-semibold">Members</th>
-            <th class="pb-3 font-semibold text-right">
-              <button type="button" data-sort="balance" class="font-semibold hover:underline"
-                >Balance</button
-              >
+            <th class="pb-3 pl-6 pr-6 font-semibold text-right">
+              <button type="button" data-sort="balance" class="font-semibold hover:underline">
+                Balance <span id="balance-arrow" class="text-gray-400 font-normal"></span>
+              </button>
             </th>
             <th class="pb-3 font-semibold">Status</th>
             <th class="pb-3 font-semibold">Source</th>
@@ -241,7 +241,7 @@ const roleBadge: Record<string, string> = {
                 <td class="py-3">{h.memberCount}</td>
                 <td
                   class:list={[
-                    'py-3 text-right font-medium',
+                    'py-3 pl-6 pr-6 text-right font-medium',
                     h.balancePence < 0 && 'text-red-600',
                     h.balancePence === 0 && 'text-gray-400',
                   ]}
@@ -297,27 +297,38 @@ const roleBadge: Record<string, string> = {
     });
   });
 
-  // Who owes money is the question the balance column exists to answer, so
-  // sorting by it is one click: poorest first, then richest.
+  // Who owes money is the question the balance column exists to answer, so one
+  // click sorts by it, poorest first. Clicking again turns it around, and Name
+  // puts the list back the way the server sent it.
   const nameOrder = rows.slice();
-  let ascending = true;
+  const arrow = document.getElementById('balance-arrow');
+  let order: 'name' | 'poorest' | 'richest' = 'name';
+
+  function byBalance(a: HTMLTableRowElement, b: HTMLTableRowElement): number {
+    return Number(a.dataset.balance) - Number(b.dataset.balance);
+  }
 
   document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach((button) => {
     button.addEventListener('click', () => {
-      const byBalance = button.dataset.sort === 'balance';
-      ascending = byBalance ? !ascending : true;
+      order =
+        button.dataset.sort === 'name'
+          ? 'name'
+          : order === 'poorest'
+            ? 'richest'
+            : 'poorest';
 
-      const sorted = byBalance
-        ? nameOrder
-            .slice()
-            .sort(
-              (a, b) =>
-                (Number(a.dataset.balance) - Number(b.dataset.balance)) *
-                (ascending ? 1 : -1),
-            )
-        : nameOrder;
+      const sorted =
+        order === 'name'
+          ? nameOrder
+          : nameOrder
+              .slice()
+              .sort(order === 'poorest' ? byBalance : (a, b) => byBalance(b, a));
 
       sorted.forEach((row) => body?.appendChild(row));
+
+      if (arrow) {
+        arrow.textContent = order === 'poorest' ? '\u2191' : order === 'richest' ? '\u2193' : '';
+      }
     });
   });
 </script>

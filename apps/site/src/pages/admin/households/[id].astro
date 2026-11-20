@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS } from '../../../lib/auth/roles';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
 import { describeEntry, isCredit } from '../../../lib/credits/transactions';
@@ -13,6 +14,7 @@ import {
   type LedgerWrite,
 } from '../../../lib/credits/ledger';
 import type { CreditTransactionType } from '../../../lib/supabase/types';
+import { orThrow } from '../../../lib/supabase/or-throw';
 
 // One page per household, because a household is one thing an admin holds in
 // their head: a name, the people in it, a role and a balance. It used to be
@@ -30,11 +32,11 @@ if (!user) return Astro.redirect('/signin');
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const { data: actingPrincipal } = await Astro.locals.supabase
+const actingPrincipal = orThrow(await Astro.locals.supabase
   .from('principals')
   .select('id, role')
   .eq('auth_user_id', user.id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!actingPrincipal) return Astro.redirect('/signin');
 
@@ -42,11 +44,11 @@ const isSuperuser = actingPrincipal.role === 'superuser';
 const offeredRoles = assignableRoles(actingPrincipal.role);
 
 async function loadBalancePence(principalId: string): Promise<number> {
-  const { data } = await adminClient
+  const data = orThrow(await adminClient
     .from('principal_balances')
     .select('balance_pence')
     .eq('principal_id', principalId)
-    .maybeSingle();
+    .maybeSingle());
 
   return data?.balance_pence ?? 0;
 }
@@ -54,11 +56,11 @@ async function loadBalancePence(principalId: string): Promise<number> {
 // The ledger rules ask for a household's identity and what it holds, never the
 // whole principal row — so this is what they get, for either side of a transfer.
 async function loadLedgerHousehold(principalId: string) {
-  const { data } = await adminClient
+  const data = orThrow(await adminClient
     .from('principals')
     .select('id, display_name')
     .eq('id', principalId)
-    .maybeSingle();
+    .maybeSingle());
 
   if (!data) return undefined;
 
@@ -72,12 +74,12 @@ async function loadLedgerHousehold(principalId: string) {
 // Surname first, so siblings sit together — the same ordering the registrar app
 // uses at the track.
 async function loadMembers(principalId: string) {
-  const { data } = await adminClient
+  const data = orThrow(await adminClient
     .from('members')
     .select('id, first_name, surname, date_of_birth, status, is_active, gender')
     .eq('principal_id', principalId)
     .order('surname')
-    .order('first_name');
+    .order('first_name'));
 
   return data ?? [];
 }
@@ -105,11 +107,11 @@ async function changeIdentity(action: string, field: Field): Promise<Outcome> {
   }
 
   if (action === 'set_role') {
-    const { data: target } = await adminClient
+    const target = orThrow(await adminClient
       .from('principals')
       .select('role')
       .eq('id', householdId)
-      .maybeSingle();
+      .maybeSingle());
 
     const change = target
       ? planRoleChange({
@@ -133,11 +135,11 @@ async function changeIdentity(action: string, field: Field): Promise<Outcome> {
 
   const becomingActive = action === 'reactivate';
 
-  const { data: target } = await adminClient
+  const target = orThrow(await adminClient
     .from('principals')
     .select('auth_user_id')
     .eq('id', householdId)
-    .maybeSingle();
+    .maybeSingle());
 
   if (target?.auth_user_id) {
     await adminClient.auth.admin.updateUserById(target.auth_user_id, {
@@ -235,13 +237,18 @@ if (Astro.request.method === 'POST') {
 }
 
 const error = outcome && 'error' in outcome ? outcome.error : null;
-const success = outcome && 'success' in outcome ? outcome.success : null;
+let success = outcome && 'success' in outcome ? outcome.success : null;
 
-const { data: principal } = await adminClient
+// Succeeded: send the browser back here as a GET, so a reload can't
+// submit the form again. A failure renders below, keeping what was typed.
+if (success) return redirectAfterPost(Astro, success);
+success = takeFlash(Astro.cookies);
+
+const principal = orThrow(await adminClient
   .from('principals')
   .select('*')
   .eq('id', householdId)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!principal) return Astro.redirect('/admin/households');
 
@@ -249,19 +256,19 @@ const balancePence = await loadBalancePence(householdId);
 const members = await loadMembers(householdId);
 const whoCanTrain = members.filter((m) => m.is_active);
 
-const { data: otherHouseholds } = await adminClient
+const otherHouseholds = orThrow(await adminClient
   .from('principals')
   .select('id, email, display_name')
   .neq('id', householdId)
-  .order('display_name');
+  .order('display_name'));
 
-const { data: rows } = await adminClient
+const rows = orThrow(await adminClient
   .from('credit_transactions')
   .select(
     'id, type, amount_pence, notes, created_at, recorder:created_by(display_name), member:member_id(first_name, surname), counterparty:counterparty_principal_id(display_name)',
   )
   .eq('principal_id', householdId)
-  .order('created_at', { ascending: false });
+  .order('created_at', { ascending: false }));
 
 type LedgerRow = {
   id: string;

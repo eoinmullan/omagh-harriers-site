@@ -1,7 +1,9 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
 import { formatBalance } from '../../lib/credits/money';
+import { orThrow } from '../../lib/supabase/or-throw';
 
 // The one list of households, balances included. Credit used to be a second
 // section listing the same 220 rows with different columns, which made "has
@@ -14,11 +16,11 @@ if (!user) return Astro.redirect('/signin');
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const { data: actingPrincipal } = await Astro.locals.supabase
+const actingPrincipal = orThrow(await Astro.locals.supabase
   .from('principals')
   .select('role')
   .eq('auth_user_id', user.id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!actingPrincipal) return Astro.redirect('/signin');
 
@@ -68,19 +70,24 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const { data: principals } = await adminClient
+// Succeeded: send the browser back here as a GET, so a reload can't
+// submit the form again. A failure renders below, keeping what was typed.
+if (success) return redirectAfterPost(Astro, success);
+success = takeFlash(Astro.cookies);
+
+const principals = orThrow(await adminClient
   .from('principals')
   .select('id, email, display_name, role, is_active, source')
-  .order('display_name');
+  .order('display_name'));
 
-const { data: activeMembers } = await adminClient
+const activeMembers = orThrow(await adminClient
   .from('members')
   .select('principal_id')
-  .eq('is_active', true);
+  .eq('is_active', true));
 
-const { data: balances } = await adminClient
+const balances = orThrow(await adminClient
   .from('principal_balances')
-  .select('principal_id, balance_pence');
+  .select('principal_id, balance_pence'));
 
 const memberCountByPrincipal = new Map<string, number>();
 for (const m of activeMembers ?? []) {

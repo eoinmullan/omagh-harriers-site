@@ -1,5 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { createSupabaseServerClient, type SupabaseServerClient } from './lib/supabase/server';
+import { orThrow } from './lib/supabase/or-throw';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   let client: SupabaseServerClient | undefined;
@@ -29,11 +30,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
       return context.redirect('/signin');
     }
 
-    const { data: principal } = await context.locals.supabase
+    const principal = orThrow(await context.locals.supabase
       .from('principals')
       .select('is_active, terms_accepted_at, role')
       .eq('auth_user_id', user.id)
-      .maybeSingle();
+      .maybeSingle());
 
     if (!principal || !principal.is_active) {
       await context.locals.supabase.auth.signOut();

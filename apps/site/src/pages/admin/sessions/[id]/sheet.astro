@@ -3,6 +3,7 @@ import { createSupabaseAdminClientFromLocals } from '../../../../lib/supabase/ad
 import { formatPounds } from '../../../../lib/credits/money';
 import { formatClubDateTime } from '../../../../lib/training/club-time';
 import { bySurname, type RosterMember } from '../../../../lib/training/usuals';
+import { orThrow } from '../../../../lib/supabase/or-throw';
 
 // The night a phone dies.
 //
@@ -20,27 +21,27 @@ if (!id) return Astro.redirect('/admin/sessions');
 
 const admin = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const { data: session } = await admin
+const session = orThrow(await admin
   .from('training_sessions')
   .select('id, starts_at, note, price_pence, is_cancelled, group_id, group:group_id(name)')
   .eq('id', id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!session) return Astro.redirect('/admin/sessions');
 
 const groupName = (session.group as { name: string } | null)?.name ?? '';
 
-const { data: membership } = await admin
+const membership = orThrow(await admin
   .from('member_groups')
   .select('member_id')
-  .eq('group_id', session.group_id);
+  .eq('group_id', session.group_id));
 
 const expected = new Set((membership ?? []).map((row) => row.member_id));
 
-const { data: memberRows } = await admin
+const memberRows = orThrow(await admin
   .from('members')
   .select('id, first_name, surname, principal_id, principal:principal_id(display_name)')
-  .eq('is_active', true);
+  .eq('is_active', true));
 
 type MemberRow = {
   id: string;
@@ -50,9 +51,9 @@ type MemberRow = {
   principal: { display_name: string } | null;
 };
 
-const { data: balanceRows } = await admin
+const balanceRows = orThrow(await admin
   .from('principal_balances')
-  .select('principal_id, balance_pence');
+  .select('principal_id, balance_pence'));
 
 const balances = new Map(
   (balanceRows ?? []).map((row) => [row.principal_id, row.balance_pence]),

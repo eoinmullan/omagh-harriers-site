@@ -1,0 +1,26 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+
+// What a page shows when it couldn't load the club's records.
+//
+// Every page read goes through `orThrow`, so a Supabase failure ends up here
+// instead of rendering as an empty club: no households, a £0.00 float, a
+// statement with no lines. An empty page invites somebody to add a member
+// again or pay again; this one says to wait and try again. Nothing about the
+// error is shown, because this page can be reached from public pages too.
+---
+
+<Layout title="Something went wrong — Omagh Harriers AC">
+  <PageContainer width="form">
+    <h1 class="text-3xl font-bold mb-3">We couldn't load that page</h1>
+    <p class="text-gray-600 mb-3">
+      The club's records couldn't be reached just now. Nothing has been
+      changed, so please try again in a minute.
+    </p>
+    <p class="text-gray-600">
+      If it keeps happening, let the committee know at{' '}
+      <a href="mailto:info@omaghharriers.com" class="underline">info@omaghharriers.com</a>.
+    </p>
+  </PageContainer>
+</Layout>

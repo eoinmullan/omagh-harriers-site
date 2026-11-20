@@ -42,6 +42,11 @@ export interface SignIn {
 export interface UndoSignIn {
   kind: 'undo_sign_in';
   attendanceId: string;
+  /**
+   * Who is being unticked, for the sentence shown if Postgres refuses it.
+   * Optional because a queue saved before this existed has entries without it.
+   */
+  memberId?: string;
 }
 
 export interface GuestSignIn {

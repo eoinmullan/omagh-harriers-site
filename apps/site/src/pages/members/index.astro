@@ -4,6 +4,7 @@ import PageContainer from '../../components/PageContainer.astro';
 import { formatBalance } from '../../lib/credits/money';
 import { mayRunASession } from '../../lib/training/registrar';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { orThrow } from '../../lib/supabase/or-throw';
 
 // Middleware guarantees auth + active principal + terms accepted before we get here.
 // Defensive fallback only.
@@ -20,11 +21,11 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const { data: principal } = await Astro.locals.supabase
+const principal = orThrow(await Astro.locals.supabase
   .from('principals')
   .select('id, display_name, role')
   .eq('auth_user_id', user.id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!principal) return Astro.redirect('/signin');
 
@@ -36,11 +37,11 @@ function formatDob(dob: string): string {
   });
 }
 
-const { data: balance } = await Astro.locals.supabase
+const balance = orThrow(await Astro.locals.supabase
   .from('principal_balances')
   .select('balance_pence')
   .eq('principal_id', principal.id)
-  .maybeSingle();
+  .maybeSingle());
 
 const balancePence = balance?.balance_pence ?? 0;
 
@@ -48,12 +49,12 @@ const balancePence = balance?.balance_pence ?? 0;
 // or a gender (migration 0018 limits it to the columns the registrar app
 // needs). Scoped to this household's principal, found through the member's own
 // session above. The same pattern /members/credits uses for the ledger.
-const { data: members } = await createSupabaseAdminClientFromLocals(Astro.locals)
+const members = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
   .from('members')
   .select('id, first_name, surname, date_of_birth, status, gender')
   .eq('principal_id', principal.id)
   .eq('is_active', true)
-  .order('first_name');
+  .order('first_name'));
 ---
 
 <Layout title="Members' Area — Omagh Harriers AC">

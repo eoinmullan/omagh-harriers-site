@@ -1,7 +1,9 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { isEmpty, planGroupMembership } from '../../../lib/training/groups';
+import { orThrow } from '../../../lib/supabase/or-throw';
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/squads');
@@ -16,20 +18,20 @@ const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 // Surname first, so siblings sit together — the same ordering the registrar
 // app uses at the track.
 async function loadMembers() {
-  const { data } = await adminClient
+  const data = orThrow(await adminClient
     .from('members')
     .select('id, first_name, surname')
     .eq('is_active', true)
     .order('surname')
-    .order('first_name');
+    .order('first_name'));
   return data ?? [];
 }
 
 async function loadMemberIdsInGroup(groupId: string): Promise<string[]> {
-  const { data } = await adminClient
+  const data = orThrow(await adminClient
     .from('member_groups')
     .select('member_id')
-    .eq('group_id', groupId);
+    .eq('group_id', groupId));
   return (data ?? []).map((row) => row.member_id);
 }
 
@@ -75,15 +77,20 @@ if (Astro.request.method === 'POST') {
   }
 }
 
+// Succeeded: send the browser back here as a GET, so a reload can't
+// submit the form again. A failure renders below, keeping what was typed.
+if (success) return redirectAfterPost(Astro, success);
+success = takeFlash(Astro.cookies);
+
 function describeChange(count: number, verb: string): string {
   return count === 1 ? `1 member ${verb}` : `${count} members ${verb}`;
 }
 
-const { data: group } = await adminClient
+const group = orThrow(await adminClient
   .from('groups')
   .select('id, name, is_active')
   .eq('id', id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!group) return Astro.redirect('/admin/squads');
 
@@ -92,9 +99,9 @@ const inGroup = new Set(await loadMemberIdsInGroup(id));
 
 // Which other squads each member already trains with — the context that makes
 // a junior in the sprint squad obvious at a glance.
-const { data: allMemberships } = await adminClient
+const allMemberships = orThrow(await adminClient
   .from('member_groups')
-  .select('member_id, group:group_id(name)');
+  .select('member_id, group:group_id(name)'));
 
 type MembershipRow = { member_id: string; group: { name: string } | null };
 

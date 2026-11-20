@@ -14,6 +14,7 @@ import {
   type RosterMember,
   type Showing,
 } from '../../lib/training/usuals';
+import { describeLostWrite, type Names } from '../../lib/training/lost-write';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
 import { moneyCaveat } from '../../lib/training/queue';
 import { safeToRefresh, WATCH_INTERVAL_MS } from '../../lib/training/watching';
@@ -412,11 +413,13 @@ export function AttendanceView({
     void load();
   }, [outbox.caughtUp, load]);
 
+  // A refusal means this screen believes something the database doesn't, so
+  // reload. Keyed on the count, so every new refusal reloads (the old string
+  // key missed a second refusal with the same text) and dismissing doesn't.
   useEffect(() => {
-    if (!outbox.refused) return;
-    setProblem(`${outbox.refused} — the list has been reloaded.`);
+    if (outbox.refused.length === 0) return;
     void load();
-  }, [outbox.refused, load]);
+  }, [outbox.refused.length, load]);
 
   const data = state.phase === 'ready' ? state.data : undefined;
 
@@ -493,7 +496,7 @@ export function AttendanceView({
 
     outbox.add(
       wasHere
-        ? { kind: 'undo_sign_in', attendanceId }
+        ? { kind: 'undo_sign_in', attendanceId, memberId: member.id }
         : {
             kind: 'sign_in',
             memberId: member.id,
@@ -772,6 +775,22 @@ export function AttendanceView({
           </p>
         )}
 
+        {outbox.refused.length > 0 && (
+          <div className="mb-3 space-y-2">
+            {outbox.refused.map((refusal) => (
+              <Problem key={refusal.id}>
+                <span className="block font-semibold">
+                  {describeLostWrite(refusal.write, namesFrom(data))}
+                </span>
+                <span className="mt-1 block text-sm text-red-300/80">{refusal.reason}</span>
+              </Problem>
+            ))}
+            <BigButton tone="quiet" onClick={outbox.dismissRefusals}>
+              {outbox.refused.length === 1 ? 'Got it' : `Got all ${outbox.refused.length}`}
+            </BigButton>
+          </div>
+        )}
+
         {problem && (
           <div className="mb-3">
             <Problem>{problem}</Problem>
@@ -897,4 +916,21 @@ function Tile({
       </p>
     </button>
   );
+}
+
+// Names for a refused write, from whatever this screen has loaded. The roster
+// and guest list are the whole club, so a refusal for another session's write
+// still finds its people. Anything missing falls back to a plain description.
+function namesFrom(data: Loaded | undefined): Names {
+  return {
+    member: (id) => {
+      const member = data?.members.find((candidate) => candidate.id === id);
+      return member ? `${member.firstName} ${member.surname}` : undefined;
+    },
+    household: (id) => data?.households.get(id)?.name,
+    guest: (id) => {
+      const guest = data?.guests.find((candidate) => candidate.id === id);
+      return guest ? `${guest.firstName} ${guest.surname}` : undefined;
+    },
+  };
 }

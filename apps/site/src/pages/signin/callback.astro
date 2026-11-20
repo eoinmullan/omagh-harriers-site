@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
+import { orThrow } from '../../lib/supabase/or-throw';
 
 const INTENDED_EMAIL_COOKIE = 'oauth_intended_email';
 
@@ -15,11 +16,11 @@ function takeIntendedEmail(): string | undefined {
 }
 
 async function redirectForUser(userId: string) {
-  const { data: principal } = await Astro.locals.supabase
+  const principal = orThrow(await Astro.locals.supabase
     .from('principals')
     .select('terms_accepted_at')
     .eq('auth_user_id', userId)
-    .maybeSingle();
+    .maybeSingle());
   return principal?.terms_accepted_at ? '/members' : '/signin/terms';
 }
 

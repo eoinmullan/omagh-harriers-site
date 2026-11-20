@@ -1,7 +1,9 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
 import { everyRow } from '../../lib/supabase/every-row';
+import { orThrow } from '../../lib/supabase/or-throw';
 import {
   planGroupRename,
   planGroupRetirement,
@@ -20,10 +22,10 @@ if (!user) return Astro.redirect('/signin');
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
 async function loadGroups(): Promise<ExistingGroup[]> {
-  const { data } = await adminClient
+  const data = orThrow(await adminClient
     .from('groups')
     .select('id, name, is_active')
-    .order('name');
+    .order('name'));
 
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -86,6 +88,11 @@ if (Astro.request.method === 'POST') {
     else success = confirmation;
   }
 }
+
+// Succeeded: send the browser back here as a GET, so a reload can't
+// submit the form again. A failure renders below, keeping what was typed.
+if (success) return redirectAfterPost(Astro, success);
+success = takeFlash(Astro.cookies);
 
 const groups = await loadGroups();
 

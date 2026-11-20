@@ -1,11 +1,14 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
+import { newFormId, submittedFormId } from '../../lib/http/form-id';
 import { everyRow } from '../../lib/supabase/every-row';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
 import { formatPounds } from '../../lib/credits/money';
 import { formatClubDateTime } from '../../lib/training/club-time';
 import { planNewSession, partitionByStart, type SessionGroup } from '../../lib/training/sessions';
+import { orThrow } from '../../lib/supabase/or-throw';
 import {
   countHeads,
   summariseSessionCash,
@@ -20,16 +23,16 @@ if (!user) return Astro.redirect('/signin');
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const { data: actingPrincipal } = await Astro.locals.supabase
+const actingPrincipal = orThrow(await Astro.locals.supabase
   .from('principals')
   .select('id')
   .eq('auth_user_id', user.id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!actingPrincipal) return Astro.redirect('/signin');
 
 async function loadGroups(): Promise<SessionGroup[]> {
-  const { data } = await adminClient.from('groups').select('id, name, is_active').order('name');
+  const data = orThrow(await adminClient.from('groups').select('id, name, is_active').order('name'));
   return (data ?? []).map((row) => ({
     id: row.id,
     name: row.name,
@@ -56,9 +59,12 @@ if (Astro.request.method === 'POST') {
   if ('problem' in plan) {
     error = plan.problem;
   } else {
+    // Inserted under the id the form was drawn with, ignoring a conflict, so
+    // a double click or a resubmitted form makes one session, not two.
+    const id = submittedFormId(formData.get('form_id'));
     const { error: insertError } = await adminClient
       .from('training_sessions')
-      .insert(plan.insert);
+      .upsert({ ...plan.insert, ...(id ? { id } : {}) }, { onConflict: 'id', ignoreDuplicates: true });
 
     if (insertError) {
       console.error('[admin/sessions] session insert failed:', insertError);
@@ -70,13 +76,18 @@ if (Astro.request.method === 'POST') {
   }
 }
 
+// Succeeded: send the browser back here as a GET, so a reload can't
+// submit the form again. A failure renders below, keeping what was typed.
+if (success) return redirectAfterPost(Astro, success);
+success = takeFlash(Astro.cookies);
+
 const groups = await loadGroups();
 const runningGroups = groups.filter((group) => group.isActive);
 
-const { data: sessionRows } = await adminClient
+const sessionRows = orThrow(await adminClient
   .from('training_sessions')
   .select('id, starts_at, note, price_pence, is_cancelled, group:group_id(name)')
-  .order('starts_at', { ascending: false });
+  .order('starts_at', { ascending: false }));
 
 type SessionListRow = {
   id: string;
@@ -197,6 +208,7 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
         <section class="mb-10">
           <h2 class="text-lg font-semibold mb-3">Create a session</h2>
           <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <input type="hidden" name="form_id" value={newFormId()} />
             <div>
               <label class="block text-sm font-medium mb-1" for="session-group">Squad</label>
               <select

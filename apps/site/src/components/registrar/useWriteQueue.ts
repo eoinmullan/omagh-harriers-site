@@ -35,11 +35,25 @@ const COALESCING_WINDOW_MS = 2_000;
 /** How long to wait after a failure that is worth retrying. */
 const RETRY_AFTER_MS = 5_000;
 
+/** A write Postgres refused and the queue gave up on. */
+export interface Refusal {
+  id: string;
+  write: Write;
+  /** Postgres's own words, kept for whoever investigates later. */
+  reason: string;
+}
+
 export interface Outbox {
   add: (write: Write) => void;
   pending: number;
   online: boolean;
-  refused: string | null;
+  /**
+   * Every write refused since the registrar last dismissed them. A list,
+   * because they come in runs, and a lost cash entry must not be pushed off
+   * the screen by the next refusal or the next tap.
+   */
+  refused: Refusal[];
+  dismissRefusals: () => void;
   /**
    * Bumped when a queue restored from storage finishes landing.
    *
@@ -55,7 +69,7 @@ export function useWriteQueue(): Outbox {
   const [online, setOnline] = useState(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine,
   );
-  const [refused, setRefused] = useState<string | null>(null);
+  const [refused, setRefused] = useState<Refusal[]>([]);
   const [caughtUp, setCaughtUp] = useState(0);
 
   const queue = useRef<Queued[]>([]);
@@ -97,7 +111,7 @@ export function useWriteQueue(): Outbox {
         // end of the night, so drop it and say so.
         queue.current = settle(queue.current, item.id);
         persist();
-        setRefused(failure.message);
+        setRefused((list) => [...list, { id: item.id, write: item.write, reason: failure.message }]);
       }
 
       if (holdingRestoredWork.current) {
@@ -111,7 +125,8 @@ export function useWriteQueue(): Outbox {
 
   const add = useCallback(
     (write: Write) => {
-      setRefused(null);
+      // A new tap used to clear the last refusal. It no longer does: a lost
+      // cash entry stays on screen until the registrar says they've seen it.
       queue.current = enqueue(queue.current, {
         id: crypto.randomUUID(),
         write,
@@ -155,5 +170,7 @@ export function useWriteQueue(): Outbox {
     };
   }, [flush]);
 
-  return { add, pending, online, refused, caughtUp };
+  const dismissRefusals = useCallback(() => setRefused([]), []);
+
+  return { add, pending, online, refused, dismissRefusals, caughtUp };
 }

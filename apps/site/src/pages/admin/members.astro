@@ -1,6 +1,9 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
+import { newFormId, submittedFormId } from '../../lib/http/form-id';
+import { orThrow } from '../../lib/supabase/or-throw';
 
 const {
   data: { user },
@@ -9,11 +12,11 @@ if (!user) return Astro.redirect('/signin');
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const { data: actingPrincipal } = await Astro.locals.supabase
+const actingPrincipal = orThrow(await Astro.locals.supabase
   .from('principals')
   .select('role')
   .eq('auth_user_id', user.id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!actingPrincipal) return Astro.redirect('/signin');
 
@@ -37,7 +40,11 @@ if (Astro.request.method === 'POST') {
     if (!principalId || !firstName || !surname || !dob) {
       error = 'Household, first name, surname, and date of birth are required.';
     } else {
-      const { error: e } = await adminClient.from('members').insert({
+      // Inserted under the id the form was drawn with, ignoring a conflict, so
+      // a double click or a resubmitted form adds the child once.
+      const id = submittedFormId(formData.get('form_id'));
+      const { error: e } = await adminClient.from('members').upsert({
+        ...(id ? { id } : {}),
         principal_id: principalId,
         first_name: firstName,
         surname,
@@ -46,23 +53,28 @@ if (Astro.request.method === 'POST') {
         athletic_association_number: aan,
         source: 'manual',
         status: 'paid',
-      });
+      }, { onConflict: 'id', ignoreDuplicates: true });
       if (e) error = e.message;
       else success = `${firstName} ${surname} added.`;
     }
   }
 }
 
-const { data: members } = await adminClient
+// Succeeded: send the browser back here as a GET, so a reload can't
+// submit the form again. A failure renders below, keeping what was typed.
+if (success) return redirectAfterPost(Astro, success);
+success = takeFlash(Astro.cookies);
+
+const members = orThrow(await adminClient
   .from('members')
   .select('id, first_name, surname, date_of_birth, status, is_active, source, principal_id')
-  .order('surname');
+  .order('surname'));
 
-const { data: principals } = await adminClient
+const principals = orThrow(await adminClient
   .from('principals')
   .select('id, email, display_name')
   .eq('is_active', true)
-  .order('display_name');
+  .order('display_name'));
 
 const principalById = new Map(
   (principals ?? []).map((p) => [p.id, p]),
@@ -109,6 +121,7 @@ function formatDob(dob: string): string {
       >
       <form method="POST" class="px-5 pb-5 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <input type="hidden" name="action" value="add" />
+        <input type="hidden" name="form_id" value={newFormId()} />
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium mb-1">Household</label>
           <select

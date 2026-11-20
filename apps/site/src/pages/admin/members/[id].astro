@@ -1,6 +1,8 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
+import { orThrow } from '../../../lib/supabase/or-throw';
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/members');
@@ -12,11 +14,11 @@ if (!user) return Astro.redirect('/signin');
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const { data: actingPrincipal } = await Astro.locals.supabase
+const actingPrincipal = orThrow(await Astro.locals.supabase
   .from('principals')
   .select('role')
   .eq('auth_user_id', user.id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!actingPrincipal) return Astro.redirect('/signin');
 
@@ -64,19 +66,24 @@ if (Astro.request.method === 'POST' && isSuperuser) {
   }
 }
 
-const { data: member } = await adminClient
+// Succeeded: send the browser back here as a GET, so a reload can't
+// submit the form again. A failure renders below, keeping what was typed.
+if (success) return redirectAfterPost(Astro, success);
+success = takeFlash(Astro.cookies);
+
+const member = orThrow(await adminClient
   .from('members')
   .select('*')
   .eq('id', id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!member) return Astro.redirect('/admin/members');
 
-const { data: principal } = await adminClient
+const principal = orThrow(await adminClient
   .from('principals')
   .select('id, email, display_name')
   .eq('id', member.principal_id)
-  .maybeSingle();
+  .maybeSingle());
 ---
 
 <AdminLayout section="members" title={`${member.first_name} ${member.surname}`} breadcrumb={[{ label: 'Members', href: '/admin/members' }, { label: `${member.first_name} ${member.surname}` }]}>

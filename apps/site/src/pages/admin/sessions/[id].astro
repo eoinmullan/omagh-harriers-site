@@ -1,8 +1,10 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
 import { formatClubDateTime } from '../../../lib/training/club-time';
+import { orThrow } from '../../../lib/supabase/or-throw';
 import {
   planCancellation,
   planReinstatement,
@@ -26,20 +28,20 @@ if (!user) return Astro.redirect('/signin');
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const { data: actingPrincipal } = await Astro.locals.supabase
+const actingPrincipal = orThrow(await Astro.locals.supabase
   .from('principals')
   .select('id')
   .eq('auth_user_id', user.id)
-  .maybeSingle();
+  .maybeSingle());
 
 if (!actingPrincipal) return Astro.redirect('/signin');
 
 async function loadSession(sessionId: string) {
-  const { data } = await adminClient
+  const data = orThrow(await adminClient
     .from('training_sessions')
     .select('id, starts_at, note, price_pence, is_cancelled, group:group_id(id, name)')
     .eq('id', sessionId)
-    .maybeSingle();
+    .maybeSingle());
 
   if (!data) return undefined;
 
@@ -124,15 +126,20 @@ if (Astro.request.method === 'POST') {
   }
 }
 
+// Succeeded: send the browser back here as a GET, so a reload can't
+// submit the form again. A failure renders below, keeping what was typed.
+if (success) return redirectAfterPost(Astro, success);
+success = takeFlash(Astro.cookies);
+
 const session = await loadSession(id);
 if (!session) return Astro.redirect('/admin/sessions');
 
-const { data: attendanceRows } = await adminClient
+const attendanceRows = orThrow(await adminClient
   .from('attendance')
   .select(
     'id, member_id, guest_id, amount_paid_pence, created_at, member:member_id(first_name, surname, principal:principal_id(display_name)), guest:guest_id(first_name, surname), recorder:recorded_by(display_name)',
   )
-  .eq('session_id', id);
+  .eq('session_id', id));
 
 type AttendanceDetailRow = {
   id: string;
@@ -151,13 +158,13 @@ type AttendanceDetailRow = {
 
 const attendanceDetail = (attendanceRows ?? []) as unknown as AttendanceDetailRow[];
 
-const { data: ledgerRows } = await adminClient
+const ledgerRows = orThrow(await adminClient
   .from('credit_transactions')
   .select(
     'id, type, amount_pence, member_id, notes, created_at, principal:principal_id(display_name), recorder:created_by(display_name)',
   )
   .eq('session_id', id)
-  .order('created_at');
+  .order('created_at'));
 
 type SessionLedgerDetailRow = {
   id: string;

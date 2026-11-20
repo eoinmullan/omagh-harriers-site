@@ -15,6 +15,9 @@ interface ImportMeta {
 declare namespace App {
   interface Locals {
     supabase: import('./lib/supabase/server').SupabaseServerClient;
+    /** Set by the middleware on /members and /admin. Read it through whoIsSignedIn(). */
+    user?: import('@supabase/supabase-js').User;
+    principal?: import('./lib/auth/signed-in').SignedInPrincipal;
     runtime?: {
       env?: {
         SUPABASE_SECRET_KEY?: string;

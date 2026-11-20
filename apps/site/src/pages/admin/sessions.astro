@@ -7,8 +7,10 @@ import { everyRow } from '../../lib/supabase/every-row';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
 import { formatPounds } from '../../lib/credits/money';
 import { formatClubDateTime } from '../../lib/training/club-time';
-import { planNewSession, partitionByStart, type SessionGroup } from '../../lib/training/sessions';
+import { pastWindow, planNewSession, partitionByStart, type SessionGroup } from '../../lib/training/sessions';
+import { formatClubDate } from '../../lib/training/club-time';
 import { orThrow } from '../../lib/supabase/or-throw';
+import { whoIsSignedIn } from '../../lib/auth/signed-in';
 import {
   countHeads,
   summariseSessionCash,
@@ -16,20 +18,10 @@ import {
   type SessionLedgerRow,
 } from '../../lib/training/session-cash';
 
-const {
-  data: { user },
-} = await Astro.locals.supabase.auth.getUser();
-if (!user) return Astro.redirect('/signin');
+const { principal: actingPrincipal } = whoIsSignedIn(Astro.locals);
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const actingPrincipal = orThrow(await Astro.locals.supabase
-  .from('principals')
-  .select('id')
-  .eq('auth_user_id', user.id)
-  .maybeSingle());
-
-if (!actingPrincipal) return Astro.redirect('/signin');
 
 async function loadGroups(): Promise<SessionGroup[]> {
   const data = orThrow(await adminClient.from('groups').select('id, name, is_active').order('name'));
@@ -84,10 +76,37 @@ success = takeFlash(Astro.cookies);
 const groups = await loadGroups();
 const runningGroups = groups.filter((group) => group.isActive);
 
-const sessionRows = orThrow(await adminClient
-  .from('training_sessions')
-  .select('id, starts_at, note, price_pence, is_cancelled, group:group_id(name)')
-  .order('starts_at', { ascending: false }));
+// Upcoming sessions are always shown; the past is shown twelve weeks at a
+// time (pastWindow), so this page does the same work however long the club
+// has kept records. The counts tell the admin how much is outside the window.
+const pastRange = pastWindow({ until: Astro.url.searchParams.get('until') });
+const nowIso = new Date().toISOString();
+const windowEndIso = pastRange.to.toISOString();
+// A window's edges are UTC midnights. Labelling a day from its midday keeps the
+// date the same in Omagh time, summer or winter. Labelling the instant before
+// midnight showed the next day during British Summer Time.
+const middayOf = (date: Date) => `${date.toISOString().slice(0, 10)}T12:00:00Z`;
+const SESSION_COLUMNS = 'id, starts_at, note, price_pence, is_cancelled, group:group_id(name)';
+
+const [upcomingRows, pastRows, pastTotal, earlierTotal] = await Promise.all([
+  adminClient.from('training_sessions').select(SESSION_COLUMNS).gte('starts_at', nowIso),
+  adminClient
+    .from('training_sessions')
+    .select(SESSION_COLUMNS)
+    .gte('starts_at', pastRange.from.toISOString())
+    .lt('starts_at', windowEndIso < nowIso ? windowEndIso : nowIso),
+  adminClient.from('training_sessions').select('id', { count: 'exact', head: true }).lt('starts_at', nowIso),
+  adminClient
+    .from('training_sessions')
+    .select('id', { count: 'exact', head: true })
+    .lt('starts_at', pastRange.from.toISOString()),
+]);
+
+const sessionRows = [...(orThrow(upcomingRows) ?? []), ...(orThrow(pastRows) ?? [])];
+orThrow(pastTotal);
+orThrow(earlierTotal);
+const pastCount = pastTotal.count ?? 0;
+const earlierCount = earlierTotal.count ?? 0;
 
 type SessionListRow = {
   id: string;
@@ -105,29 +124,33 @@ const sessions = ((sessionRows ?? []) satisfies SessionListRow[]).map((row) => (
 
 const { upcoming, past } = partitionByStart(sessions);
 
-// Headcount and cash for the past list, which is the view the committee
-// actually reads. The money rule stays in session-cash.ts, which is tested
-// and must agree with the registrar's cash.ts, so the rows come here rather
-// than the sum being worked out in SQL. `everyRow` pages past PostgREST's
-// 1000-row limit: these reads grow with every session the club runs, and a
-// cut-off read made the money figures wrong without any error. It also
-// replaces an `.in()` filter that put every past session's id into one URL.
-const attendanceRows = await everyRow((from, to) =>
-  adminClient
-    .from('attendance')
-    .select('id, session_id, member_id, guest_id, amount_paid_pence, recorded_by')
-    .order('id')
-    .range(from, to),
-);
-
-const ledgerRows = await everyRow((from, to) =>
-  adminClient
-    .from('credit_transactions')
-    .select('id, session_id, type, amount_pence, created_by')
-    .not('session_id', 'is', null)
-    .order('id')
-    .range(from, to),
-);
+// Headcount and cash for the past sessions on screen, which is the view the
+// committee actually reads. The money rule stays in session-cash.ts, which is
+// tested and must agree with the registrar's cash.ts, so the rows come here
+// rather than the sum being worked out in SQL. Only this window's sessions,
+// so the `.in()` list holds at most twelve weeks of ids. `everyRow` still
+// pages, because twelve weeks of a busy club can pass 1000 rows.
+const pastIds = past.map((session) => session.id);
+const [attendanceRows, ledgerRows] = pastIds.length
+  ? await Promise.all([
+      everyRow((from, to) =>
+        adminClient
+          .from('attendance')
+          .select('id, session_id, member_id, guest_id, amount_paid_pence, recorded_by')
+          .in('session_id', pastIds)
+          .order('id')
+          .range(from, to),
+      ),
+      everyRow((from, to) =>
+        adminClient
+          .from('credit_transactions')
+          .select('id, session_id, type, amount_pence, created_by')
+          .in('session_id', pastIds)
+          .order('id')
+          .range(from, to),
+      ),
+    ])
+  : [[], []];
 
 const attendanceBySession = new Map<string, SessionAttendanceRow[]>();
 for (const row of attendanceRows) {
@@ -171,7 +194,7 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
       <div>
         <h1 class="text-3xl font-bold">Training sessions</h1>
         <p class="text-gray-500 mt-1">
-          {upcoming.length} coming up · {past.length} run
+          {upcoming.length} coming up · {pastCount} run
         </p>
       </div>
       <a href="/admin/squads" class="text-sm underline hover:text-gray-600"
@@ -318,7 +341,16 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
     </section>
 
     <section>
-      <h2 class="text-lg font-semibold mb-4">Already run ({past.length})</h2>
+      <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+        <h2 class="text-lg font-semibold">
+          {pastRange.isRecent
+            ? `Run in the last 12 weeks (${past.length})`
+            : `Run ${formatClubDate(middayOf(pastRange.from))} to ${formatClubDate(middayOf(new Date(pastRange.to.getTime() - 24 * 60 * 60 * 1000)))} (${past.length})`}
+        </h2>
+        {!pastRange.isRecent && (
+          <a href="/admin/sessions" class="text-sm underline hover:text-gray-600">Back to the most recent</a>
+        )}
+      </div>
 
       {
         pastWithFigures.length > 0 ? (
@@ -366,7 +398,18 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
             </table>
           </div>
         ) : (
-          <p class="text-gray-500 text-sm">No session has run yet.</p>
+          <p class="text-gray-500 text-sm">
+            {pastCount === 0 ? 'No session has run yet.' : 'No sessions ran in these twelve weeks.'}
+          </p>
+        )
+      }
+      {
+        earlierCount > 0 && (
+          <p class="mt-4">
+            <a href={`/admin/sessions?until=${pastRange.earlierUntil}`} class="text-sm underline hover:text-gray-600">
+              The twelve weeks before ({earlierCount} older session{earlierCount === 1 ? '' : 's'} in all) →
+            </a>
+          </p>
         )
       }
       <p class="text-xs text-gray-400 mt-4">

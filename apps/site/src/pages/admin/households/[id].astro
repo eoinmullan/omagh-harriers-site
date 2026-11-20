@@ -16,6 +16,7 @@ import {
 } from '../../../lib/credits/ledger';
 import type { CreditTransactionType } from '../../../lib/supabase/types';
 import { orThrow } from '../../../lib/supabase/or-throw';
+import { whoIsSignedIn } from '../../../lib/auth/signed-in';
 
 // One page per household, because a household is one thing an admin holds in
 // their head: a name, the people in it, a role and a balance. It used to be
@@ -26,20 +27,10 @@ const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/households');
 const householdId = id;
 
-const {
-  data: { user },
-} = await Astro.locals.supabase.auth.getUser();
-if (!user) return Astro.redirect('/signin');
+const { principal: actingPrincipal } = whoIsSignedIn(Astro.locals);
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const actingPrincipal = orThrow(await Astro.locals.supabase
-  .from('principals')
-  .select('id, role')
-  .eq('auth_user_id', user.id)
-  .maybeSingle());
-
-if (!actingPrincipal) return Astro.redirect('/signin');
 
 const isSuperuser = actingPrincipal.role === 'superuser';
 const offeredRoles = assignableRoles(actingPrincipal.role);

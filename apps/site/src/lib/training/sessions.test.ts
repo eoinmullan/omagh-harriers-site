@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../credits/ledger';
 import {
   partitionByStart,
+  pastWindow,
   planCancellation,
   planNewSession,
   planReinstatement,
@@ -250,5 +251,45 @@ describe('partitionByStart', () => {
 
   it('copes with nothing scheduled at all', () => {
     expect(partitionByStart([], now)).toEqual({ upcoming: [], past: [] });
+  });
+});
+
+describe('pastWindow', () => {
+  const now = new Date('2026-11-20T14:30:00Z');
+
+  it('shows the most recent twelve weeks when no date is asked for', () => {
+    const window = pastWindow({ until: null, now });
+
+    expect(window.isRecent).toBe(true);
+    expect(window.to.toISOString()).toBe('2026-11-20T14:30:00.000Z');
+    expect(window.from.toISOString()).toBe('2026-08-28T00:00:00.000Z');
+    expect(window.earlierUntil).toBe('2026-08-28');
+  });
+
+  it('shows the twelve weeks before a date when one is asked for', () => {
+    const window = pastWindow({ until: '2026-08-28', now });
+
+    expect(window.isRecent).toBe(false);
+    expect(window.to.toISOString()).toBe('2026-08-28T00:00:00.000Z');
+    expect(window.from.toISOString()).toBe('2026-06-05T00:00:00.000Z');
+    expect(window.earlierUntil).toBe('2026-06-05');
+  });
+
+  it('pages back with no gap and no overlap, so no session falls between two windows', () => {
+    const recent = pastWindow({ until: null, now });
+    const before = pastWindow({ until: recent.earlierUntil, now });
+    const beforeThat = pastWindow({ until: before.earlierUntil, now });
+
+    expect(before.to.getTime()).toBe(recent.from.getTime());
+    expect(beforeThat.to.getTime()).toBe(before.from.getTime());
+  });
+
+  it('treats a date that is not a date as asking for the most recent weeks', () => {
+    expect(pastWindow({ until: 'yesterday', now }).isRecent).toBe(true);
+    expect(pastWindow({ until: '2026-02-30', now }).isRecent).toBe(true);
+  });
+
+  it('treats a date in the future as asking for the most recent weeks', () => {
+    expect(pastWindow({ until: '2027-01-01', now }).isRecent).toBe(true);
   });
 });

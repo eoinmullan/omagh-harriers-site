@@ -127,3 +127,51 @@ function priceIsSettledMessage(pricePence: number, attendanceCount: number): str
   const runners = attendanceCount === 1 ? 'one runner has' : `${attendanceCount} runners have`;
   return `${runners} already signed in at ${formatPounds(pricePence)}. The ledger records what they were charged, so the price stays as it is — cancel this session and create another if it was wrong.`;
 }
+
+// Which past sessions /admin/sessions lists: twelve weeks at a time.
+//
+// The page used to list every session the club had ever run, and so read
+// every attendance and ledger row ever written to put figures beside them,
+// about 44 sequential requests after three seasons on the page the committee
+// checks the money on. A window keeps the work the same size however old the
+// club's history gets.
+//
+// Windows start and end on UTC midnights, so paging back with `earlierUntil`
+// continues exactly where the last window began. If the recent window started
+// at "now minus twelve weeks" at 14:30 while the next ended at midnight, a
+// session between the two would appear in neither.
+
+const WINDOW_DAYS = 84;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface PastWindow {
+  /** Inclusive. Always a UTC midnight. */
+  from: Date;
+  /** Exclusive. `now` for the recent window, otherwise a UTC midnight. */
+  to: Date;
+  /** The `?until=` that shows the twelve weeks before this window. */
+  earlierUntil: string;
+  /** True when this is the most recent window rather than an earlier one. */
+  isRecent: boolean;
+}
+
+export function pastWindow(request: { until: string | null; now?: Date }): PastWindow {
+  const now = request.now ?? new Date();
+  const asked = midnightOf(request.until);
+  const isRecent = !asked || asked.getTime() > now.getTime();
+
+  const to = isRecent ? now : asked;
+  const from = new Date(utcMidnight(to).getTime() - WINDOW_DAYS * DAY_MS);
+
+  return { from, to, earlierUntil: from.toISOString().slice(0, 10), isRecent };
+}
+
+function midnightOf(value: string | null): Date | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const date = new Date(`${value}T00:00:00Z`);
+  return date.toISOString().slice(0, 10) === value ? date : undefined;
+}
+
+function utcMidnight(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}

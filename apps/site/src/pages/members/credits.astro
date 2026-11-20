@@ -6,21 +6,12 @@ import { describeEntry, isCredit } from '../../lib/credits/transactions';
 import { formatBalance } from '../../lib/credits/money';
 import type { CreditTransactionType } from '../../lib/supabase/types';
 import { orThrow } from '../../lib/supabase/or-throw';
+import { whoIsSignedIn } from '../../lib/auth/signed-in';
 
 // Middleware guarantees auth + active principal + terms accepted before we get here.
 // Defensive fallback only.
-const {
-  data: { user },
-} = await Astro.locals.supabase.auth.getUser();
-if (!user) return Astro.redirect('/signin');
+const { principal } = whoIsSignedIn(Astro.locals);
 
-const principal = orThrow(await Astro.locals.supabase
-  .from('principals')
-  .select('id')
-  .eq('auth_user_id', user.id)
-  .maybeSingle());
-
-if (!principal) return Astro.redirect('/signin');
 
 const balance = orThrow(await Astro.locals.supabase
   .from('principal_balances')

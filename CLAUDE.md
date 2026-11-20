@@ -531,6 +531,14 @@ fire and execution falls through. `0011` had this and `0013` fixed it. RLS was
 never fooled (its policies refuse a NULL just as firmly), but the function's own
 guard did nothing. Copy the `IS NOT TRUE` form into anything new.
 
+**A read rule works out the role once per query.** Every RLS policy wraps
+its role or identity call as `(select public.can_run_a_session())` or
+`(select auth.uid())`. Postgres then evaluates it once per query as an
+InitPlan, not once for every row it checks. Unwrapped, the registrar's
+balances read re-parsed the JWT claims for every ledger row, on every
+20-second refresh. Migration `0022`. Copy the wrapped form into any new
+policy.
+
 **Every function pins its search path** (`SET search_path = public, pg_temp`).
 The seven older functions that didn't were fixed in `0021`. Copy that into
 anything new, along with `IS NOT TRUE`.
@@ -581,6 +589,19 @@ creates a row also carries an id minted when it's drawn** (`lib/http/form-id.ts`
 The page inserts under that id and ignores a conflict, so a double click
 writes once. Copy both into any new admin form.
 
+**A page asks the middleware who's signed in, not Supabase Auth.** The
+middleware already calls `auth.getUser()` and reads the principal for every
+`/members` and `/admin` request, and it puts both on `Astro.locals`. Pages
+read them with `whoIsSignedIn(Astro.locals)` (`lib/auth/signed-in.ts`). Each
+page used to repeat both lookups: four round trips before its own data, now
+two. `/members` went from 430 ms to 213 ms. Don't call `getUser()` in a
+gated page.
+
+**`astro check` reports a page's `redirectAfterPost` import as unused.** It
+doesn't count a use inside a top-level frontmatter `return`, the same reason
+`callback.astro`'s `redirectForUser` has always shown as a hint. Those hints
+are expected. Don't remove the imports.
+
 **A page read that fails fails the page.** Every server read goes through
 `orThrow` (`lib/supabase/or-throw.ts`), and so does the middleware's. A
 Supabase blip used to render as an empty club: no households, a £0.00
@@ -629,6 +650,14 @@ deletions, because the club has been using those URLs since Phase 4 and a
 bookmark should not 404 to prove a point.
 
 ## Admin session management
+
+**`/admin/sessions` shows the past twelve weeks at a time.** `pastWindow` in
+`training/sessions.ts` picks the window, which starts and ends on UTC
+midnights so paging back never skips a session. The page reads attendance and
+ledger rows only for the sessions in it. Upcoming sessions and the total count
+are always shown, with a link to the twelve weeks before. Listing every
+session ever meant reading every row ever written, about 44 sequential
+requests after three seasons.
 
 Four screens, and between them they make the Phase 5 schema usable: `/admin/squads`
 (add, rename, retire), `/admin/squads/[id]` (who trains with a squad),

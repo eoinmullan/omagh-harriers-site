@@ -25,7 +25,7 @@ The reporting area (Phase 6) isn't built. What it needs is at the end.
 ## PF1. Every read rule re-runs its role check on every row
 
 **Severity: medium. Free today, and it grows with the ledger on the screen
-used most at the track.**
+used most at the track. Fixed by migration `0022`.**
 
 All 13 read policies in force call a role or identity function directly:
 `public.can_run_a_session()`, `public.current_app_role()`, `auth.uid()` or
@@ -53,13 +53,20 @@ out once per query as an InitPlan. Who can read what doesn't change, only how
 often it's worked out. It also cancels `0021`'s inlining cost. It's cheapest
 done before go-live, while the policies are the only thing to change.
 
+**Done.** `0022` rewrites all thirteen policies with `ALTER POLICY`, so each
+keeps its name, command and roles. Verified by behaviour, because there's no
+EXPLAIN access: before and after, the signed-in admin could read exactly the
+same row counts from every table (3, 0, 28, 1, 34, 314, 220, 220, 5), and an
+anonymous read still returned nothing. Who can read what is unchanged. The
+saving shows only at scale.
+
 Once that's done, the full scan behind `principal_balances` isn't a worry.
 Narrow rows, with an index on `(principal_id, created_at)`. Even three seasons
 of ledger is a scan Postgres does in milliseconds.
 
 ## PF2. Every signed-in page checks who you are twice
 
-**Severity: medium. It's the largest fixed cost on every signed-in page.**
+**Severity: medium. It's the largest fixed cost on every signed-in page. Fixed.**
 
 | Page | Median (dev, 3 loads) |
 |---|---|
@@ -90,6 +97,21 @@ them on `Astro.locals` (`locals.user`, `locals.principal` with `id`,
 two of the four round trips from every signed-in page. It also removes the
 repetition the code-quality review noted.
 
+**Done.** The middleware puts `user` and `principal` on `Astro.locals`.
+Ten pages read them through `whoIsSignedIn()`, which throws on a page the
+middleware doesn't gate rather than rendering as nobody. The two squad pages
+only used `getUser()` as a guard the middleware already provides, so the call
+is gone. Measured the same way as above:
+
+| Page | Before | After |
+|---|---|---|
+| `/members` | 430 ms | 213 ms |
+| `/members/credits` | 360 ms | 221 ms |
+| `/admin/households` | 451 ms | 325 ms |
+| `/admin/sessions` | 645 ms | 467 ms |
+| `/admin/households/[id]` | 550 ms | 476 ms |
+| `/admin/squads` | 488 ms | 451 ms |
+
 A smaller win in the same pages: independent reads are awaited one after
 another. `/admin/households` reads principals, then member counts, then
 balances. Each is a full round trip, and none depends on the others.
@@ -97,7 +119,7 @@ balances. Each is a full round trip, and none depends on the others.
 
 ## PF3. `/admin/sessions` loads every session's history, forever
 
-**Severity: medium. Correct since B2, but its load time grows without limit.**
+**Severity: medium. Correct since B2, but its load time grows without limit. Fixed.**
 
 B2 made `/admin/sessions` correct by reading *every* attendance row and every
 session-linked ledger row through `everyRow`, so no session's money figure is
@@ -119,6 +141,17 @@ sessions on screen, using a bounded `.in('session_id', ids)` list of 50 ids at
 most. The number of rows then depends on the window, not on the club's age.
 The money rule stays in `session-cash.ts`, as B2 decided. Running the two
 reads in parallel would halve what's left.
+
+**Done.** `pastWindow` (five tests) picks twelve weeks starting and ending on
+UTC midnights, so consecutive windows join with no gap. The page reads only
+that window's sessions, then their attendance and ledger rows by a bounded
+`.in()`, with the two reads in parallel. Upcoming sessions and the total count
+are always shown. Verified: the recent window showed the same three sessions
+with identical figures, the header counted all four past sessions, and paging
+back through two empty windows found the 1 January test session. The first
+end-date label was a day late in summer (*"to 28 Aug"* for a window ending at
+the start of 28 August), because a UTC instant was shown in Omagh time.
+Labelling from midday fixed it: *"5 Jun to 27 Aug"*, *"13 Mar to 4 Jun"*.
 
 `/admin/squads` has the same shape (every session, to count per squad), but it
 only reads one column. It stays small for years.

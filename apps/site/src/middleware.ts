@@ -32,7 +32,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     const principal = orThrow(await context.locals.supabase
       .from('principals')
-      .select('is_active, terms_accepted_at, role')
+      .select('id, display_name, role, is_active, terms_accepted_at')
       .eq('auth_user_id', user.id)
       .maybeSingle());
 
@@ -52,6 +52,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
     ) {
       return context.redirect('/members');
     }
+
+    // Hand the page what was just established, so it doesn't ask Supabase
+    // Auth and read the principal a second time. Pages read these through
+    // whoIsSignedIn() in lib/auth/signed-in.ts.
+    context.locals.user = user;
+    context.locals.principal = {
+      id: principal.id,
+      display_name: principal.display_name,
+      role: principal.role,
+    };
   }
 
   return next();

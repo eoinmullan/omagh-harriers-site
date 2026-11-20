@@ -5,21 +5,12 @@ import { planMember } from '../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
 import { newFormId, submittedFormId } from '../../lib/http/form-id';
 import { orThrow } from '../../lib/supabase/or-throw';
+import { whoIsSignedIn } from '../../lib/auth/signed-in';
 
-const {
-  data: { user },
-} = await Astro.locals.supabase.auth.getUser();
-if (!user) return Astro.redirect('/signin');
+const { principal: actingPrincipal } = whoIsSignedIn(Astro.locals);
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const actingPrincipal = orThrow(await Astro.locals.supabase
-  .from('principals')
-  .select('role')
-  .eq('auth_user_id', user.id)
-  .maybeSingle());
-
-if (!actingPrincipal) return Astro.redirect('/signin');
 
 const isSuperuser = actingPrincipal.role === 'superuser';
 

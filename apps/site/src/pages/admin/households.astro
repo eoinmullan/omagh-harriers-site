@@ -6,25 +6,16 @@ import { loginFor } from '../../lib/auth/logins';
 import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
 import { formatBalance } from '../../lib/credits/money';
 import { orThrow } from '../../lib/supabase/or-throw';
+import { whoIsSignedIn } from '../../lib/auth/signed-in';
 
 // The one list of households, balances included. Credit used to be a second
 // section listing the same 220 rows with different columns, which made "has
 // Jack Kelly's mum paid?" two screens instead of one.
 
-const {
-  data: { user },
-} = await Astro.locals.supabase.auth.getUser();
-if (!user) return Astro.redirect('/signin');
+const { principal: actingPrincipal } = whoIsSignedIn(Astro.locals);
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const actingPrincipal = orThrow(await Astro.locals.supabase
-  .from('principals')
-  .select('role')
-  .eq('auth_user_id', user.id)
-  .maybeSingle());
-
-if (!actingPrincipal) return Astro.redirect('/signin');
 
 let error: string | null = null;
 let success: string | null = null;

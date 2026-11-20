@@ -8,10 +8,7 @@ import { orThrow } from '../../../lib/supabase/or-throw';
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/squads');
 
-const {
-  data: { user },
-} = await Astro.locals.supabase.auth.getUser();
-if (!user) return Astro.redirect('/signin');
+// The middleware has already checked who this is; see lib/auth/signed-in.ts.
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 

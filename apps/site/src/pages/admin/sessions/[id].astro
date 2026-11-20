@@ -21,20 +21,10 @@ import {
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/sessions');
 
-const {
-  data: { user },
-} = await Astro.locals.supabase.auth.getUser();
-if (!user) return Astro.redirect('/signin');
+// The middleware has already checked who this is; see lib/auth/signed-in.ts.
 
 const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
 
-const actingPrincipal = orThrow(await Astro.locals.supabase
-  .from('principals')
-  .select('id')
-  .eq('auth_user_id', user.id)
-  .maybeSingle());
-
-if (!actingPrincipal) return Astro.redirect('/signin');
 
 async function loadSession(sessionId: string) {
   const data = orThrow(await adminClient

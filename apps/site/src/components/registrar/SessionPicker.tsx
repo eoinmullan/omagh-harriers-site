@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { formatClubTime } from '../../lib/training/club-time';
 import { clubDayKey } from '../../lib/training/club-time';
 import {
@@ -34,6 +34,21 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   const [groups, setGroups] = useState<SessionGroup[]>([]);
   const [actorId, setActorId] = useState('');
   const [startedHere, setStartedHere] = useState<SelectableSession[]>([]);
+  // Once the registrar has come back to the list, the one session on tonight
+  // stops opening itself, or Done would bounce straight back into it.
+  const [cameBack, setCameBack] = useState(false);
+
+  // An open session is a history entry of its own, so the phone's back gesture
+  // returns to this list, as it would in any app, instead of leaving.
+  useEffect(() => {
+    function onPopState(event: PopStateEvent) {
+      if (event.state?.registrarSession) return;
+      setChosen(undefined);
+      setCameBack(true);
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
 
   const refresh = useCallback(async () => {
@@ -132,6 +147,17 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
     setChosen(session);
   }
 
+  function backToList() {
+    // Done and the back gesture are the same move. Going back through history
+    // keeps the two in step; without an entry to go back to, just close it.
+    if (window.history.state?.registrarSession) {
+      window.history.back();
+      return;
+    }
+    setChosen(undefined);
+    setCameBack(true);
+  }
+
   if (load.state === 'loading') {
     return (
       <Screen title="Tonight">
@@ -151,16 +177,18 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
 
   const { available, cancelled } = load.tonight;
   const tonightIncludingOurs = [...available, ...startedHere];
-  const opened = chosen ?? theOnlyChoice(load.tonight);
+  const opened = chosen ?? (cameBack ? undefined : theOnlyChoice(load.tonight));
 
   if (opened) {
     return (
-      <AttendanceView
-        authUserId={authUserId}
-        outbox={outbox}
-        session={opened}
-        onBack={available.length > 1 ? () => setChosen(undefined) : undefined}
-      />
+      <AsHistoryEntry sessionId={opened.id}>
+        <AttendanceView
+          authUserId={authUserId}
+          outbox={outbox}
+          session={opened}
+          onBack={backToList}
+        />
+      </AsHistoryEntry>
     );
   }
 
@@ -203,6 +231,14 @@ Nothing is scheduled for tonight. Start one below and sign runners in.
       <InstallHint />
     </Screen>
   );
+}
+
+function AsHistoryEntry({ sessionId, children }: { sessionId: string; children: ReactNode }) {
+  useEffect(() => {
+    if (window.history.state?.registrarSession === sessionId) return;
+    window.history.pushState({ registrarSession: sessionId }, '');
+  }, [sessionId]);
+  return <>{children}</>;
 }
 
 function SessionChoice({

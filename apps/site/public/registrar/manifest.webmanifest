@@ -1,6 +1,6 @@
 {
-  "name": "Omagh Harriers Sign-in",
-  "short_name": "Sign-in",
+  "name": "Harriers Sign-in",
+  "short_name": "Harriers Sign-in",
   "description": "Sign runners in at Omagh Harriers training.",
   "start_url": "/registrar/",
   "scope": "/registrar/",

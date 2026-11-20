@@ -869,7 +869,7 @@ export function AttendanceView({
       {onBack && (
         <div className="mt-auto px-4 pt-4 pb-6">
           <BigButton tone="quiet" onClick={onBack}>
-            Pick a different session
+            Done
           </BigButton>
         </div>
       )}

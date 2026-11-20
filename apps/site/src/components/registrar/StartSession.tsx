@@ -88,7 +88,7 @@ export function StartSession({
   if (!picking) {
     return (
       <BigButton tone="quiet" onClick={() => setPicking(true)}>
-        Start a session here
+        Create a new session
       </BigButton>
     );
   }

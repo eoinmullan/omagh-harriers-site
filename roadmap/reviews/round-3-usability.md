@@ -36,17 +36,17 @@ Ticked as each one lands, in the order they're tackled.
 
 ### Registrar app
 
-- [ ] **The browser back button returns from a session to the session list.**
+- [x] **The browser back button returns from a session to the session list.**
   The history API: each screen is a history entry.
 - [ ] **Preset amounts come first in the cash sheet**, as large buttons, with
   a smaller keypad below them.
-- [ ] **"Pick a different session" becomes "Done".**
+- [x] **"Pick a different session" becomes "Done".**
 - [ ] **One choice of five views**, not two sets of filters that combine:
   Usuals, Everyone, Signed in, Paid, Guests. A single segmented control.
-- [ ] **The app is called "Harriers Sign-in"** in the manifest, on the home
+- [x] **The app is called "Harriers Sign-in"** in the manifest, on the home
   screen and in the title.
-- [ ] **The Harriers logo, small, at the top of the app's home screen.**
-- [ ] **"Start a session here" becomes "Create a new session".**
+- [x] **The Harriers logo, small, at the top of the app's home screen.**
+- [x] **"Start a session here" becomes "Create a new session".**
 - [ ] **A "Past sessions" button on the home screen**, so a registrar can
   fix something the next day.
 - **App icon: on hold.** The user is getting one.
@@ -57,7 +57,18 @@ Ticked as each one lands, in the order they're tackled.
 
 ## Decisions made overnight
 
-(Filled in as the work goes.)
+- **Session start time** is a date picker plus a quarter-hour list, 06:00 to 22:00, default 18:00 (`sessionStartTimes` in `training/sessions.ts`).
+- **A form error reopens the dialog** with what was typed and the problem inside it.
+- **Training times:** the period showing now is marked "Showing now". Past periods are newest first inside the expander.
+- **Admin history:** a member's page lists the 20 most recent sessions they attended, each linked. The household page already had the statement, so it's unchanged.
+- **Logo** is a copy of the site's white-on-black logo at `/registrar/logo.jpg`, shown on every full screen of the app. It's under `/registrar/`, so the service worker caches it. Replacing it later needs the worker's `VERSION` bumped.
+- **Done and browser back** are the same move. After either, the single session on tonight no longer opens itself, so the home screen stays reachable.
+- **The manifest `short_name`** is now "Harriers Sign-in" too. Android may truncate it under the icon.
+
+## Questions for the morning
+
+- **Not checked in the browser.** The sign-in in the browser pane had lapsed, so none of tonight's screens were seen. Everything passes `astro check` and the tests (481). The history query was run read-only against the database and works. Please sign in again so they can be checked.
+- **Still to do:** the five-way view, cash sheet presets, and Past sessions on the home screen.
 
 ## Questions for the morning
 

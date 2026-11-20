@@ -8,8 +8,10 @@ export function Screen({ children, title }: { children: ReactNode; title?: strin
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-6 px-5 py-8">
       <header>
-        <p className="text-sm font-medium tracking-wide text-neutral-400 uppercase">Omagh Harriers</p>
-        {title && <h1 className="mt-1 text-3xl font-bold text-white">{title}</h1>}
+        {/* Served from /registrar/, so the service worker keeps it for a
+            phone opened with no signal. */}
+        <img src="/registrar/logo.jpg" alt="Omagh Harriers" width={428} height={167} className="h-8 w-auto" />
+        {title && <h1 className="mt-4 text-3xl font-bold text-white">{title}</h1>}
       </header>
       {children}
     </main>

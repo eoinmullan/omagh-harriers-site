@@ -23,7 +23,7 @@ committee, and the roadmap is right that they need lead time.
 
 ## P1. Names are frozen into append-only ledger rows
 
-**Severity: high, and only cheap before go-live.**
+**Severity: high, and only cheap before go-live. Fixed by migration `0017`.**
 
 `credit_transactions` is append-only. A trigger refuses UPDATE and DELETE, even
 from the service role. Three code paths write a person's name into its `notes`
@@ -52,6 +52,30 @@ at render time.
 data. After go-live, every row this writes is a real name that can never be
 removed. Fixing it needs a migration (new column, and `0015`'s function
 recreated), a change to `ledger.ts`, and rendering changes in `transactions.ts`.
+
+**Done.** `0017` adds `counterparty_principal_id` with a CHECK that requires it on
+both transfer types and forbids it elsewhere, and recreates the untick so its note
+says only *"Middle Distance sign-in corrected"*. `ledger.ts` writes the admin's
+reason and the counterparty id. `transactions.ts` adds *"for James Conway"* from
+the member and *"to Dominic Bennett"* from the counterparty, on the admin
+statement only. A member's statement still says "another account".
+
+Verified live after applying:
+
+- A transfer row with no counterparty was refused with `23514` and nothing was
+  written.
+- An untick through the RPC stored *"Middle Distance sign-in corrected"*, and
+  the admin statement rendered it *"…corrected for James Conway"*.
+- A £1.00 transfer through the admin screen stored both sides with each other's
+  ids and only the reason in the note. Both statements named the other
+  household. It was reversed, and both balances returned to their starting
+  figures.
+
+The five untick rows written before `0017` (all test data) still carry the name
+in their note, so the statement now names the runner twice: *"…corrected for
+James for James Conway"*. Nothing can fix those lines, because nothing can edit
+the ledger. Clearing the test data before go-live removes them. Leaving them
+in is the clearest demonstration of why this was worth doing first.
 
 ## P2. A registrar's token reads far more than the app uses
 

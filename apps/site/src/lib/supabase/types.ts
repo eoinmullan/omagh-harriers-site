@@ -123,6 +123,7 @@ export type CreditTransactionRow = {
   notes: string | null;
   created_by: string | null;
   session_id: string | null;
+  counterparty_principal_id: string | null;
   created_at: string;
 };
 
@@ -136,6 +137,7 @@ export type CreditTransactionInsert = {
   notes?: string | null;
   created_by?: string | null;
   session_id?: string | null;
+  counterparty_principal_id?: string | null;
   created_at?: string;
 };
 
@@ -324,6 +326,12 @@ export type Database = {
             foreignKeyName: 'credit_transactions_session_id_fkey';
             columns: ['session_id'];
             referencedRelation: 'training_sessions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'credit_transactions_counterparty_principal_id_fkey';
+            columns: ['counterparty_principal_id'];
+            referencedRelation: 'principals';
             referencedColumns: ['id'];
           },
         ];

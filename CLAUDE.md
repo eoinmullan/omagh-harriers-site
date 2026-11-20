@@ -366,6 +366,18 @@ nothing, so the rules are unit tested without a database. A transfer returns
 both sides or neither. Two separate inserts could strand money in nobody's
 account with no way to take it back.
 
+**The ledger holds ids, never names.** It is append-only, so a name written into
+`notes` would be there for good, and no erasure request or anonymisation could
+reach it. A transfer records the other household as `counterparty_principal_id`,
+and a CHECK requires it on every transfer and forbids it on everything else. The
+untick's note names the squad, and `member_id` names the runner.
+`credits/transactions.ts` turns those ids into names when a statement is read, so
+anonymising a household or a member reaches every line that mentions them. A
+member's own statement doesn't join the counterparty and says "another account"
+instead of naming somebody else's household. The admin statement names it.
+`notes` holds only what an admin typed, and **nothing the code writes there
+should ever contain a person's name.** Migration `0017`.
+
 `DEFAULT_SESSION_PRICE_PENCE` in `ledger.ts` is the £2 a session has cost for
 years. It is a constant on purpose — a settings table and an admin screen would
 be machinery for a change that happens once a decade. A session debit copies the
@@ -386,7 +398,9 @@ columns were drawn into the schema before anything used them and neither earned
 its place: the registrar app named a session after its own group, and the one
 session created by hand was called "Wed", which says less than the start time
 already does. `groups.name` is the label everywhere now, and the untick's ledger
-note names the squad: *"Middle Distance sign-in corrected for Jack"*.
+note names the squad and no one else: *"Middle Distance sign-in corrected"*. The
+statement adds *"for Jack Kelly"* from the row's `member_id` (see "The ledger
+holds ids, never names" above).
 
 `note` replaces both. One optional free line, null on almost every session,
 covering what `location` was reaching for ("top car park") and the things it

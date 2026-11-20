@@ -84,6 +84,34 @@ describe('describeEntry', () => {
     expect(into).toBe('£15.00 added — transferred in from another account');
   });
 
+  it('names the other household on a transfer when the reader may know it', () => {
+    const out = describeEntry(
+      entry({ type: 'transfer_out', amountPence: -1500, counterpartyName: 'Jane Doe' }),
+    );
+    const into = describeEntry(
+      entry({ type: 'transfer_in', amountPence: 1500, counterpartyName: 'John Doe' }),
+    );
+
+    expect(out).toBe('£15.00 deducted — transferred out to Jane Doe');
+    expect(into).toBe('£15.00 added — transferred in from John Doe');
+  });
+
+  it('says whose sign-in an untick corrected, from the member rather than the note', () => {
+    const description = describeEntry(
+      entry({
+        type: 'manual_adjustment',
+        amountPence: 200,
+        notes: 'Middle Distance sign-in corrected',
+        memberName: 'James Conway',
+        recordedBy: 'Eoin Mullan',
+      }),
+    );
+
+    expect(description).toBe(
+      '£2.00 added — Middle Distance sign-in corrected for James Conway, recorded by Eoin Mullan',
+    );
+  });
+
   it('describes a refund as money leaving the account', () => {
     const description = describeEntry(
       entry({ type: 'refund', amountPence: -1000, recordedBy: 'Eoin Mullan' }),

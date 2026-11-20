@@ -112,6 +112,11 @@ export function planAdjustment(request: AdjustmentRequest): LedgerWrite {
 // The pair is written by a single multi-row insert, so Postgres applies both
 // sides or neither. Two separate inserts could strand money in nobody's
 // account, and the ledger is append-only — there would be no taking it back.
+//
+// Each side names the other by id, never in the note. The ledger keeps
+// everything forever, so a name written here could never be erased; an id
+// resolves to whatever that household is called when the statement is read,
+// including nothing at all once it has been anonymised.
 export function planTransfer(request: TransferRequest): LedgerWrite {
   const { source, target } = request;
 
@@ -143,7 +148,8 @@ export function planTransfer(request: TransferRequest): LedgerWrite {
         amount_pence: -amountPence,
         type: 'transfer_out',
         idempotency_key: `${request.idempotencyKey}:out`,
-        notes: `Transferred to ${target.displayName} — ${note}`,
+        notes: note,
+        counterparty_principal_id: target.id,
         created_by: request.recordedBy,
       },
       {
@@ -151,7 +157,8 @@ export function planTransfer(request: TransferRequest): LedgerWrite {
         amount_pence: amountPence,
         type: 'transfer_in',
         idempotency_key: `${request.idempotencyKey}:in`,
-        notes: `Transferred from ${source.displayName} — ${note}`,
+        notes: note,
+        counterparty_principal_id: source.id,
         created_by: request.recordedBy,
       },
     ],

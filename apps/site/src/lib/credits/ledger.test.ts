@@ -172,15 +172,20 @@ describe('planTransfer', () => {
     expect(rows[1].type).toBe('transfer_in');
   });
 
-  it('names the other household in each note', () => {
+  it('records the other household by id on each side', () => {
     const rows = rowsOf(transfer());
 
-    expect(rows[0].notes).toBe(
-      'Transferred to Jane Doe — contact email changed in Klubfunder',
-    );
-    expect(rows[1].notes).toBe(
-      'Transferred from John Doe — contact email changed in Klubfunder',
-    );
+    expect(rows[0].counterparty_principal_id).toBe('target-id');
+    expect(rows[1].counterparty_principal_id).toBe('source-id');
+  });
+
+  it('keeps names out of the append-only notes', () => {
+    const rows = rowsOf(transfer());
+
+    expect(rows.map((row) => row.notes)).toEqual([
+      'contact email changed in Klubfunder',
+      'contact email changed in Klubfunder',
+    ]);
   });
 
   it('gives each side its own idempotency key', () => {

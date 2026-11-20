@@ -31,7 +31,7 @@ Ticked as each one lands, in the order they're tackled.
   state, and clicking again clears.
 - [x] **Training times: current first, then upcoming, with past periods in an
   expander** (`<details>`) below.
-- [ ] **Admins see what members see: training and transaction history** on a
+- [x] **Admins see what members see: training and transaction history** on a
   member's and a household's page.
 
 ### Registrar app

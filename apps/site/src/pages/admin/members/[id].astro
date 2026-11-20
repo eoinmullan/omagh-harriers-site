@@ -5,6 +5,10 @@ import { planMemberEdit } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { orThrow } from '../../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../../lib/auth/signed-in';
+import { everyRow } from '../../../lib/supabase/every-row';
+import { formatClubDateTime } from '../../../lib/training/club-time';
+import { formatPounds } from '../../../lib/credits/money';
+import { recentAttendance } from '../../../lib/training/history';
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/members');
@@ -79,6 +83,36 @@ const principal = orThrow(await adminClient
   .select('id, email, display_name')
   .eq('id', member.principal_id)
   .maybeSingle());
+
+// The nights this member was signed in. One member's history is small, but it
+// grows every week for as long as they train, so it pages like any read that
+// grows with the club's history.
+const attendanceRows = await everyRow((from, to) =>
+  adminClient
+    .from('attendance')
+    .select('id, session:session_id(id, starts_at, price_pence, group:group_id(name))')
+    .eq('member_id', member.id)
+    .order('id')
+    .range(from, to),
+);
+
+type AttendanceWithSession = {
+  id: string;
+  session: { id: string; starts_at: string; price_pence: number; group: { name: string } | null } | null;
+};
+
+const history = recentAttendance(
+  (attendanceRows satisfies AttendanceWithSession[]).flatMap((row) =>
+    row.session
+      ? [{
+          sessionId: row.session.id,
+          startsAt: row.session.starts_at,
+          squad: row.session.group?.name ?? 'Session',
+          pricePence: row.session.price_pence,
+        }]
+      : [],
+  ),
+);
 ---
 
 <AdminLayout section="members" title={`${member.first_name} ${member.surname}`} breadcrumb={[{ label: 'Members', href: '/admin/members' }, { label: `${member.first_name} ${member.surname}` }]}>
@@ -153,6 +187,41 @@ const principal = orThrow(await adminClient
         }
       </dl>
     </div>
+
+    <section class="mb-8">
+      <div class="flex items-baseline justify-between mb-3">
+        <h2 class="text-lg font-semibold">Training history</h2>
+        {principal && (
+          <a href={`/admin/households/${principal.id}#credit`} class="text-sm underline hover:text-gray-600"
+            >Household statement →</a
+          >
+        )}
+      </div>
+      {history.total === 0 ? (
+        <p class="text-sm text-gray-500">Not signed in at any session yet.</p>
+      ) : (
+        <>
+          <ul class="divide-y divide-gray-100 border-y border-gray-100 text-sm">
+            {history.shown.map((session) => (
+              <li class="flex items-center justify-between py-2.5">
+                <a href={`/admin/sessions/${session.sessionId}`} class="hover:underline">
+                  <span class="font-medium">{session.squad}</span>
+                  <span class="text-gray-500"> · {formatClubDateTime(session.startsAt)}</span>
+                </a>
+                <span class="text-gray-600 tabular-nums">
+                  {session.pricePence === 0 ? 'Free' : formatPounds(session.pricePence)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {history.total > history.shown.length && (
+            <p class="text-xs text-gray-500 mt-2">
+              The {history.shown.length} most recent of {history.total} sessions.
+            </p>
+          )}
+        </>
+      )}
+    </section>
 
     {isSuperuser && (
       <>

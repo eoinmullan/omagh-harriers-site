@@ -199,8 +199,10 @@ Confirmed, several of them live, so a later change knows the ground it rests on:
 - **The registrar island writes nothing to `principals`/`members`** — every one
   of its references is a SELECT; its writes are attendance, guests and ledger
   rows through RLS-gated policies and the two RPCs.
-- **The OAuth email-match check and the enumeration timing-delay** on the server
-  sign-in path both do what they claim.
+- **The OAuth email-match check** on the server sign-in path does what it claims.
+  (An earlier version of this list said the same of the enumeration timing-delay.
+  It doesn't: the delay runs only when the lookup fails, and the messages differ
+  anyway. See P6 in the privacy review.)
 - **The Klubfunder CLI's guards:** `source='manual'` rows are immune from
   lapsing, every run is dry-run-first, lapsing bans rather than deletes, and
   every write is parameterised through supabase-js — no SQL or CSV-formula

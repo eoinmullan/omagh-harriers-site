@@ -747,25 +747,27 @@ different threat models.
 
 ### Round 1 — schema and trust model
 
-- [ ] **Data integrity: can the ledger lie?** Not a general backend pass. One
+- [x] **Data integrity: can the ledger lie?** ([findings](reviews/round-1-data-integrity.md)) Not a general backend pass. One
   question, pursued hard: is there a sequence of events that leaves a household's
   pot wrong? Append-only with compensating rows, a balance that is a `SUM` over a
   view, idempotency keys, an optimistic UI that moves a balance before the write
   lands, two registrars on the same session, and a queue flushing hours later
-  - [ ] The ledger — `credit_transactions`, `principal_balances`, `credits/ledger.ts`, the sign-in RPCs
-  - [ ] The sync reconciliation — `sync/klubfunder.ts` moving a member between households, lapsing and reactivating, and what either does to a balance
-- [ ] **Security**, split by threat model:
-  - [ ] Public site and the auth flow — `/signin`, the OAuth round trip, the email-match check in `/signin/callback`, the terms gate, middleware
-  - [ ] RLS and the database — every policy against the `app_role` claim, the append-only trigger, `SECURITY INVOKER` on the RPCs, and what a `TRUNCATE` still bypasses
-  - [ ] Admin service-role paths — every page using `createSupabaseAdminClientFromLocals`, which bypasses RLS entirely
-  - [ ] The registrar island on the anon key — what a volunteer's phone can read and write, and what a tampered token claim would get
-  - [ ] **The Klubfunder CLI** — a threat model of its own. It creates and bans auth users and re-points children between households from a CSV somebody downloaded. 995 lines, the largest module in the project, and the easiest one to leave out of a review of "the app"
+  - [x] The ledger — `credit_transactions`, `principal_balances`, `credits/ledger.ts`, the sign-in RPCs
+  - [x] The sync reconciliation — `sync/klubfunder.ts` moving a member between households, lapsing and reactivating, and what either does to a balance
+- [x] **Security**, split by threat model ([findings](reviews/round-1-security.md)):
+  - [x] Public site and the auth flow — `/signin`, the OAuth round trip, the email-match check in `/signin/callback`, the terms gate, middleware
+  - [x] RLS and the database — every policy against the `app_role` claim, the append-only trigger, `SECURITY INVOKER` on the RPCs, and what a `TRUNCATE` still bypasses
+  - [x] Admin service-role paths — every page using `createSupabaseAdminClientFromLocals`, which bypasses RLS entirely
+  - [x] The registrar island on the anon key — what a volunteer's phone can read and write, and what a tampered token claim would get
+  - [x] **The Klubfunder CLI** — a threat model of its own. It creates and bans auth users and re-points children between households from a CSV somebody downloaded. 995 lines, the largest module in the project, and the easiest one to leave out of a review of "the app"
 - [ ] **Privacy and data protection.** The club holds children's names and dates
   of birth, parent emails and payment records, and a registrar can read the whole
   club. `privacy.astro` mentions "date of birth" once and "delete" once: there is
   no retention story, no lawful basis stated, and nothing about what happens to a
   lapsed junior's record. Findings here may be committee work rather than code,
   so they want lead time
+  - [x] Everything that exists before Phase 6 ([findings](reviews/round-1-privacy.md)) — six code findings and eight for the committee
+  - [ ] The reporting area and its CSV exports, once Phase 6 is built — the larger half, and the reason this box stays open
 
 ### Round 2 — the code as written
 

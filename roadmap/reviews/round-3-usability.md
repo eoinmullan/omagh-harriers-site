@@ -67,7 +67,7 @@ Ticked as each one lands, in the order they're tackled.
 
 ## Questions for the morning
 
-- **Not checked in the browser.** The sign-in in the browser pane had lapsed, so none of tonight's screens were seen. Everything passes `astro check` and the tests (481). The history query was run read-only against the database and works. Please sign in again so they can be checked.
+- **Not checked in the browser.** The sign-in in the browser pane had lapsed, so none of tonight's screens were seen. Everything passes `astro check` and the tests (478). The history query was run read-only against the database and works. Please sign in again so they can be checked.
 - **Still to do:** the five-way view, cash sheet presets, and Past sessions on the home screen.
 
 ## Questions for the morning

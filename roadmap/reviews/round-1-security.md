@@ -17,7 +17,7 @@ review proper is still blocked.
 
 ## S1. An admin can make themselves superuser, directly, bypassing the UI
 
-**Severity: high. Fix needs a migration.**
+**Severity: high. Fixed by migration `0016`.**
 
 The privilege boundary between `admin` and `superuser` is that only a superuser
 hands out roles. That rule lives in exactly one place: `planRoleChange` in
@@ -77,6 +77,14 @@ admin to write these tables on the anon key, the role column specifically wants
 the SECURITY DEFINER RPC `0002` described, or a `BEFORE UPDATE` trigger refusing
 a `role` change by a non-superuser. **Confirm on staging that the admin screens
 still save after the drop before trusting it.**
+
+Done in `0016_role_is_not_an_admins_to_grant.sql`. The four policies are dropped
+and the SELECT policies stay. Admin writes are unaffected by construction — the
+service-role client has `BYPASSRLS`, so a dropped policy cannot change what it may
+do — and that the admin write path still works was checked live by adding and
+retiring a squad through `/admin/squads` after the migration. The service-role
+grant's breadth is exactly why S1 existed; it is also why removing an anon-key
+policy cannot touch it.
 
 ## S2. The sign-in captcha fails open when its secret is missing
 

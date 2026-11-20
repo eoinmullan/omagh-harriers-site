@@ -571,6 +571,18 @@ back either a row to write or one sentence to show the admin.
 been superuser-only. A superuser cannot change their own role there — it would lock
 them out of the only screen that could put it back.
 
+**That gate is the UI's, and the database now refuses to take anyone's word for
+it a second way.** `principals` and `members` have no anon-key INSERT or UPDATE
+policy at all: every admin write goes through the service-role client, which
+bypasses RLS, so the policies were unused — and while they existed, an admin
+holding an ordinary anon-key session could PATCH their own `role` to `superuser`
+directly, because an RLS policy checks the actor's claim and cannot see which
+column is changing. Migration `0016` dropped them. A member reads their own
+household and a registrar reads the club through SELECT policies that remain; if
+some later phase needs an admin to write these tables on the anon key, the `role`
+column wants a `SECURITY DEFINER` RPC or a `BEFORE UPDATE` trigger that checks for
+superuser, never a blanket policy.
+
 A registrar is a volunteer with a
 borrowed phone: they read the whole club — every principal, member and ledger
 row, because a household balance beside a name is the sum of that ledger and the

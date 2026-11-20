@@ -488,6 +488,34 @@ learn the schema.
 called `/admin-anything` is gated too, whether or not that was intended. Worth
 knowing before naming one.
 
+**Credit is not a section — a household is.** There used to be six sections, and
+two of them were the same 220 rows listed twice with different columns, with a
+detail page each: one held a household's name, email, role and members, the
+other held its balance, statement and the forms that write to the ledger. An
+admin asked "has Jack Kelly's mum paid?" found the money on one screen and the
+email to chase her on the other. A household has a name, the people in it, a
+role and a balance, and that is one thing somebody holds in their head.
+
+So `/admin/households/[id]` carries both halves — identity and role, then
+members, then **Training credit**: the balance, the four ledger forms and the
+statement, under an anchor so the balance in the header can point down at it.
+The balance is a column on the Households list, sortable by one click because
+who owes money is the question that column exists to answer, and the Club float
+and Overdrawn figures came across with it.
+
+**Nothing about the ledger moved.** `credits/ledger.ts`, `money.ts` and
+`transactions.ts` are untouched: the page still hands a form over and gets back
+either rows to insert or one sentence, and the per-render `idempotency_key` still
+means a refresh or a double click resends the same key for the unique index to
+refuse. What the move did add is one guard — the identity actions are
+superuser-only and the ledger actions are not, so they are told apart by name
+before either runs.
+
+`/admin/credits` and `/admin/credits/[id]` survive as **301s** to the household
+and to its `#credit` anchor. They are two frontmatter-only files rather than
+deletions, because the club has been using those URLs since Phase 4 and a
+bookmark should not 404 to prove a point.
+
 ## Admin session management
 
 Four screens, and between them they make the Phase 5 schema usable: `/admin/squads`

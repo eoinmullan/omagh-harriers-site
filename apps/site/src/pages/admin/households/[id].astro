@@ -2,9 +2,26 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS } from '../../../lib/auth/roles';
+import { formatBalance, formatPounds } from '../../../lib/credits/money';
+import { describeEntry, isCredit } from '../../../lib/credits/transactions';
+import {
+  DEFAULT_SESSION_PRICE_PENCE,
+  planAdjustment,
+  planCashTopUp,
+  planSessionDebit,
+  planTransfer,
+  type LedgerWrite,
+} from '../../../lib/credits/ledger';
+import type { CreditTransactionType } from '../../../lib/supabase/types';
+
+// One page per household, because a household is one thing an admin holds in
+// their head: a name, the people in it, a role and a balance. It used to be
+// two, and "has Jack Kelly's mum paid?" found the money on one screen and the
+// email to chase her on the other.
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/households');
+const householdId = id;
 
 const {
   data: { user },
@@ -24,102 +41,262 @@ if (!actingPrincipal) return Astro.redirect('/signin');
 const isSuperuser = actingPrincipal.role === 'superuser';
 const offeredRoles = assignableRoles(actingPrincipal.role);
 
-let error: string | null = null;
-let success: string | null = null;
+async function loadBalancePence(principalId: string): Promise<number> {
+  const { data } = await adminClient
+    .from('principal_balances')
+    .select('balance_pence')
+    .eq('principal_id', principalId)
+    .maybeSingle();
 
-if (Astro.request.method === 'POST' && isSuperuser) {
-  const formData = await Astro.request.formData();
-  const action = formData.get('action') as string;
+  return data?.balance_pence ?? 0;
+}
+
+// The ledger rules ask for a household's identity and what it holds, never the
+// whole principal row — so this is what they get, for either side of a transfer.
+async function loadLedgerHousehold(principalId: string) {
+  const { data } = await adminClient
+    .from('principals')
+    .select('id, display_name')
+    .eq('id', principalId)
+    .maybeSingle();
+
+  if (!data) return undefined;
+
+  return {
+    id: data.id,
+    displayName: data.display_name,
+    balancePence: await loadBalancePence(principalId),
+  };
+}
+
+// Surname first, so siblings sit together — the same ordering the registrar app
+// uses at the track.
+async function loadMembers(principalId: string) {
+  const { data } = await adminClient
+    .from('members')
+    .select('id, first_name, surname, date_of_birth, status, is_active, gender')
+    .eq('principal_id', principalId)
+    .order('surname')
+    .order('first_name');
+
+  return data ?? [];
+}
+
+type Outcome = { error: string } | { success: string };
+type Field = (name: string) => string;
+
+const IDENTITY_ACTIONS = ['update_name', 'set_role', 'deactivate', 'reactivate'];
+
+async function changeIdentity(action: string, field: Field): Promise<Outcome> {
+  if (!isSuperuser) {
+    return { error: 'Only a superuser can change a name, a role or an account status.' };
+  }
 
   if (action === 'update_name') {
-    const displayName = (formData.get('display_name') as string)?.trim();
-    if (!displayName) {
-      error = 'Display name is required.';
-    } else {
-      const { error: e } = await adminClient
-        .from('principals')
-        .update({ display_name: displayName })
-        .eq('id', id);
-      if (e) error = e.message;
-      else success = 'Display name updated.';
-    }
-  } else if (action === 'set_role') {
+    const displayName = field('display_name').trim();
+    if (!displayName) return { error: 'Display name is required.' };
+
+    const { error } = await adminClient
+      .from('principals')
+      .update({ display_name: displayName })
+      .eq('id', householdId);
+
+    return error ? { error: error.message } : { success: 'Display name updated.' };
+  }
+
+  if (action === 'set_role') {
     const { data: target } = await adminClient
       .from('principals')
       .select('role')
-      .eq('id', id)
+      .eq('id', householdId)
       .maybeSingle();
 
     const change = target
       ? planRoleChange({
-          actingRole: actingPrincipal.role,
-          actingPrincipalId: actingPrincipal.id,
-          targetPrincipalId: id,
+          actingRole: actingPrincipal!.role,
+          actingPrincipalId: actingPrincipal!.id,
+          targetPrincipalId: householdId,
           currentRole: target.role,
-          requestedRole: (formData.get('role') as string) ?? '',
+          requestedRole: field('role'),
         })
       : { problem: 'That household no longer exists.' };
 
-    if ('problem' in change) {
-      error = change.problem;
-    } else {
-      const { error: e } = await adminClient
-        .from('principals')
-        .update({ role: change.role })
-        .eq('id', id);
-      if (e) error = e.message;
-      else success = `Role updated to ${change.role}.`;
-    }
-  } else if (action === 'deactivate') {
-    const { data: target } = await adminClient
+    if ('problem' in change) return { error: change.problem };
+
+    const { error } = await adminClient
       .from('principals')
-      .select('auth_user_id')
-      .eq('id', id)
-      .maybeSingle();
-    if (target?.auth_user_id) {
-      await adminClient.auth.admin.updateUserById(target.auth_user_id, {
-        ban_duration: '876000h',
-      });
-    }
-    const { error: e } = await adminClient
-      .from('principals')
-      .update({ is_active: false })
-      .eq('id', id);
-    if (e) error = e.message;
-    else success = 'Household deactivated.';
-  } else if (action === 'reactivate') {
-    const { data: target } = await adminClient
-      .from('principals')
-      .select('auth_user_id')
-      .eq('id', id)
-      .maybeSingle();
-    if (target?.auth_user_id) {
-      await adminClient.auth.admin.updateUserById(target.auth_user_id, {
-        ban_duration: 'none',
-      });
-    }
-    const { error: e } = await adminClient
-      .from('principals')
-      .update({ is_active: true })
-      .eq('id', id);
-    if (e) error = e.message;
-    else success = 'Household reactivated.';
+      .update({ role: change.role })
+      .eq('id', householdId);
+
+    return error ? { error: error.message } : { success: `Role updated to ${change.role}.` };
   }
+
+  const becomingActive = action === 'reactivate';
+
+  const { data: target } = await adminClient
+    .from('principals')
+    .select('auth_user_id')
+    .eq('id', householdId)
+    .maybeSingle();
+
+  if (target?.auth_user_id) {
+    await adminClient.auth.admin.updateUserById(target.auth_user_id, {
+      ban_duration: becomingActive ? 'none' : '876000h',
+    });
+  }
+
+  const { error } = await adminClient
+    .from('principals')
+    .update({ is_active: becomingActive })
+    .eq('id', householdId);
+
+  if (error) return { error: error.message };
+  return { success: becomingActive ? 'Household reactivated.' : 'Household deactivated.' };
 }
+
+async function recordLedgerEntry(action: string, field: Field): Promise<Outcome> {
+  const household = await loadLedgerHousehold(householdId);
+  if (!household) return { error: 'That household no longer exists.' };
+
+  const request = {
+    household,
+    amount: field('amount'),
+    note: field('note'),
+    recordedBy: actingPrincipal!.id,
+    idempotencyKey: field('idempotency_key'),
+  };
+
+  let write: LedgerWrite | undefined;
+  let confirmation = '';
+
+  switch (action) {
+    case 'cash': {
+      write = planCashTopUp(request);
+      confirmation = 'Cash payment recorded.';
+      break;
+    }
+    case 'session': {
+      const memberId = field('member_id');
+      const member = (await loadMembers(household.id)).find(
+        (m) => m.id === memberId && m.is_active,
+      );
+      write =
+        memberId && !member
+          ? { problem: 'That member is not in this household.' }
+          : planSessionDebit({ ...request, memberId: member?.id ?? null });
+      confirmation = 'Session charge recorded.';
+      break;
+    }
+    case 'adjust': {
+      write = planAdjustment({ ...request, direction: field('direction') });
+      confirmation = 'Adjustment recorded.';
+      break;
+    }
+    case 'transfer': {
+      const targetId = field('target_id');
+      const target = targetId ? await loadLedgerHousehold(targetId) : undefined;
+      write = planTransfer({ ...request, source: household, target });
+      confirmation = target
+        ? `Balance transferred to ${target.displayName}.`
+        : 'Balance transferred.';
+      break;
+    }
+  }
+
+  if (!write) return { error: 'Unknown action.' };
+  if ('problem' in write) return { error: write.problem };
+
+  const { error: insertError } = await adminClient
+    .from('credit_transactions')
+    .insert(write.rows);
+
+  if (!insertError) return { success: confirmation };
+
+  if (insertError.code === '23505') {
+    return {
+      error: 'That looks like it has already been recorded — nothing was written twice.',
+    };
+  }
+
+  console.error('[admin/households] ledger insert failed:', insertError);
+  return { error: insertError.message };
+}
+
+let outcome: Outcome | undefined;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const field: Field = (name) => ((formData.get(name) as string) ?? '').toString();
+  const action = field('action');
+
+  outcome = IDENTITY_ACTIONS.includes(action)
+    ? await changeIdentity(action, field)
+    : await recordLedgerEntry(action, field);
+}
+
+const error = outcome && 'error' in outcome ? outcome.error : null;
+const success = outcome && 'success' in outcome ? outcome.success : null;
 
 const { data: principal } = await adminClient
   .from('principals')
   .select('*')
-  .eq('id', id)
+  .eq('id', householdId)
   .maybeSingle();
 
 if (!principal) return Astro.redirect('/admin/households');
 
-const { data: members } = await adminClient
-  .from('members')
-  .select('id, first_name, surname, date_of_birth, status, is_active, gender')
-  .eq('principal_id', id)
-  .order('first_name');
+const balancePence = await loadBalancePence(householdId);
+const members = await loadMembers(householdId);
+const whoCanTrain = members.filter((m) => m.is_active);
+
+const { data: otherHouseholds } = await adminClient
+  .from('principals')
+  .select('id, email, display_name')
+  .neq('id', householdId)
+  .order('display_name');
+
+const { data: rows } = await adminClient
+  .from('credit_transactions')
+  .select('id, type, amount_pence, notes, created_at, recorder:created_by(display_name), member:member_id(first_name, surname)')
+  .eq('principal_id', householdId)
+  .order('created_at', { ascending: false });
+
+type LedgerRow = {
+  id: string;
+  type: CreditTransactionType;
+  amount_pence: number;
+  notes: string | null;
+  created_at: string;
+  recorder: { display_name: string } | null;
+  member: { first_name: string; surname: string } | null;
+};
+
+const history = ((rows ?? []) as unknown as LedgerRow[]).map((row) => {
+  const entry = {
+    type: row.type,
+    amountPence: row.amount_pence,
+    notes: row.notes,
+    recordedBy: row.recorder?.display_name ?? null,
+    memberName: row.member ? `${row.member.first_name} ${row.member.surname}` : null,
+  };
+  return {
+    id: row.id,
+    description: describeEntry(entry),
+    isCredit: isCredit(entry),
+    notes: row.notes,
+    at: new Date(row.created_at).toLocaleString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  };
+});
+
+// A fresh key per render. Resubmitting the same form — a refresh, a double
+// click, the back button — sends the same key, which the unique index refuses.
+const idempotencyKey = crypto.randomUUID();
 
 function formatDob(dob: string): string {
   return new Date(dob).toLocaleDateString('en-GB', {
@@ -128,6 +305,12 @@ function formatDob(dob: string): string {
     year: 'numeric',
   });
 }
+
+const roleBadge: Record<string, string> = {
+  superuser: 'bg-purple-100 text-purple-700',
+  admin: 'bg-blue-100 text-blue-700',
+  registrar: 'bg-amber-100 text-amber-700',
+};
 ---
 
 <AdminLayout section="households" title={principal.display_name} breadcrumb={[{ label: 'Households', href: '/admin/households' }, { label: principal.display_name }]}>
@@ -148,30 +331,36 @@ function formatDob(dob: string): string {
     }
 
     <div class="bg-gray-50 border border-gray-200 rounded-lg px-6 py-5 mb-8">
-      <div class="flex items-start justify-between">
+      <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold">{principal.display_name}</h1>
           <p class="text-gray-500 mt-1">{principal.email}</p>
         </div>
-        <div class="flex gap-2">
-          <span
-            class={`text-xs font-medium px-2 py-1 rounded-full ${
-              principal.role === 'superuser'
-                ? 'bg-purple-100 text-purple-700'
-                : principal.role === 'admin'
-                  ? 'bg-blue-100 text-blue-700'
-                  : principal.role === 'registrar'
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-gray-100 text-gray-600'
-            }`}>{principal.role}</span
+        <div class="text-right shrink-0">
+          <div class="flex justify-end gap-2">
+            <span
+              class={`text-xs font-medium px-2 py-1 rounded-full ${
+                roleBadge[principal.role] ?? 'bg-gray-100 text-gray-600'
+              }`}>{principal.role}</span
+            >
+            <span
+              class={`text-xs font-medium px-2 py-1 rounded-full ${
+                principal.is_active
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-500'
+              }`}>{principal.is_active ? 'Active' : 'Inactive'}</span
+            >
+          </div>
+          <p class="text-sm text-gray-500 mt-3">Balance</p>
+          <p
+            class:list={[
+              'text-3xl font-bold',
+              balancePence < 0 ? 'text-red-600' : 'text-gray-900',
+            ]}
           >
-          <span
-            class={`text-xs font-medium px-2 py-1 rounded-full ${
-              principal.is_active
-                ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-500'
-            }`}>{principal.is_active ? 'Active' : 'Inactive'}</span
-          >
+            {formatBalance(balancePence)}
+          </p>
+          <a href="#credit" class="text-xs underline hover:text-gray-600">Statement &darr;</a>
         </div>
       </div>
       <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -192,6 +381,14 @@ function formatDob(dob: string): string {
           </dd>
         </div>
       </dl>
+      {
+        !principal.is_active && (
+          <p class="text-sm text-gray-500 mt-4">
+            This household is inactive and cannot sign in. Its balance can still
+            be transferred.
+          </p>
+        )
+      }
     </div>
 
     {isSuperuser && (
@@ -277,15 +474,15 @@ function formatDob(dob: string): string {
     )}
 
     <!-- Members -->
-    <section>
+    <section class="mb-10">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold">
-          Members ({members?.length ?? 0})
+          Members ({members.length})
         </h2>
       </div>
 
       {
-        members && members.length > 0 ? (
+        members.length > 0 ? (
           <ul class="space-y-2">
             {members.map((m) => (
               <li
@@ -324,5 +521,276 @@ function formatDob(dob: string): string {
           <p class="text-gray-500 text-sm">No members linked to this household.</p>
         )
       }
+    </section>
+
+    <!-- Training credit: the balance, what may be written to it, and the statement. -->
+    <h2 id="credit" class="text-xl font-bold mb-1 scroll-mt-6">Training credit</h2>
+    <p class="text-sm text-gray-500 mb-6">
+      {formatBalance(balancePence)} held. The balance is the sum of the lines below,
+      never a stored figure.
+    </p>
+
+    <section class="mb-8">
+      <h3 class="text-lg font-semibold mb-3">Record a cash payment</h3>
+      <form method="POST" class="grid grid-cols-1 sm:grid-cols-[8rem_1fr_auto] gap-4">
+        <input type="hidden" name="action" value="cash" />
+        <input type="hidden" name="idempotency_key" value={`cash:${idempotencyKey}`} />
+        <div>
+          <label class="block text-sm font-medium mb-1" for="cash-amount">Amount</label>
+          <input
+            id="cash-amount"
+            type="text"
+            name="amount"
+            inputmode="decimal"
+            placeholder="10.00"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="cash-note">
+            Note <span class="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            id="cash-note"
+            type="text"
+            name="note"
+            placeholder="Paid at Monday track"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div class="flex items-end">
+          <button
+            type="submit"
+            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+            >Record</button
+          >
+        </div>
+      </form>
+    </section>
+
+    <section class="mb-8">
+      <h3 class="text-lg font-semibold mb-3">Charge a training session</h3>
+      <form
+        method="POST"
+        class="grid grid-cols-1 sm:grid-cols-[1fr_8rem_1fr_auto] gap-4"
+      >
+        <input type="hidden" name="action" value="session" />
+        <input type="hidden" name="idempotency_key" value={`session:${idempotencyKey}`} />
+        <div>
+          <label class="block text-sm font-medium mb-1" for="session-member">
+            Who trained
+          </label>
+          <select
+            id="session-member"
+            name="member_id"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          >
+            <option value="">The household</option>
+            {
+              whoCanTrain.map((member) => (
+                <option value={member.id}>
+                  {member.surname}, {member.first_name}
+                </option>
+              ))
+            }
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="session-amount">Charge</label>
+          <input
+            id="session-amount"
+            type="text"
+            name="amount"
+            inputmode="decimal"
+            value={formatPounds(DEFAULT_SESSION_PRICE_PENCE)}
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="session-note">
+            Session <span class="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            id="session-note"
+            type="text"
+            name="note"
+            placeholder="Monday track"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div class="flex items-end">
+          <button
+            type="submit"
+            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+            >Charge</button
+          >
+        </div>
+      </form>
+      <p class="text-xs text-gray-500 mt-2">
+        A night the registrar app missed is recorded here. Naming who trained makes
+        the member's own page read "training session for ..." instead of leaving
+        them guessing.
+      </p>
+    </section>
+
+    <details class="mb-8 border border-gray-200 rounded-lg">
+      <summary class="px-5 py-3 font-medium cursor-pointer select-none">
+        Adjust the balance
+      </summary>
+      <form
+        method="POST"
+        class="px-5 pb-5 pt-3 grid grid-cols-1 sm:grid-cols-[9rem_8rem_1fr_auto] gap-4"
+      >
+        <input type="hidden" name="action" value="adjust" />
+        <input type="hidden" name="idempotency_key" value={`adjust:${idempotencyKey}`} />
+        <div>
+          <label class="block text-sm font-medium mb-1" for="adjust-direction">Direction</label>
+          <select
+            id="adjust-direction"
+            name="direction"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          >
+            <option value="add">Add credit</option>
+            <option value="remove">Remove credit</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="adjust-amount">Amount</label>
+          <input
+            id="adjust-amount"
+            type="text"
+            name="amount"
+            inputmode="decimal"
+            placeholder="5.00"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="adjust-note">Note</label>
+          <input
+            id="adjust-note"
+            type="text"
+            name="note"
+            placeholder="Why this adjustment is being made"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div class="flex items-end">
+          <button
+            type="submit"
+            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+            >Adjust</button
+          >
+        </div>
+      </form>
+      <p class="px-5 pb-5 text-xs text-gray-500">
+        The member sees the note as the reason on their own credit page, so write
+        it for them.
+      </p>
+    </details>
+
+    <details class="mb-10 border border-gray-200 rounded-lg">
+      <summary class="px-5 py-3 font-medium cursor-pointer select-none">
+        Transfer the balance to another household
+      </summary>
+      <form method="POST" class="px-5 pb-5 pt-3 space-y-4">
+        <input type="hidden" name="action" value="transfer" />
+        <input type="hidden" name="idempotency_key" value={`transfer:${idempotencyKey}`} />
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr_8rem] gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1" for="transfer-target">To</label>
+            <select
+              id="transfer-target"
+              name="target_id"
+              required
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+            >
+              <option value="">Choose a household…</option>
+              {
+                otherHouseholds?.map((other) => (
+                  <option value={other.id}>
+                    {other.display_name} ({other.email})
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" for="transfer-amount">
+              Amount
+            </label>
+            <input
+              id="transfer-amount"
+              type="text"
+              name="amount"
+              inputmode="decimal"
+              placeholder={formatPounds(balancePence)}
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="transfer-note">Note</label>
+          <input
+            id="transfer-note"
+            type="text"
+            name="note"
+            placeholder="Contact email changed in Klubfunder"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <button
+          type="submit"
+          class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+          >Transfer</button
+        >
+        <p class="text-xs text-gray-500">
+          Leave the amount blank to move the whole balance. Both sides are written
+          together, so neither can land on its own.
+        </p>
+      </form>
+    </details>
+
+    <section>
+      <h3 class="text-lg font-semibold mb-4">
+        Statement ({history.length})
+      </h3>
+
+      {
+        history.length > 0 ? (
+          <ul class="divide-y divide-gray-200 border-t border-b border-gray-200">
+            {history.map((line) => (
+              <li class="py-3 flex items-baseline justify-between gap-4">
+                <div>
+                  <p class="font-medium">{line.description}</p>
+                  <p class="text-xs text-gray-500 mt-0.5">
+                    {line.at}
+                    {line.notes ? ` · ${line.notes}` : ''}
+                  </p>
+                </div>
+                <span
+                  class:list={[
+                    'text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap',
+                    line.isCredit ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600',
+                  ]}
+                >
+                  {line.isCredit ? 'Credit' : 'Debit'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-gray-500 text-sm">Nothing recorded for this household yet.</p>
+        )
+      }
+      <p class="text-xs text-gray-400 mt-4">
+        The ledger is append-only. A mistake is corrected with an adjustment, not
+        by editing a line.
+      </p>
     </section>
 </AdminLayout>

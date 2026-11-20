@@ -36,7 +36,7 @@ because of A1.
 
 ## A1. A screen reader hears the runner's name and nothing else
 
-**Severity: medium.**
+**Severity: medium. Fixed.**
 
 Each runner row is a `<button role="checkbox" aria-checked>` with
 `aria-label="Jack Kelly"`. An `aria-label` *replaces* the button's contents as
@@ -54,9 +54,16 @@ which keeps the design rule that *"colour carries the warning, never the
 wording"*. This one change also covers success criterion 1.4.1 (use of
 colour) for people who can't see the colour.
 
+**Done.** `toneWords()` in `usuals.ts` (tested) gives the words, and the row
+uses `useId` to link its balance line as `aria-describedby`. Verified in the
+browser: all 14 rows carry a description, and a screen reader would announce
+*"James Conway, checkbox, not checked, £0.00 won't cover tonight · Caroline
+conway"*. The words are a clipped 1×1 element (`clip-path: inset(50%)`), and
+the screen still reads *"£0.00 · Caroline conway"* in amber.
+
 ## A2. The cash sheet doesn't take focus or close with Escape
 
-**Severity: medium.**
+**Severity: medium. Fixed.**
 
 The cash sheet is correctly marked up (`role="dialog"`, `aria-modal="true"`,
 `aria-label="Cash from …"`), but it does nothing with focus. Tested with the
@@ -76,9 +83,14 @@ reader user is told a modal is open but isn't in it.
 dialog itself, with `tabIndex={-1}`). Keep Tab and Shift+Tab inside it, close
 on Escape, and on unmount return focus to the cash cell that opened it.
 
+**Done**, all four. Verified with real key presses. Enter on a cash cell
+opened the sheet with focus on *"£2"* inside it. Shift+Tab went to Close,
+then wrapped to Cancel. Tab wrapped back to Close. Escape closed the sheet,
+and focus returned to the exact cash cell that opened it.
+
 ## A3. Four small texts are below contrast minimums
 
-**Severity: low-medium. Each is a one-class change.**
+**Severity: low-medium. Each is a one-class change. Fixed.**
 
 | Text | Contrast | Required |
 |---|---|---|
@@ -93,13 +105,20 @@ is a control, and at 2.69:1 on black it's barely visible at a dark track.
 **Fix.** Use `neutral-400` (8.1:1) for all four, and consider 11 px or
 larger for "ADDED".
 
+**Done**, plus the same fix wherever else it appeared: the guest row's
+"PAID", and three uses of `text-white0`. That isn't a real Tailwind class.
+Its shape suggests an earlier bulk replace of `text-neutral-50` that also
+caught `text-neutral-500`, so those texts had no colour of their own.
+Re-measured: "+ £" **8.13:1**, "ADDED" **7.04:1** (now 11 px), the header
+labels **8.13:1**, and the placeholder **6.94:1**.
+
 Everything else measured passes comfortably: names, the three balance tones
 (8.1:1, 14.2:1, and 7.0:1 on a ticked row), the cash figure (12.3:1), the
 tabs (12.1:1), and the session time (8.1:1).
 
 ## A4. Small gaps on the admin pages
 
-**Severity: low.**
+**Severity: low. Fixed.**
 
 - **Three filter boxes are labelled only by their placeholder.** *"Filter by
   name or email…"* on `/admin/households` and `/admin/members`, and *"Type part
@@ -114,6 +133,14 @@ tabs (12.1:1), and the session time (8.1:1).
   squad's page, and sign-in. Minor.
 - **`lang="en"` on the site, `en-GB` on the registrar app.** `en-GB` throughout
   would get British pronunciation from screen readers.
+
+**Done.** The three filter boxes have visually hidden `<label>`s. The
+households table sets `aria-sort` (Name `ascending` on load; Balance
+`ascending` for poorest first, then `descending`) and hides the arrow
+from screen readers. The site is `lang="en-GB"`. The heading skips all came
+from the site footer, whose three `<h3>`s became `<h2>`s, which fixes every
+page at once. They still render at 18 px bold. Verified on the households
+page: headings `h1, h2, h2, h2`, and `aria-sort` following every click.
 
 ---
 

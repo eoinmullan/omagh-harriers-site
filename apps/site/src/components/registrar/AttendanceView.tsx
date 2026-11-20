@@ -752,7 +752,7 @@ export function AttendanceView({
               spellCheck={false}
               enterKeyHint="search"
               aria-label="Find a runner"
-              className="w-full rounded-xl bg-neutral-900 px-4 py-4 text-lg outline-none placeholder-neutral-600 focus:ring-2 focus:ring-amber"
+              className="w-full rounded-xl bg-neutral-900 px-4 py-4 text-lg outline-none placeholder-neutral-400 focus:ring-2 focus:ring-amber"
             />
           </div>
         )}
@@ -768,7 +768,7 @@ export function AttendanceView({
 
         {caveat && (
           <p
-            className={`mb-3 text-sm ${outbox.online ? 'text-white0' : 'text-amber'}`}
+            className={`mb-3 text-sm ${outbox.online ? 'text-neutral-400' : 'text-amber'}`}
             role="status"
           >
             {caveat}
@@ -909,7 +909,7 @@ function Tile({
       <p className={`text-2xl font-bold ${!on && accent ? 'text-amber' : ''}`}>{figure}</p>
       <p
         className={`text-[11px] tracking-wider uppercase ${
-          on ? 'text-black/70' : 'text-neutral-500'
+          on ? 'text-black/70' : 'text-neutral-400'
         }`}
       >
         {on ? activeLabel : `${label} ▾`}

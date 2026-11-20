@@ -1,7 +1,8 @@
+import { useId } from 'react';
 import { cashLabel } from '../../lib/credits/cash-label';
 import { formatBalance } from '../../lib/credits/money';
 import type { Household } from '../../lib/training/night';
-import { balanceTone, type RosterMember } from '../../lib/training/usuals';
+import { balanceTone, toneWords, type RosterMember } from '../../lib/training/usuals';
 
 // One runner, and the whole of their state is on the row being looked at.
 //
@@ -31,6 +32,8 @@ export function RunnerRow({
   onCash: () => void;
 }) {
   const tone = household ? balanceTone(household.balancePence, pricePence) : 'credit';
+  const spokenTone = toneWords(tone);
+  const balanceId = useId();
 
   // Colour carries the warning, not the wording. A line whose words change with
   // the number is a line the registrar has to read rather than glance at.
@@ -51,6 +54,10 @@ export function RunnerRow({
         role="checkbox"
         aria-checked={isHere}
         aria-label={`${member.firstName} ${member.surname}`}
+        // The label is the name alone, and a label replaces the button's
+        // contents. So the balance line describes it, or a screen reader would
+        // never hear the balance, the household or the warning.
+        aria-describedby={household ? balanceId : undefined}
         onClick={onToggle}
         // min-w-0 or this never shrinks: a flex item defaults to
         // min-width:auto, so a long household name holds the button at its
@@ -76,8 +83,9 @@ export function RunnerRow({
             <span className="font-normal">{member.firstName}</span>
           </span>
           {household && (
-            <span className={`block truncate text-sm ${tones[tone]}`}>
-              {formatBalance(household.balancePence)} · {household.name}
+            <span id={balanceId} className={`block truncate text-sm ${tones[tone]}`}>
+              {formatBalance(household.balancePence)}
+              {spokenTone && <span className="sr-only"> {spokenTone}</span>} · {household.name}
             </span>
           )}
         </span>
@@ -98,12 +106,12 @@ export function RunnerRow({
         {cashPence > 0 ? (
           <>
             <span className="text-base font-bold text-amber">{cashLabel(cashPence)}</span>
-            <span className="mt-1 block text-[10px] tracking-wider text-neutral-500 uppercase">
+            <span className="mt-1 block text-[11px] tracking-wider text-neutral-400 uppercase">
               added
             </span>
           </>
         ) : (
-          <span className="text-sm text-neutral-600">+&nbsp;£</span>
+          <span className="text-sm text-neutral-400">+&nbsp;£</span>
         )}
       </button>
     </li>

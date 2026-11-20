@@ -134,7 +134,18 @@ draws it; every decision about which rows appear is in
   there is nothing to undo yet
 - **Balance colour carries the warning, never the wording**: neutral in credit,
   amber below the price of a session, red overdrawn. Exactly the price is still
-  credit, because it covers tonight
+  credit, because it covers tonight. **That's for the eye only.** A row's
+  `aria-label` is just the runner's name, and a label replaces the button's
+  contents, so the balance line is attached as its `aria-describedby`, with a
+  visually hidden tone word from `toneWords()` (*"won't cover tonight"*,
+  *"overdrawn"*). A screen reader hears the balance, the household and the
+  warning, and the screen is unchanged
+- **The cash sheet behaves as a modal dialog**: opening it focuses the first
+  amount, Tab stays inside, Escape closes it like Cancel, and closing returns
+  focus to the cash cell that opened it
+- **Small text stays at `neutral-400` or lighter on black.** `neutral-500` and
+  `neutral-600` fail AA contrast at these sizes. The empty cash cell's "+ £"
+  was 2.69:1, and it's the only cue that the cell can be tapped
 - **The headcount and Money collected are both filters**, and tapping either
   clears the other. Both answer for the whole night, not just the list that
   happens to be open — otherwise the number would describe people the registrar

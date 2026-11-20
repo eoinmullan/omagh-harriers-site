@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cashLabel } from '../../lib/credits/cash-label';
 import { formatPounds } from '../../lib/credits/money';
 import { appendDigit, dropDigit, QUICK_AMOUNTS_PENCE } from '../../lib/training/cash';
@@ -28,9 +28,52 @@ export function CashSheet({
 }) {
   const [pence, setPence] = useState(currentPence);
   const unchanged = pence === currentPence;
+  const dialog = useRef<HTMLDivElement>(null);
+  const firstAmount = useRef<HTMLButtonElement>(null);
+
+  // A modal dialog has to behave like one for a keyboard or a screen reader:
+  // focus moves into it, stays in it, Escape closes it, and closing puts focus
+  // back on the cash cell that opened it. Before this the sheet was marked up
+  // as a modal and left focus on the row behind it. On a phone nothing
+  // visible changes: focus set from code after a tap draws no ring.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    firstAmount.current?.focus();
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    function keepFocusInside(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialog.current) return;
+
+      const stops = [...dialog.current.querySelectorAll<HTMLButtonElement>('button:not([disabled])')];
+      const first = stops[0];
+      const last = stops[stops.length - 1];
+      const inside = dialog.current.contains(document.activeElement);
+
+      if (!inside || (event.shiftKey && document.activeElement === first)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+
+    document.addEventListener('keydown', keepFocusInside);
+    return () => document.removeEventListener('keydown', keepFocusInside);
+  }, [onClose]);
 
   return (
     <div
+      ref={dialog}
       role="dialog"
       aria-modal="true"
       aria-label={`Cash from ${householdName}`}
@@ -51,16 +94,17 @@ export function CashSheet({
         <p className="mt-5 text-center text-5xl font-bold tabular-nums text-white">
           {formatPounds(pence)}
         </p>
-        <p className="mt-1 text-center text-sm text-white0">
+        <p className="mt-1 text-center text-sm text-neutral-400">
           {currentPence > 0
             ? `Handed over tonight: ${cashLabel(currentPence)}`
             : 'Nothing handed over yet tonight'}
         </p>
 
         <div className="mt-5 grid grid-cols-4 gap-2">
-          {QUICK_AMOUNTS_PENCE.map((amount) => (
+          {QUICK_AMOUNTS_PENCE.map((amount, index) => (
             <button
               key={amount}
+              ref={index === 0 ? firstAmount : undefined}
               type="button"
               onClick={() => setPence(amount)}
               className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-lg font-semibold text-neutral-100 active:bg-neutral-800"

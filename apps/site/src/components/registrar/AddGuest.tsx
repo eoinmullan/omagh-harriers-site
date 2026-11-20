@@ -28,7 +28,7 @@ export function AddGuest({
   const already = likelyAlready(guests, firstName, surname);
   const ready = firstName.trim() !== '' && surname.trim() !== '';
 
-  const field = 'min-h-14 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 text-lg text-white placeholder:text-white0';
+  const field = 'min-h-14 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 text-lg text-white placeholder:text-neutral-400';
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">

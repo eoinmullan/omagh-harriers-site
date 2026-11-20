@@ -198,6 +198,8 @@ const roleBadge: Record<string, string> = {
       </form>
     </details>}
 
+    <label for="principal-filter" class="sr-only">Filter households by name or email</label>
+
     <input
       id="principal-filter"
       type="search"
@@ -209,7 +211,7 @@ const roleBadge: Record<string, string> = {
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-200 text-left">
-            <th class="pb-3 font-semibold">
+            <th aria-sort="ascending" class="pb-3 font-semibold">
               <button type="button" data-sort="name" class="font-semibold hover:underline"
                 >Name</button
               >
@@ -217,9 +219,9 @@ const roleBadge: Record<string, string> = {
             <th class="pb-3 font-semibold">Email</th>
             <th class="pb-3 font-semibold">Role</th>
             <th class="pb-3 font-semibold">Members</th>
-            <th class="pb-3 pl-6 pr-6 font-semibold text-right">
+            <th aria-sort="none" class="pb-3 pl-6 pr-6 font-semibold text-right">
               <button type="button" data-sort="balance" class="font-semibold hover:underline">
-                Balance <span id="balance-arrow" class="text-gray-400 font-normal"></span>
+                Balance <span id="balance-arrow" aria-hidden="true" class="text-gray-400 font-normal"></span>
               </button>
             </th>
             <th class="pb-3 font-semibold">Status</th>
@@ -337,6 +339,13 @@ const roleBadge: Record<string, string> = {
       if (arrow) {
         arrow.textContent = order === 'poorest' ? '\u2191' : order === 'richest' ? '\u2193' : '';
       }
+
+      // The arrow is for the eye and hidden from screen readers; aria-sort is
+      // what tells them how the table is ordered. Poorest first is ascending.
+      document.querySelector('[data-sort=name]')?.closest('th')
+        ?.setAttribute('aria-sort', order === 'name' ? 'ascending' : 'none');
+      document.querySelector('[data-sort=balance]')?.closest('th')
+        ?.setAttribute('aria-sort', order === 'poorest' ? 'ascending' : order === 'richest' ? 'descending' : 'none');
     });
   });
 </script>

@@ -65,7 +65,7 @@ export function GuestRow({
         {paid && (
           <>
             <span className="text-base font-bold text-amber">{cashLabel(pricePence)}</span>
-            <span className="mt-1 block text-[10px] tracking-wider text-neutral-500 uppercase">
+            <span className="mt-1 block text-[11px] tracking-wider text-neutral-400 uppercase">
               paid
             </span>
           </>

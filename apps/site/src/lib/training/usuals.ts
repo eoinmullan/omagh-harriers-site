@@ -104,3 +104,17 @@ export function balanceTone(balancePence: number, pricePence: number): BalanceTo
   if (balancePence < pricePence) return 'low';
   return 'credit';
 }
+
+/**
+ * The balance tone in words, for a screen reader only.
+ *
+ * On screen the tone is carried by colour, deliberately: a line whose words
+ * change with the number has to be read, not glanced at. But the colour never
+ * reaches assistive technology, so the row describes itself with these words,
+ * visually hidden. Nothing on screen changes.
+ */
+export function toneWords(tone: BalanceTone): string | undefined {
+  if (tone === 'overdrawn') return 'overdrawn';
+  if (tone === 'low') return "won't cover tonight";
+  return undefined;
+}

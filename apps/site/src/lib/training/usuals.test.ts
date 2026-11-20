@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { balanceTone, bySurname, rosterToShow, usualsFor, type RosterMember } from './usuals';
+import { balanceTone, bySurname, rosterToShow, toneWords, usualsFor, type RosterMember } from './usuals';
 
 function member(overrides: Partial<RosterMember> & { id: string }): RosterMember {
   return {
@@ -154,5 +154,16 @@ describe('balanceTone', () => {
 
   it('treats a free session as covered by any credit at all', () => {
     expect(balanceTone(0, 0)).toBe('credit');
+  });
+});
+
+describe('toneWords', () => {
+  it('says nothing for a household in credit, so the common case stays short', () => {
+    expect(toneWords('credit')).toBeUndefined();
+  });
+
+  it('puts the warning colour into words for a screen reader', () => {
+    expect(toneWords('low')).toBe("won't cover tonight");
+    expect(toneWords('overdrawn')).toBe('overdrawn');
   });
 });

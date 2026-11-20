@@ -8,9 +8,8 @@ const mondayEvening = new Date('2026-11-19T19:00:00.000Z');
 function session(overrides: Partial<SelectableSession> = {}): SelectableSession {
   return {
     id: 's1',
-    name: 'Endurance',
     startsAt: '2026-11-19T19:00:00.000Z',
-    location: null,
+    note: null,
     pricePence: 200,
     isCancelled: false,
     groupId: 'group-endurance',
@@ -32,8 +31,7 @@ describe('planTrackSession', () => {
     expect(plan().id).toBe('client-made-id');
   });
 
-  it('is named after the group, which is the only name a registrar can give', () => {
-    expect(plan().name).toBe('Endurance');
+  it('is for the squad that was picked, which is the whole of what it is called', () => {
     expect(plan().group_id).toBe('group-endurance');
   });
 
@@ -49,9 +47,9 @@ describe('planTrackSession', () => {
     expect(plan().created_by).toBe('registrar-1');
   });
 
-  it('is not cancelled, and carries no location it cannot know', () => {
+  it('carries no note, there being nothing to say about a session nobody planned', () => {
     expect(plan().is_cancelled).toBeUndefined();
-    expect(plan().location).toBeUndefined();
+    expect(plan().note).toBeUndefined();
   });
 });
 

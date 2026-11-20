@@ -5,12 +5,13 @@ import { clubDayKey, parseClubDateTime } from './club-time';
 
 export interface SelectableSession {
   id: string;
-  name: string;
   startsAt: string;
-  location: string | null;
+  /** Anything worth saying about this one night. Null on almost all of them. */
+  note: string | null;
   pricePence: number;
   isCancelled: boolean;
   groupId: string;
+  /** What the session is called, because a session is its squad and its time. */
   groupName: string;
 }
 
@@ -27,8 +28,8 @@ export interface TonightsSessions {
  * involved still calls it tonight.
  *
  * Cancelled sessions come back separately rather than being dropped. "No
- * sessions tonight" and "Monday Track was called off" send a registrar standing
- * in the rain to two different places, and only one of them is the truth.
+ * sessions tonight" and "Endurance was called off" send a registrar standing in
+ * the rain to two different places, and only one of them is the truth.
  */
 export function tonightsSessions(
   sessions: SelectableSession[],

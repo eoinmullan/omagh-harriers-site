@@ -22,11 +22,13 @@ const admin = createSupabaseAdminClientFromLocals(Astro.locals);
 
 const { data: session } = await admin
   .from('training_sessions')
-  .select('id, name, starts_at, location, price_pence, is_cancelled, group_id, group:group_id(name)')
+  .select('id, starts_at, note, price_pence, is_cancelled, group_id, group:group_id(name)')
   .eq('id', id)
   .maybeSingle();
 
 if (!session) return Astro.redirect('/admin/sessions');
+
+const groupName = (session.group as { name: string } | null)?.name ?? '';
 
 const { data: membership } = await admin
   .from('member_groups')
@@ -74,7 +76,6 @@ const roster: (RosterMember & { householdName: string; balancePence: number })[]
 // few enough not to cost a second sheet of paper.
 const spareLines = Array.from({ length: 8 });
 
-const groupName = (session.group as { name: string } | null)?.name ?? '';
 ---
 
 <!doctype html>
@@ -83,18 +84,17 @@ const groupName = (session.group as { name: string } | null)?.name ?? '';
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
-    <title>{session.name} — sign-in sheet</title>
+    <title>{groupName} — sign-in sheet</title>
   </head>
   <body>
     <div class="sheet">
       <header>
-        <h1>{session.name}</h1>
+        <h1>{groupName}</h1>
         <p class="when">
           {formatClubDateTime(session.starts_at)}
-          {groupName ? ` · ${groupName}` : ''}
-          {session.location ? ` · ${session.location}` : ''}
           {` · ${formatPounds(session.price_pence)} a runner`}
         </p>
+        {session.note && <p class="session-note">{session.note}</p>}
         {session.is_cancelled && <p class="cancelled">This session is cancelled.</p>}
       </header>
 
@@ -165,6 +165,7 @@ const groupName = (session.group as { name: string } | null)?.name ?? '';
       h1 { margin: 0; font-size: 1.5rem; }
       .when { margin: 0.25rem 0 0; font-size: 0.95rem; }
       .cancelled { margin: 0.5rem 0 0; font-weight: 700; }
+      .session-note { margin: 0.4rem 0 0; font-size: 0.95rem; font-weight: 600; }
 
       .note {
         margin: 1rem 0;

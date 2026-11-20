@@ -45,10 +45,9 @@ if (Astro.request.method === 'POST') {
   const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
 
   const plan = planNewSession({
-    name: field('name'),
     groupId: field('group_id'),
     startsAt: field('starts_at'),
-    location: field('location'),
+    note: field('note'),
     price: field('price'),
     groups: await loadGroups(),
     createdBy: actingPrincipal.id,
@@ -65,7 +64,8 @@ if (Astro.request.method === 'POST') {
       console.error('[admin/sessions] session insert failed:', insertError);
       error = insertError.message;
     } else {
-      success = `${plan.insert.name} created for ${formatClubDateTime(plan.insert.starts_at)}.`;
+      const group = (await loadGroups()).find((candidate) => candidate.id === plan.insert.group_id);
+      success = `${group?.name ?? 'Session'} created for ${formatClubDateTime(plan.insert.starts_at)}.`;
     }
   }
 }
@@ -75,14 +75,13 @@ const runningGroups = groups.filter((group) => group.isActive);
 
 const { data: sessionRows } = await adminClient
   .from('training_sessions')
-  .select('id, name, starts_at, location, price_pence, is_cancelled, group:group_id(name)')
+  .select('id, starts_at, note, price_pence, is_cancelled, group:group_id(name)')
   .order('starts_at', { ascending: false });
 
 type SessionListRow = {
   id: string;
-  name: string;
   starts_at: string;
-  location: string | null;
+  note: string | null;
   price_pence: number;
   is_cancelled: boolean;
   group: { name: string } | null;
@@ -197,17 +196,6 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
           <h2 class="text-lg font-semibold mb-3">Create a session</h2>
           <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium mb-1" for="session-name">Name</label>
-              <input
-                id="session-name"
-                type="text"
-                name="name"
-                placeholder="Monday Track"
-                required
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
               <label class="block text-sm font-medium mb-1" for="session-group">Group</label>
               <select
                 id="session-group"
@@ -236,14 +224,14 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
             </div>
             <div class="grid grid-cols-[1fr_8rem] gap-4">
               <div>
-                <label class="block text-sm font-medium mb-1" for="session-location">
-                  Location <span class="text-gray-400 font-normal">(optional)</span>
+                <label class="block text-sm font-medium mb-1" for="session-note">
+                  Note <span class="text-gray-400 font-normal">(optional)</span>
                 </label>
                 <input
-                  id="session-location"
+                  id="session-note"
                   type="text"
-                  name="location"
-                  placeholder="Omagh Leisure Complex"
+                  name="note"
+                  placeholder="Meet at the top car park"
                   class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                 />
               </div>
@@ -286,13 +274,12 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
               <li class="py-3 flex flex-wrap items-baseline justify-between gap-3">
                 <div>
                   <p class:list={['font-medium', session.is_cancelled && 'line-through']}>
-                    {session.name}
+                    {session.group?.name}
                   </p>
                   <p class="text-sm text-gray-500">
-                    {formatClubDateTime(session.startsAt)} · {session.group?.name}
-                    {session.location ? ` · ${session.location}` : ''} ·{' '}
-                    {formatPounds(session.price_pence)}
+                    {formatClubDateTime(session.startsAt)} · {formatPounds(session.price_pence)}
                   </p>
+                  {session.note && <p class="text-sm text-gray-600 mt-0.5">{session.note}</p>}
                 </div>
                 <div class="flex items-center gap-3">
                   {session.is_cancelled && (
@@ -326,7 +313,6 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
               <thead>
                 <tr class="border-b border-gray-200 text-left">
                   <th class="pb-3 font-semibold">Session</th>
-                  <th class="pb-3 font-semibold">Group</th>
                   <th class="pb-3 font-semibold text-right">Here</th>
                   <th class="pb-3 font-semibold text-right">Money collected</th>
                   <th class="pb-3" />
@@ -337,14 +323,11 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
                   <tr class={session.is_cancelled ? 'opacity-50' : ''}>
                     <td class="py-3">
                       <p class:list={['font-medium', session.is_cancelled && 'line-through']}>
-                        {session.name}
+                        {session.group?.name}
                       </p>
-                      <p class="text-xs text-gray-500">
-                        {formatClubDateTime(session.startsAt)}
-                        {session.location ? ` · ${session.location}` : ''}
-                      </p>
+                      <p class="text-xs text-gray-500">{formatClubDateTime(session.startsAt)}</p>
+                      {session.note && <p class="text-xs text-gray-600">{session.note}</p>}
                     </td>
-                    <td class="py-3 text-gray-600">{session.group?.name}</td>
                     <td class="py-3 text-right">
                       {session.heads.total}
                       {session.heads.guests > 0 && (

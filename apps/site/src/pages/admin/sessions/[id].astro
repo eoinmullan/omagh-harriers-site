@@ -38,7 +38,7 @@ if (!actingPrincipal) return Astro.redirect('/signin');
 async function loadSession(sessionId: string) {
   const { data } = await adminClient
     .from('training_sessions')
-    .select('id, name, starts_at, location, price_pence, is_cancelled, group:group_id(id, name)')
+    .select('id, starts_at, note, price_pence, is_cancelled, group:group_id(id, name)')
     .eq('id', sessionId)
     .maybeSingle();
 
@@ -46,9 +46,8 @@ async function loadSession(sessionId: string) {
 
   const row = data as unknown as {
     id: string;
-    name: string;
     starts_at: string;
-    location: string | null;
+    note: string | null;
     price_pence: number;
     is_cancelled: boolean;
     group: { id: string; name: string } | null;
@@ -87,8 +86,7 @@ if (Astro.request.method === 'POST') {
       case 'edit': {
         plan = planSessionEdit({
           session,
-          name: field('name'),
-          location: field('location'),
+          note: field('note'),
           price: field('price'),
           attendanceCount: await countAttendance(id),
         });
@@ -97,12 +95,12 @@ if (Astro.request.method === 'POST') {
       }
       case 'cancel': {
         plan = planCancellation(session);
-        confirmation = `${session.name} cancelled. Its attendance and the charges against it are untouched.`;
+        confirmation = 'Cancelled. Its attendance and the charges against it are untouched.';
         break;
       }
       case 'reinstate': {
         plan = planReinstatement(session);
-        confirmation = `${session.name} is back on.`;
+        confirmation = 'That session is back on.';
         break;
       }
     }
@@ -233,12 +231,12 @@ const money = ledgerDetail
 const hasAttendance = attendanceDetail.length > 0;
 ---
 
-<Layout title={`${session.name} — Sessions — Admin — Omagh Harriers AC`}>
+<Layout title={`${session.group?.name} — Sessions — Admin — Omagh Harriers AC`}>
   <PageContainer>
     <p class="text-sm text-gray-500 mb-6">
       <a href="/members" class="hover:underline">Members' area</a> /
       <a href="/admin/sessions" class="hover:underline">Sessions</a> /
-      {session.name}
+      {session.group?.name}
     </p>
 
     <p class="mb-6">
@@ -269,12 +267,10 @@ const hasAttendance = attendanceDetail.length > 0;
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class:list={['text-2xl font-bold', session.isCancelled && 'line-through']}>
-            {session.name}
+            {session.group?.name}
           </h1>
-          <p class="text-gray-500 mt-1">
-            {formatClubDateTime(session.starts_at)} · {session.group?.name}
-            {session.location ? ` · ${session.location}` : ''}
-          </p>
+          <p class="text-gray-500 mt-1">{formatClubDateTime(session.starts_at)}</p>
+          {session.note && <p class="text-gray-700 mt-1">{session.note}</p>}
         </div>
         <div class="flex gap-6 text-right">
           <div>
@@ -323,28 +319,18 @@ const hasAttendance = attendanceDetail.length > 0;
 
     <section class="mb-8">
       <h2 class="text-lg font-semibold mb-3">Details</h2>
-      <form method="POST" class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_8rem_auto] gap-4">
+      <form method="POST" class="grid grid-cols-1 sm:grid-cols-[1fr_8rem_auto] gap-4">
         <input type="hidden" name="action" value="edit" />
         <div>
-          <label class="block text-sm font-medium mb-1" for="edit-name">Name</label>
-          <input
-            id="edit-name"
-            type="text"
-            name="name"
-            value={session.name}
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1" for="edit-location">
-            Location <span class="text-gray-400 font-normal">(optional)</span>
+          <label class="block text-sm font-medium mb-1" for="edit-note">
+            Note <span class="text-gray-400 font-normal">(optional)</span>
           </label>
           <input
-            id="edit-location"
+            id="edit-note"
             type="text"
-            name="location"
-            value={session.location ?? ''}
+            name="note"
+            value={session.note ?? ''}
+            placeholder="Meet at the top car park"
             class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
           />
         </div>

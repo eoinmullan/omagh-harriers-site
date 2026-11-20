@@ -58,7 +58,7 @@ export function StartSession({
                 className="min-h-16 w-full rounded-xl border border-emerald-500/60 bg-emerald-500/10 px-5 text-left active:bg-emerald-500/20"
               >
                 <span className="block text-lg font-semibold text-white">
-                  Open {session.name}
+                  Open {session.groupName}
                 </span>
                 <span className="block text-base text-neutral-400">
                   started {formatClubTime(session.startsAt)}

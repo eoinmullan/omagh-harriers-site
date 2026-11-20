@@ -190,7 +190,6 @@ describe('a session started at the track', () => {
     kind: 'create_session',
     row: {
       id: 'client-made',
-      name: 'Endurance',
       group_id: 'g1',
       starts_at: '2026-11-19T19:00:00.000Z',
       price_pence: 200,

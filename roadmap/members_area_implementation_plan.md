@@ -238,7 +238,7 @@ not in scope.
 
 ### Supabase additions
 - [x] Create `groups` table — `id`, `name`, `is_active`, `created_at`. The squads the club actually trains in — sprints, middle distance, endurance, seniors, juniors, and whatever is added next. Admins add them through the UI, so the list is never a deploy away
-- [x] Create `training_sessions` table — `id`, `name`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `location` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`
+- [x] Create `training_sessions` table — `id`, `group_id` (FK → `groups`), `starts_at` (timestamptz), `note` (nullable), `price_pence` (NOT NULL), `is_cancelled`, `created_by`, `created_at`. **`name` and `location` were dropped in `0014`** — see *A session is a squad and a time* below
 - [x] `price_pence` is set from a **£2** constant in code at creation time. The session keeps its own copy, so changing the constant never rewrites a session that has already run, and never touches the ledger, which records what was actually charged
 - [x] Relax `training_sessions.price_pence` from `CHECK (price_pence > 0)` to `>= 0`, so a free session can exist — **migration `0012`, written and tested locally, not yet applied to the live project**
 - [x] Create `member_groups` — `member_id`, `group_id`. Which squads a member trains with. This is what makes the Usuals list useful on day one, before any attendance history exists
@@ -618,6 +618,32 @@ has already narrowed the night to an answer.
 
 `prototype/registrar-screen` is pushed, since it is the reference for how this
 screen looks.
+
+#### A session is a squad and a time
+
+Decided on 20 Nov 2026: `name` and `location` come off `training_sessions`, and
+one optional `note` replaces them. Migration `0014`.
+
+Neither column ever earned its place, and the club's own first three sessions
+prove it. The registrar app names a session after its own group, because there
+is nothing else to call it. The one session created by hand was called **"Wed"**
+— a name that says strictly less than the start time sitting next to it. A
+field that is either a duplicate of the group or a shrug is a field to remove.
+
+What is left identifies a session completely: the squad it is for and when it
+started. `groups.name` is the label on every screen, and the untick's ledger
+note names the squad instead — *"Middle Distance sign-in corrected for Jack"*,
+which reads better than the session name ever did.
+
+`note` is nullable and expected to be null on almost every session. It covers
+what `location` was reaching for ("top car park") and the things it never could
+("juniors only", "coaches away, easy run"). It shows on the picker, so a
+registrar reads it before they pick, on both admin screens, and on the printed
+sheet.
+
+**This is a destructive migration** — two columns dropped. Nothing of value is
+lost today: the only strings in them are "Wed", "ZZ Verification session" and
+"Not a real session".
 
 #### One outbox, owed by the phone
 

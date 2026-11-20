@@ -121,9 +121,8 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
     // attendance.session_id is a RESTRICT reference and would be refused.
     const session: SelectableSession = {
       id: row.id!,
-      name: row.name,
       startsAt: row.starts_at,
-      location: null,
+      note: null,
       pricePence: row.price_pence,
       isCancelled: false,
       groupId: group.id,
@@ -187,7 +186,9 @@ Nothing is scheduled for tonight. Start one below and sign runners in.
       )}
 
       {cancelled.length > 0 && (
-        <Note>Called off tonight: {cancelled.map((session) => session.name).join(', ')}.</Note>
+        <Note>
+          Called off tonight: {cancelled.map((session) => session.groupName).join(', ')}.
+        </Note>
       )}
 
       <StartSession
@@ -219,20 +220,21 @@ function SessionChoice({
       onClick={onChoose}
       className="min-h-20 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-5 py-4 text-left active:bg-neutral-800"
     >
-      <span className="block text-xl font-semibold text-white">{session.name}</span>
+      <span className="block text-xl font-semibold text-white">{session.groupName}</span>
       <span className="mt-0.5 block text-base text-neutral-400">
-        {formatClubTime(session.startsAt)} · {session.groupName}
-        {session.location ? ` · ${session.location}` : ''}
+        {formatClubTime(session.startsAt)}
       </span>
+      {session.note && (
+        <span className="mt-1 block text-base text-amber">{session.note}</span>
+      )}
     </button>
   );
 }
 
 type SessionRow = {
   id: string;
-  name: string;
   starts_at: string;
-  location: string | null;
+  note: string | null;
   price_pence: number;
   is_cancelled: boolean;
   group_id: string;
@@ -243,9 +245,8 @@ function asSelectable(row: unknown): SelectableSession {
   const session = row as SessionRow;
   return {
     id: session.id,
-    name: session.name,
     startsAt: session.starts_at,
-    location: session.location,
+    note: session.note,
     pricePence: session.price_pence,
     isCancelled: session.is_cancelled,
     groupId: session.group_id,

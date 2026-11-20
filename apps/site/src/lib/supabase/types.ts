@@ -166,10 +166,9 @@ export type GroupUpdate = {
 
 export type TrainingSessionRow = {
   id: string;
-  name: string;
   group_id: string;
   starts_at: string;
-  location: string | null;
+  note: string | null;
   price_pence: number;
   is_cancelled: boolean;
   created_by: string;
@@ -178,10 +177,9 @@ export type TrainingSessionRow = {
 
 export type TrainingSessionInsert = {
   id?: string;
-  name: string;
   group_id: string;
   starts_at: string;
-  location?: string | null;
+  note?: string | null;
   price_pence: number;
   is_cancelled?: boolean;
   created_by: string;
@@ -190,10 +188,9 @@ export type TrainingSessionInsert = {
 
 export type TrainingSessionUpdate = {
   id?: string;
-  name?: string;
   group_id?: string;
   starts_at?: string;
-  location?: string | null;
+  note?: string | null;
   price_pence?: number;
   is_cancelled?: boolean;
   created_by?: string;

@@ -9,9 +9,8 @@ import {
 function session(overrides: Partial<SelectableSession> = {}): SelectableSession {
   return {
     id: 'session-1',
-    name: 'Monday Track',
     startsAt: '2026-07-06T18:30:00.000Z',
-    location: 'Omagh Leisure Complex',
+    note: null,
     pricePence: 200,
     isCancelled: false,
     groupId: 'group-1',

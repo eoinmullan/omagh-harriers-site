@@ -652,7 +652,7 @@ export function AttendanceView({
 
   if (state.phase === 'loading') {
     return (
-      <Screen title={session.name}>
+      <Screen title={session.groupName}>
         <p className="text-lg text-neutral-400">Getting tonight's list…</p>
       </Screen>
     );
@@ -660,7 +660,7 @@ export function AttendanceView({
 
   if (state.phase === 'failed') {
     return (
-      <Screen title={session.name}>
+      <Screen title={session.groupName}>
         <Problem>Couldn't load the list. {state.problem}</Problem>
         <BigButton onClick={() => void load()}>Try again</BigButton>
       </Screen>
@@ -679,7 +679,7 @@ export function AttendanceView({
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col">
       <header className="sticky top-0 z-20 border-b border-neutral-800 bg-black">
         <div className="flex items-baseline justify-between px-4 pt-3 pb-2">
-          <h1 className="truncate text-xl font-bold">{session.name}</h1>
+          <h1 className="truncate text-xl font-bold">{session.groupName}</h1>
           <p className="shrink-0 pl-3 text-sm text-neutral-400">
             {formatClubTime(session.startsAt)}
           </p>

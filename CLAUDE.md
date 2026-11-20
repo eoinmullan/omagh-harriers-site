@@ -381,6 +381,18 @@ and RLS rightly hides every principal row but the member's own.
 
 ## Training sessions and attendance
 
+**A session has no name and no location — it is a squad and a time.** Both
+columns were drawn into the schema before anything used them and neither earned
+its place: the registrar app named a session after its own group, and the one
+session created by hand was called "Wed", which says less than the start time
+already does. `groups.name` is the label everywhere now, and the untick's ledger
+note names the squad: *"Middle Distance sign-in corrected for Jack"*.
+
+`note` replaces both. One optional free line, null on almost every session,
+covering what `location` was reaching for ("top car park") and the things it
+never could ("juniors only", "coaches away, easy run"). It shows on the session
+picker, on the admin screens and on the printed sheet. Migration `0014`.
+
 A training session is a row somebody created, never something derived from the
 published timetable in `training-schedule.ts` — publishing the timetable and
 running training are two different jobs in the club, and the schema keeps them

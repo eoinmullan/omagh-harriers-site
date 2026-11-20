@@ -4,7 +4,11 @@ import type { TrainingSessionInsert, TrainingSessionUpdate } from '../supabase/t
 import { parseClubDateTime } from './club-time';
 
 // What may be written to `training_sessions`, decided here so the admin pages
-// decide nothing. Same shape as `credits/ledger.ts`: a form in, either a row
+// decide nothing.
+//
+// A session has no name and no location: it is a squad and a time, which says
+// everything a name was ever used to say. `note` is the one free line, for the
+// night that needs something said about it. Same shape as `credits/ledger.ts`: a form in, either a row
 // to write or one sentence for the admin out.
 
 export interface SessionGroup {
@@ -14,8 +18,7 @@ export interface SessionGroup {
 }
 
 export interface PricedSession {
-  name: string;
-  location: string | null;
+  note: string | null;
   pricePence: number;
   isCancelled: boolean;
 }
@@ -24,17 +27,13 @@ export type SessionCreation = { insert: TrainingSessionInsert } | { problem: str
 export type SessionChange = { update: TrainingSessionUpdate } | { problem: string };
 
 export function planNewSession(request: {
-  name: string;
   groupId: string;
   startsAt: string;
-  location: string;
+  note: string;
   price: string;
   groups: SessionGroup[];
   createdBy: string;
 }): SessionCreation {
-  const name = request.name.trim();
-  if (!name) return { problem: 'Give the session a name.' };
-
   const group = request.groups.find((candidate) => candidate.id === request.groupId);
   if (!group) return { problem: 'Choose the group this session is for.' };
   if (!group.isActive) {
@@ -51,10 +50,9 @@ export function planNewSession(request: {
 
   return {
     insert: {
-      name,
       group_id: group.id,
       starts_at: startsAt,
-      location: request.location.trim() || null,
+      note: request.note.trim() || null,
       price_pence: pricePence,
       created_by: request.createdBy,
     },
@@ -63,16 +61,12 @@ export function planNewSession(request: {
 
 export function planSessionEdit(request: {
   session: PricedSession;
-  name: string;
-  location: string;
+  note: string;
   price: string;
   // Sign-ins already recorded against the session. Each one put a debit in
   // the ledger at the price below, and the ledger cannot be edited.
   attendanceCount: number;
 }): SessionChange {
-  const name = request.name.trim();
-  if (!name) return { problem: 'Give the session a name.' };
-
   const pricePence = resolvePrice(request.price, request.session.pricePence);
   if (!pricePence) return { problem: priceProblem(request.session.pricePence) };
 
@@ -80,23 +74,23 @@ export function planSessionEdit(request: {
     return { problem: priceIsSettledMessage(request.session.pricePence, request.attendanceCount) };
   }
 
-  const location = request.location.trim() || null;
-  if (name === request.session.name && location === request.session.location && pricePence === request.session.pricePence) {
+  const note = request.note.trim() || null;
+  if (note === request.session.note && pricePence === request.session.pricePence) {
     return { problem: 'Nothing was changed.' };
   }
 
-  return { update: { name, location, price_pence: pricePence } };
+  return { update: { note, price_pence: pricePence } };
 }
 
 // Cancelling is a soft-disable: the attendance and the ledger rows behind it
 // have to keep meaning something.
 export function planCancellation(session: PricedSession): SessionChange {
-  if (session.isCancelled) return { problem: `${session.name} is already cancelled.` };
+  if (session.isCancelled) return { problem: 'That session is already cancelled.' };
   return { update: { is_cancelled: true } };
 }
 
 export function planReinstatement(session: PricedSession): SessionChange {
-  if (!session.isCancelled) return { problem: `${session.name} is not cancelled.` };
+  if (!session.isCancelled) return { problem: 'That session is not cancelled.' };
   return { update: { is_cancelled: false } };
 }
 

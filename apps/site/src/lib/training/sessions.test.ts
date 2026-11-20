@@ -19,10 +19,9 @@ const RETIRED: SessionGroup = { id: 'group-b', name: 'Juniors', isActive: false 
 
 function newSessionRequest(overrides: Partial<Parameters<typeof planNewSession>[0]> = {}) {
   return {
-    name: 'Monday Track',
     groupId: ENDURANCE.id,
     startsAt: '2027-01-11T19:00',
-    location: 'Omagh Leisure Complex',
+    note: '',
     price: '',
     groups: [ENDURANCE, RETIRED],
     createdBy: ADMIN,
@@ -32,8 +31,7 @@ function newSessionRequest(overrides: Partial<Parameters<typeof planNewSession>[
 
 function session(overrides: Partial<PricedSession> = {}): PricedSession {
   return {
-    name: 'Monday Track',
-    location: 'Omagh Leisure Complex',
+    note: null,
     pricePence: DEFAULT_SESSION_PRICE_PENCE,
     isCancelled: false,
     ...overrides,
@@ -58,10 +56,9 @@ function problemOf(result: SessionCreation | SessionChange): string {
 describe('planNewSession', () => {
   it('takes the price from the constant when the admin leaves it blank', () => {
     expect(insertOf(planNewSession(newSessionRequest()))).toEqual({
-      name: 'Monday Track',
       group_id: 'group-a',
       starts_at: '2027-01-11T19:00:00.000Z',
-      location: 'Omagh Leisure Complex',
+      note: null,
       price_pence: DEFAULT_SESSION_PRICE_PENCE,
       created_by: ADMIN,
     });
@@ -77,14 +74,18 @@ describe('planNewSession', () => {
     expect(insert.starts_at).toBe('2027-07-05T18:00:00.000Z');
   });
 
-  it('treats a blank location as no location', () => {
-    const insert = insertOf(planNewSession(newSessionRequest({ location: '  ' })));
-    expect(insert.location).toBeNull();
+  it('treats a blank note as no note, because most nights have nothing to say', () => {
+    expect(insertOf(planNewSession(newSessionRequest({ note: '  ' }))).note).toBeNull();
   });
 
-  it('refuses an empty name', () => {
-    expect(problemOf(planNewSession(newSessionRequest({ name: ' ' })))).toBe(
-      'Give the session a name.',
+  it('keeps a note that says something', () => {
+    const insert = insertOf(planNewSession(newSessionRequest({ note: ' Meet at the top car park ' })));
+    expect(insert.note).toBe('Meet at the top car park');
+  });
+
+  it('asks for nothing but the group and the time', () => {
+    expect(problemOf(planNewSession(newSessionRequest({ groupId: '' })))).toBe(
+      'Choose the group this session is for.',
     );
   });
 
@@ -120,34 +121,30 @@ describe('planNewSession', () => {
 });
 
 describe('planSessionEdit', () => {
-  it('writes name, location and price together', () => {
+  it('writes the note and the price together', () => {
     const change = planSessionEdit({
       session: session(),
-      name: 'Monday Track Speed',
-      location: 'Omagh Leisure Complex',
+      note: 'Juniors only tonight',
       price: '2.50',
       attendanceCount: 0,
     });
 
     expect(updateOf(change)).toEqual({
-      name: 'Monday Track Speed',
-      location: 'Omagh Leisure Complex',
+      note: 'Juniors only tonight',
       price_pence: 250,
     });
   });
 
   it('keeps the session price when the admin leaves the field alone', () => {
     const change = planSessionEdit({
-      session: session({ pricePence: 350 }),
-      name: 'Tuesday Hills',
-      location: '',
+      session: session({ pricePence: 350, note: 'Top car park' }),
+      note: '',
       price: '',
       attendanceCount: 4,
     });
 
     expect(updateOf(change)).toEqual({
-      name: 'Tuesday Hills',
-      location: null,
+      note: null,
       price_pence: 350,
     });
   });
@@ -155,8 +152,7 @@ describe('planSessionEdit', () => {
   it('refuses a new price once somebody has signed in at the old one', () => {
     const change = planSessionEdit({
       session: session(),
-      name: 'Monday Track',
-      location: 'Omagh Leisure Complex',
+      note: '',
       price: '3',
       attendanceCount: 12,
     });
@@ -167,8 +163,7 @@ describe('planSessionEdit', () => {
   it('counts one runner as one runner', () => {
     const change = planSessionEdit({
       session: session(),
-      name: 'Monday Track',
-      location: 'Omagh Leisure Complex',
+      note: '',
       price: '3',
       attendanceCount: 1,
     });
@@ -176,23 +171,21 @@ describe('planSessionEdit', () => {
     expect(problemOf(change)).toContain('one runner has already signed in');
   });
 
-  it('still lets the name be fixed on a session with attendance', () => {
+  it('still lets the note be written on a session with attendance', () => {
     const change = planSessionEdit({
       session: session(),
-      name: 'Monday Track Speed',
-      location: 'Omagh Leisure Complex',
+      note: 'Finished early, floodlight out',
       price: '2.00',
       attendanceCount: 12,
     });
 
-    expect(updateOf(change).name).toBe('Monday Track Speed');
+    expect(updateOf(change).note).toBe('Finished early, floodlight out');
   });
 
   it('says so when nothing would change', () => {
     const change = planSessionEdit({
       session: session(),
-      name: 'Monday Track',
-      location: 'Omagh Leisure Complex',
+      note: '',
       price: '2',
       attendanceCount: 0,
     });
@@ -200,17 +193,6 @@ describe('planSessionEdit', () => {
     expect(problemOf(change)).toBe('Nothing was changed.');
   });
 
-  it('refuses an empty name', () => {
-    const change = planSessionEdit({
-      session: session(),
-      name: '',
-      location: '',
-      price: '',
-      attendanceCount: 0,
-    });
-
-    expect(problemOf(change)).toBe('Give the session a name.');
-  });
 });
 
 describe('planCancellation', () => {
@@ -220,7 +202,7 @@ describe('planCancellation', () => {
 
   it('refuses a session already cancelled', () => {
     expect(problemOf(planCancellation(session({ isCancelled: true })))).toBe(
-      'Monday Track is already cancelled.',
+      'That session is already cancelled.',
     );
   });
 });
@@ -233,7 +215,7 @@ describe('planReinstatement', () => {
   });
 
   it('refuses a session that was never cancelled', () => {
-    expect(problemOf(planReinstatement(session()))).toBe('Monday Track is not cancelled.');
+    expect(problemOf(planReinstatement(session()))).toBe('That session is not cancelled.');
   });
 });
 

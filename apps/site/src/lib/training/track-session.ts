@@ -27,8 +27,8 @@ export interface SessionGroup {
  * runners in front of them, and asking them to pick a time in the cold would be
  * a question with only one sensible answer.
  *
- * The name is the group's. Admins can rename it afterwards; a registrar cannot,
- * so offering a text box would be offering something the app cannot keep.
+ * Nothing is asked beyond the squad. A session is its squad and its time, and
+ * both are already known by the time this is called.
  */
 export function planTrackSession(request: {
   group: SessionGroup;
@@ -40,7 +40,6 @@ export function planTrackSession(request: {
 
   return {
     id: request.id,
-    name: request.group.name,
     group_id: request.group.id,
     starts_at: now.toISOString(),
     price_pence: DEFAULT_SESSION_PRICE_PENCE,

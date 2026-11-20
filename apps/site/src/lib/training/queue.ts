@@ -49,6 +49,16 @@ export interface GuestSignIn {
   guestId: string;
   sessionId: string;
   pricePence: number;
+  /**
+   * Who took the money, settled when the finger came off the screen.
+   *
+   * Every other write already carries its author — the RPCs read it from the
+   * token, and the cash and session rows have `created_by` on them. This one
+   * used to be handed in at send time, which meant a write queued at seven
+   * depended on who could be resolved at nine. A queued write should describe
+   * itself completely or it is not really queued.
+   */
+  recordedBy: string;
 }
 
 export interface GuestUndo {

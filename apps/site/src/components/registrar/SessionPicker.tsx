@@ -13,7 +13,7 @@ import { loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
 import { planTrackSession, type SessionGroup } from '../../lib/training/track-session';
 import { AttendanceView } from './AttendanceView';
 import { StartSession } from './StartSession';
-import { useWriteQueue } from './useWriteQueue';
+import type { Outbox } from './useWriteQueue';
 import { InstallHint } from './InstallHint';
 import { BigButton, Note, Problem, Screen } from './ui';
 
@@ -28,16 +28,13 @@ type Load =
   | { state: 'loaded'; tonight: TonightsSessions }
   | { state: 'failed'; problem: string };
 
-export function SessionPicker({ authUserId }: { authUserId: string }) {
+export function SessionPicker({ authUserId, outbox }: { authUserId: string; outbox: Outbox }) {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [chosen, setChosen] = useState<SelectableSession | undefined>();
   const [groups, setGroups] = useState<SessionGroup[]>([]);
   const [actorId, setActorId] = useState('');
   const [startedHere, setStartedHere] = useState<SelectableSession[]>([]);
 
-  // A session started at the track queues like any other write, so it can be
-  // made with no signal and ticked into straight away.
-  const outbox = useWriteQueue('track-sessions', actorId);
 
   const refresh = useCallback(async () => {
     setLoad({ state: 'loading' });
@@ -163,6 +160,7 @@ export function SessionPicker({ authUserId }: { authUserId: string }) {
     return (
       <AttendanceView
         authUserId={authUserId}
+        outbox={outbox}
         session={opened}
         onBack={available.length > 1 ? () => setChosen(undefined) : undefined}
       />

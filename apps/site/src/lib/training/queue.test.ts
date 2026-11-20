@@ -21,7 +21,13 @@ const signIn: Write = {
   attendanceId: 'a1',
 };
 const undoSignIn: Write = { kind: 'undo_sign_in', attendanceId: 'a1' };
-const guestIn: Write = { kind: 'guest_sign_in', guestId: 'g1', sessionId: 's1', pricePence: 200 };
+const guestIn: Write = {
+  kind: 'guest_sign_in',
+  guestId: 'g1',
+  sessionId: 's1',
+  pricePence: 200,
+  recordedBy: 'registrar-1',
+};
 const guestOut: Write = { kind: 'guest_undo', guestId: 'g1', sessionId: 's1' };
 const cash: Write = {
   kind: 'cash',
@@ -68,14 +74,14 @@ describe('enqueue', () => {
   });
 
   it('only cancels the guest it actually undoes', () => {
-    const otherGuest: Write = { ...guestIn, guestId: 'g2' };
+    const otherGuest: Write = { ...guestIn, kind: 'guest_sign_in', guestId: 'g2' };
     const queue = enqueue(enqueue([], queued(otherGuest)), queued(guestOut));
 
     expect(queue).toHaveLength(2);
   });
 
   it('does not cancel a guest from another session', () => {
-    const elsewhere: Write = { ...guestIn, sessionId: 's2' };
+    const elsewhere: Write = { ...guestIn, kind: 'guest_sign_in', sessionId: 's2' };
     const queue = enqueue(enqueue([], queued(elsewhere)), queued(guestOut));
 
     expect(queue).toHaveLength(2);

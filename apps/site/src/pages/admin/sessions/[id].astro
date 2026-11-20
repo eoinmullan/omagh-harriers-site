@@ -241,6 +241,15 @@ const hasAttendance = attendanceDetail.length > 0;
       {session.name}
     </p>
 
+    <p class="mb-6">
+      <a href={`/admin/sessions/${id}/sheet`} class="text-sm underline hover:text-gray-600">
+        Printable sign-in sheet &rarr;
+      </a>
+      <span class="ml-2 text-sm text-gray-500">
+        for the night a phone dies, or no phone turns up at all
+      </span>
+    </p>
+
     {
       error && (
         <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">

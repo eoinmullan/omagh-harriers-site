@@ -1,0 +1,206 @@
+---
+import { createSupabaseAdminClientFromLocals } from '../../../../lib/supabase/admin';
+import { formatPounds } from '../../../../lib/credits/money';
+import { formatClubDateTime } from '../../../../lib/training/club-time';
+import { bySurname, type RosterMember } from '../../../../lib/training/usuals';
+
+// The night a phone dies.
+//
+// Paper does not run out of battery, lose signal or need a password, and the
+// session still has to be recorded. This is the same list the app would show —
+// the Usuals for the session's group, ordered by surname — with somewhere to
+// tick and somewhere to write what was handed over.
+//
+// It is an admin page because printing happens sitting down, before the night
+// or from somebody else's laptop when a phone has already gone. A registrar at
+// the track with a dead phone is not printing anything.
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/sessions');
+
+const admin = createSupabaseAdminClientFromLocals(Astro.locals);
+
+const { data: session } = await admin
+  .from('training_sessions')
+  .select('id, name, starts_at, location, price_pence, is_cancelled, group_id, group:group_id(name)')
+  .eq('id', id)
+  .maybeSingle();
+
+if (!session) return Astro.redirect('/admin/sessions');
+
+const { data: membership } = await admin
+  .from('member_groups')
+  .select('member_id')
+  .eq('group_id', session.group_id);
+
+const expected = new Set((membership ?? []).map((row) => row.member_id));
+
+const { data: memberRows } = await admin
+  .from('members')
+  .select('id, first_name, surname, principal_id, principal:principal_id(display_name)')
+  .eq('is_active', true);
+
+type MemberRow = {
+  id: string;
+  first_name: string;
+  surname: string;
+  principal_id: string;
+  principal: { display_name: string } | null;
+};
+
+const { data: balanceRows } = await admin
+  .from('principal_balances')
+  .select('principal_id, balance_pence');
+
+const balances = new Map(
+  (balanceRows ?? []).map((row) => [row.principal_id, row.balance_pence]),
+);
+
+const roster: (RosterMember & { householdName: string; balancePence: number })[] = (
+  (memberRows ?? []) as unknown as MemberRow[]
+)
+  .filter((row) => expected.has(row.id))
+  .map((row) => ({
+    id: row.id,
+    firstName: row.first_name,
+    surname: row.surname,
+    principalId: row.principal_id,
+    householdName: row.principal?.display_name ?? '',
+    balancePence: balances.get(row.principal_id) ?? 0,
+  }))
+  .sort(bySurname);
+
+// Room for whoever turns up who is not on the list. Enough lines to be useful,
+// few enough not to cost a second sheet of paper.
+const spareLines = Array.from({ length: 8 });
+
+const groupName = (session.group as { name: string } | null)?.name ?? '';
+---
+
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>{session.name} — sign-in sheet</title>
+  </head>
+  <body>
+    <div class="sheet">
+      <header>
+        <h1>{session.name}</h1>
+        <p class="when">
+          {formatClubDateTime(session.starts_at)}
+          {groupName ? ` · ${groupName}` : ''}
+          {session.location ? ` · ${session.location}` : ''}
+          {` · ${formatPounds(session.price_pence)} a runner`}
+        </p>
+        {session.is_cancelled && <p class="cancelled">This session is cancelled.</p>}
+      </header>
+
+      <p class="note no-print">
+        Print this before the night, or when a phone has already died. Whatever is
+        written here still has to be entered in the app afterwards — paper is the
+        fallback, not the record.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th class="tick">Here</th>
+            <th>Runner</th>
+            <th>Household</th>
+            <th class="money">Credit</th>
+            <th class="money">Cash taken</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            roster.map((member) => (
+              <tr>
+                <td class="tick"><span class="box" /></td>
+                <td>
+                  <strong>{member.surname.toUpperCase()}</strong>, {member.firstName}
+                </td>
+                <td class="household">{member.householdName}</td>
+                <td class="money">{formatPounds(member.balancePence)}</td>
+                <td class="money write" />
+              </tr>
+            ))
+          }
+          {
+            spareLines.map(() => (
+              <tr class="spare">
+                <td class="tick"><span class="box" /></td>
+                <td class="write" />
+                <td class="write" />
+                <td class="money" />
+                <td class="money write" />
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+
+      <footer>
+        <p>Recorded by ............................................</p>
+        <p>Cash handed over in total £ ....................</p>
+      </footer>
+    </div>
+
+    <style is:global>
+      /* Black on white, because this is going through a printer that may well
+         be nearly out of toner in a club hut. */
+      :root { color-scheme: light; }
+
+      body {
+        margin: 0;
+        background: #fff;
+        color: #000;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+
+      .sheet { max-width: 48rem; margin: 0 auto; padding: 1.5rem; }
+
+      h1 { margin: 0; font-size: 1.5rem; }
+      .when { margin: 0.25rem 0 0; font-size: 0.95rem; }
+      .cancelled { margin: 0.5rem 0 0; font-weight: 700; }
+
+      .note {
+        margin: 1rem 0;
+        padding: 0.75rem;
+        border: 1px solid #999;
+        font-size: 0.85rem;
+      }
+
+      table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+      th, td { border: 1px solid #000; padding: 0.4rem 0.5rem; text-align: left; }
+      th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+      td { font-size: 0.95rem; }
+
+      .tick { width: 3rem; text-align: center; }
+      .box {
+        display: inline-block;
+        width: 1.1rem;
+        height: 1.1rem;
+        border: 1.5px solid #000;
+      }
+      .money { width: 6rem; text-align: right; }
+      .household { font-size: 0.85rem; }
+      /* A row somebody writes on wants height, not a label. */
+      .write { height: 1.6rem; }
+      .spare td { background: #fafafa; }
+
+      footer { margin-top: 1.5rem; font-size: 0.9rem; }
+      footer p { margin: 0.75rem 0; }
+
+      @media print {
+        .no-print { display: none; }
+        .sheet { padding: 0; max-width: none; }
+        /* Keep a runner's row off a page boundary, and repeat the header. */
+        tr { break-inside: avoid; }
+        thead { display: table-header-group; }
+      }
+    </style>
+  </body>
+</html>

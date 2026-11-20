@@ -265,6 +265,23 @@ Mail opens Safari rather than the installed iOS app, so a lapsed session there i
 recovered by deleting the icon and re-adding it; and Safari has no install
 prompt, so iOS gets a written hint where Chrome gets `beforeinstallprompt`.
 
+## The paper fallback
+
+`/admin/sessions/[id]/sheet` prints the night: the session's Usuals ordered by
+surname, a tick box, each household's credit so the registrar knows who needs
+asking, a column to write cash in, and spare lines for whoever turns up who is
+not on the list.
+
+It is an **admin** page on purpose. Printing happens sitting down — before the
+night, or from somebody else's laptop once a phone has already gone — and a
+registrar standing at a track with a dead phone is not printing anything.
+
+Black on white with its own `@media print` rules, no site chrome, rows that do
+not break across pages and a header that repeats. The on-screen note says the
+thing that matters: **paper is the fallback, not the record.** Whatever is
+written on it still has to be entered in the app afterwards, or the ledger
+never hears about the night.
+
 ## Don't run a build while the dev server is up
 
 `astro build` and `astro dev` share `apps/site/node_modules/.vite`. Running

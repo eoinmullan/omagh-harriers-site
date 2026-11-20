@@ -26,6 +26,29 @@ export interface PricedSession {
 export type SessionCreation = { insert: TrainingSessionInsert } | { problem: string };
 export type SessionChange = { update: TrainingSessionUpdate } | { problem: string };
 
+// Most sessions start on the hour, and nobody trains at 3am, so the start is
+// picked from a short list rather than typed minute by minute. Quarter hours
+// cover the odd 18:30 or 19:15.
+export const DEFAULT_SESSION_START_TIME = '18:00';
+const FIRST_START_HOUR = 6;
+const LAST_START_HOUR = 22;
+
+export function sessionStartTimes(): string[] {
+  const times: string[] = [];
+  for (let hour = FIRST_START_HOUR; hour <= LAST_START_HOUR; hour++) {
+    for (const minute of [0, 15, 30, 45]) {
+      if (hour === LAST_START_HOUR && minute > 0) break;
+      times.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
+    }
+  }
+  return times;
+}
+
+// The form sends the day and the time separately; the session starts at both.
+export function startFromDayAndTime(day: string, time: string): string {
+  return day && time ? `${day}T${time}` : '';
+}
+
 export function planNewSession(request: {
   groupId: string;
   startsAt: string;

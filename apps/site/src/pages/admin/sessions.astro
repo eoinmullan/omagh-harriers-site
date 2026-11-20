@@ -6,8 +6,16 @@ import { newFormId, submittedFormId } from '../../lib/http/form-id';
 import { everyRow } from '../../lib/supabase/every-row';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
 import { formatPounds } from '../../lib/credits/money';
-import { formatClubDateTime } from '../../lib/training/club-time';
-import { pastWindow, planNewSession, partitionByStart, type SessionGroup } from '../../lib/training/sessions';
+import { clubDayKey, formatClubDateTime } from '../../lib/training/club-time';
+import {
+  DEFAULT_SESSION_START_TIME,
+  pastWindow,
+  planNewSession,
+  partitionByStart,
+  sessionStartTimes,
+  startFromDayAndTime,
+  type SessionGroup,
+} from '../../lib/training/sessions';
 import { formatClubDate } from '../../lib/training/club-time';
 import { orThrow } from '../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../lib/auth/signed-in';
@@ -34,14 +42,25 @@ async function loadGroups(): Promise<SessionGroup[]> {
 
 let error: string | null = null;
 let success: string | null = null;
+// What the dialog shows: today at six for a fresh form, what was sent for one
+// that came back with a problem.
+const draft = { groupId: '', day: clubDayKey(new Date()), time: DEFAULT_SESSION_START_TIME, note: '', price: '' };
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
 
+  Object.assign(draft, {
+    groupId: field('group_id'),
+    day: field('day'),
+    time: field('time'),
+    note: field('note'),
+    price: field('price'),
+  });
+
   const plan = planNewSession({
     groupId: field('group_id'),
-    startsAt: field('starts_at'),
+    startsAt: startFromDayAndTime(field('day'), field('time')),
     note: field('note'),
     price: field('price'),
     groups: await loadGroups(),
@@ -190,25 +209,26 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
 ---
 
 <AdminLayout section="sessions" title="Sessions">
-    <div class="flex items-center justify-between mb-8">
+    <div class="flex items-center justify-between gap-4 mb-8">
       <div>
         <h1 class="text-3xl font-bold">Training sessions</h1>
         <p class="text-gray-500 mt-1">
           {upcoming.length} coming up · {pastCount} run
         </p>
       </div>
-      <a href="/admin/squads" class="text-sm underline hover:text-gray-600"
-        >Manage squads →</a
-      >
+      <div class="flex items-center gap-4">
+        <a href="/admin/squads" class="text-sm underline hover:text-gray-600">Manage squads →</a>
+        {runningGroups.length > 0 && (
+          <button
+            type="button"
+            data-open-dialog="new-session"
+            class="bg-black text-white rounded px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
+            >New session</button
+          >
+        )}
+      </div>
     </div>
 
-    {
-      error && (
-        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
-          {error}
-        </div>
-      )
-    }
     {
       success && (
         <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
@@ -228,9 +248,17 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
           </p>
         </div>
       ) : (
-        <section class="mb-10">
-          <h2 class="text-lg font-semibold mb-3">Create a session</h2>
-          <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <dialog
+          id="new-session"
+          aria-labelledby="new-session-title"
+          data-open-on-load={error ? '' : undefined}
+          class="w-full max-w-md rounded-lg p-0 shadow-xl backdrop:bg-black/40"
+        >
+          <form method="POST" class="p-6 space-y-4">
+            <h2 id="new-session-title" class="text-lg font-semibold">New session</h2>
+            {error && (
+              <p class="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{error}</p>
+            )}
             <input type="hidden" name="form_id" value={newFormId()} />
             <div>
               <label class="block text-sm font-medium mb-1" for="session-group">Squad</label>
@@ -242,24 +270,37 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
               >
                 <option value="">Choose a squad…</option>
                 {runningGroups.map((group) => (
-                  <option value={group.id}>{group.name}</option>
+                  <option value={group.id} selected={group.id === draft.groupId}>{group.name}</option>
                 ))}
               </select>
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1" for="session-starts-at">
-                Starts
-              </label>
-              <input
-                id="session-starts-at"
-                type="datetime-local"
-                name="starts_at"
-                required
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-              <p class="text-xs text-gray-500 mt-1">Omagh time, as it reads on the night.</p>
+            <div class="grid grid-cols-[1fr_7rem] gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1" for="session-day">Date</label>
+                <input
+                  id="session-day"
+                  type="date"
+                  name="day"
+                  required
+                  value={draft.day}
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1" for="session-time">Time</label>
+                <select
+                  id="session-time"
+                  name="time"
+                  required
+                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                >
+                  {sessionStartTimes().map((time) => (
+                    <option value={time} selected={time === draft.time}>{time}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div class="grid grid-cols-[1fr_8rem] gap-4">
+            <div class="grid grid-cols-[1fr_7rem] gap-4">
               <div>
                 <label class="block text-sm font-medium mb-1" for="session-note">
                   Note <span class="text-gray-400 font-normal">(optional)</span>
@@ -268,7 +309,7 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
                   id="session-note"
                   type="text"
                   name="note"
-                  placeholder="Meet at the top car park"
+                  value={draft.note}
                   class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                 />
               </div>
@@ -280,24 +321,26 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
                   name="price"
                   inputmode="decimal"
                   placeholder={usualPrice}
+                  value={draft.price}
                   class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                 />
               </div>
             </div>
-            <div class="sm:col-span-2 flex items-center gap-4">
+            <div class="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                data-close-dialog
+                class="rounded px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50"
+                >Cancel</button
+              >
               <button
                 type="submit"
-                class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+                class="bg-black text-white rounded px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
                 >Create session</button
               >
-              <p class="text-xs text-gray-500">
-                Leave the price blank for the usual {usualPrice}. The session keeps
-                its own copy, so a later change of the club price never rewrites a
-                session that has already run.
-              </p>
             </div>
           </form>
-        </section>
+        </dialog>
       )
     }
 
@@ -419,3 +462,18 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
       </p>
     </section>
 </AdminLayout>
+
+<script>
+  // A native <dialog>: showModal gives focus trapping, Escape and the backdrop
+  // for free. A form that came back with a problem opens it again on load.
+  for (const opener of document.querySelectorAll<HTMLElement>('[data-open-dialog]')) {
+    const dialog = document.getElementById(opener.dataset.openDialog ?? '') as HTMLDialogElement | null;
+    opener.addEventListener('click', () => dialog?.showModal());
+  }
+  for (const closer of document.querySelectorAll<HTMLElement>('[data-close-dialog]')) {
+    closer.addEventListener('click', () => closer.closest('dialog')?.close());
+  }
+  for (const dialog of document.querySelectorAll<HTMLDialogElement>('dialog[data-open-on-load]')) {
+    dialog.showModal();
+  }
+</script>

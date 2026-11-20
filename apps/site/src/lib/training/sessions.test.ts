@@ -7,6 +7,9 @@ import {
   planNewSession,
   planReinstatement,
   planSessionEdit,
+  sessionStartTimes,
+  startFromDayAndTime,
+  DEFAULT_SESSION_START_TIME,
   type PricedSession,
   type SessionChange,
   type SessionCreation,
@@ -291,5 +294,44 @@ describe('pastWindow', () => {
 
   it('treats a date in the future as asking for the most recent weeks', () => {
     expect(pastWindow({ until: '2027-01-01', now }).isRecent).toBe(true);
+  });
+});
+
+describe('sessionStartTimes', () => {
+  it('offers every quarter hour from six in the morning to ten at night', () => {
+    const times = sessionStartTimes();
+
+    expect(times[0]).toBe('06:00');
+    expect(times.at(-1)).toBe('22:00');
+    expect(times).toContain('18:30');
+    expect(times).toHaveLength(65);
+  });
+
+  it('includes the default start', () => {
+    expect(sessionStartTimes()).toContain(DEFAULT_SESSION_START_TIME);
+  });
+});
+
+describe('startFromDayAndTime', () => {
+  it('joins a day and a time into the start the plan reads', () => {
+    expect(startFromDayAndTime('2026-11-23', '18:00')).toBe('2026-11-23T18:00');
+  });
+
+  it('gives nothing to read when either half is missing', () => {
+    expect(startFromDayAndTime('', '18:00')).toBe('');
+    expect(startFromDayAndTime('2026-11-23', '')).toBe('');
+  });
+
+  it('is a start the plan accepts', () => {
+    const plan = planNewSession({
+      groupId: ENDURANCE.id,
+      startsAt: startFromDayAndTime('2026-11-23', '18:00'),
+      note: '',
+      price: '',
+      groups: [ENDURANCE],
+      createdBy: ADMIN,
+    });
+
+    expect(plan).toMatchObject({ insert: { starts_at: '2026-11-23T18:00:00.000Z' } });
   });
 });

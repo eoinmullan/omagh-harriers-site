@@ -13,18 +13,18 @@ Ticked as each one lands, in the order they're tackled.
 
 ### Admin area
 
-- [ ] **Creating a session gets its own dialog.** It was hard to tell the
+- [x] **Creating a session gets its own dialog.** It was hard to tell the
   create form from the list. The established pattern is a primary **New
   session** button that opens a modal dialog. A native `<dialog>` handles
   focus and Escape for free.
-- [ ] **No placeholder in the note field** (it said "Meet at the top car park").
-- [ ] **No "Omagh time, as it reads on the night."** note under the start time.
-- [ ] **No "Leave the price blank for the usual £2.00…"** text under the form.
-- [ ] **A better date and time picker.** The native date picker (a calendar
+- [x] **No placeholder in the note field** (it said "Meet at the top car park").
+- [x] **No "Omagh time, as it reads on the night."** note under the start time.
+- [x] **No "Leave the price blank for the usual £2.00…"** text under the form.
+- [x] **A better date and time picker.** The native date picker (a calendar
   that commits on click), plus a time list in 15-minute steps, which is the
   Google Calendar pattern. No scrolling through every minute, and no clicking
   away to confirm.
-- [ ] **New sessions default to 6pm.**
+- [x] **New sessions default to 6pm.**
 - [ ] **The households KPIs become filters.** "Overdrawn" becomes a button
   that filters to overdrawn households, and a new "In credit" does the same,
   because most households sit at £0. These are filter chips with a pressed

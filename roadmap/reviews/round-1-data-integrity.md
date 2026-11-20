@@ -78,6 +78,34 @@ Done in `0015_the_untick_reads_the_charge.sql`, which also retires `v_charged`:
 a NULL amount is the free session and the never-charged tick, and both want the
 same answer.
 
+**Verified against the live database**, because applying the migration proves
+less than it looks: plpgsql bodies are syntax-checked when a function is created
+but column references are not resolved, so a wrong one would have surfaced at the
+track. Exercised as a signed-in admin, since the RPC is SECURITY INVOKER and the
+service key carries no `app_role` claim.
+
+The discriminating test is the household, which is the half `0014` got wrong:
+
+1. Tick a member of household A. The debit lands on A at `-200`.
+2. Re-point `members.principal_id` to household B, which is what the sync's
+   **Move member** does.
+3. Untick.
+
+The reversal came back `principal_id` = **A**, `amount_pence` = `+200`,
+`manual_adjustment`, noted *"Middle Distance sign-in corrected for James"* — the
+household that paid, at the figure that left it, with the squad name from `0014`
+and the first name both still resolving. On `0014` that row would have credited B
+and left A permanently down. Both balances returned to their starting figures and
+the member was put back.
+
+Also exercised: a repeated untick, which wrote no second credit; and a free
+session, where the tick and untick both succeeded and wrote no ledger row at all
+— the NULL path that replaced `v_charged`.
+
+It leaves two cancelling rows on that household's statement, a `-£2` debit and a
+`+£2` correction. The ledger is append-only, so they stay. Net zero, and the
+throwaway free session was deleted.
+
 ## 2. An untick can be aimed at a row that never existed
 
 **Severity: medium. Fixable in the client, better fixed in the RPC.**

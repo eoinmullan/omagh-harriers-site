@@ -1,6 +1,5 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import PageContainer from '../../components/PageContainer.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import { formatBalance } from '../../lib/credits/money';
 
@@ -34,12 +33,8 @@ const inCredit = households.filter((h) => h.balancePence > 0).length;
 const overdrawn = households.filter((h) => h.balancePence < 0).length;
 ---
 
-<Layout title="Training credit — Admin — Omagh Harriers AC">
-  <PageContainer>
+<AdminLayout section="credit" title="Credit">
     <div class="mb-8">
-      <p class="text-sm text-gray-500 mb-1">
-        <a href="/members" class="hover:underline">Members' area</a> / Admin
-      </p>
       <h1 class="text-3xl font-bold">Training credit</h1>
       <p class="text-gray-500 mt-1">{households.length} households</p>
     </div>
@@ -112,8 +107,7 @@ const overdrawn = households.filter((h) => h.balancePence < 0).length;
         </tbody>
       </table>
     </div>
-  </PageContainer>
-</Layout>
+</AdminLayout>
 
 <script>
   const input = document.getElementById('household-filter') as HTMLInputElement;

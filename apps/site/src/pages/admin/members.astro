@@ -1,6 +1,5 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import PageContainer from '../../components/PageContainer.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 
 const {
@@ -36,7 +35,7 @@ if (Astro.request.method === 'POST') {
     const aan = (formData.get('athletic_association_number') as string)?.trim() || null;
 
     if (!principalId || !firstName || !surname || !dob) {
-      error = 'Principal, first name, surname, and date of birth are required.';
+      error = 'Household, first name, surname, and date of birth are required.';
     } else {
       const { error: e } = await adminClient.from('members').insert({
         principal_id: principalId,
@@ -78,18 +77,14 @@ function formatDob(dob: string): string {
 }
 ---
 
-<Layout title="Members — Admin — Omagh Harriers AC">
-  <PageContainer>
+<AdminLayout section="members" title="Members">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <p class="text-sm text-gray-500 mb-1">
-          <a href="/members" class="hover:underline">Members' area</a> / Admin
-        </p>
         <h1 class="text-3xl font-bold">Members</h1>
         <p class="text-gray-500 mt-1">{members?.length ?? 0} total</p>
       </div>
-      <a href="/admin/principals" class="text-sm underline hover:text-gray-600"
-        >View principals →</a
+      <a href="/admin/households" class="text-sm underline hover:text-gray-600"
+        >View households →</a
       >
     </div>
 
@@ -115,13 +110,13 @@ function formatDob(dob: string): string {
       <form method="POST" class="px-5 pb-5 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <input type="hidden" name="action" value="add" />
         <div class="sm:col-span-2">
-          <label class="block text-sm font-medium mb-1">Principal</label>
+          <label class="block text-sm font-medium mb-1">Household</label>
           <select
             name="principal_id"
             required
             class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
           >
-            <option value="">— Select principal —</option>
+            <option value="">— Select household —</option>
             {
               principals?.map((p) => (
                 <option value={p.id}>
@@ -206,7 +201,7 @@ function formatDob(dob: string): string {
           <tr class="border-b border-gray-200 text-left">
             <th class="pb-3 font-semibold">Name</th>
             <th class="pb-3 font-semibold">Date of birth</th>
-            <th class="pb-3 font-semibold">Principal</th>
+            <th class="pb-3 font-semibold">Household</th>
             <th class="pb-3 font-semibold">Status</th>
             <th class="pb-3 font-semibold">Source</th>
             <th class="pb-3"></th>
@@ -228,7 +223,7 @@ function formatDob(dob: string): string {
                   <td class="py-3 text-gray-600">
                     {p ? (
                       <a
-                        href={`/admin/principals/${m.principal_id}`}
+                        href={`/admin/households/${m.principal_id}`}
                         class="hover:underline"
                       >
                         {p.display_name}
@@ -269,8 +264,7 @@ function formatDob(dob: string): string {
         )
       }
     </div>
-  </PageContainer>
-</Layout>
+</AdminLayout>
 
 <script>
   const input = document.getElementById('member-filter') as HTMLInputElement;

@@ -1,11 +1,10 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import PageContainer from '../../../components/PageContainer.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS } from '../../../lib/auth/roles';
 
 const { id } = Astro.params;
-if (!id) return Astro.redirect('/admin/principals');
+if (!id) return Astro.redirect('/admin/households');
 
 const {
   data: { user },
@@ -59,7 +58,7 @@ if (Astro.request.method === 'POST' && isSuperuser) {
           currentRole: target.role,
           requestedRole: (formData.get('role') as string) ?? '',
         })
-      : { problem: 'That principal no longer exists.' };
+      : { problem: 'That household no longer exists.' };
 
     if ('problem' in change) {
       error = change.problem;
@@ -87,7 +86,7 @@ if (Astro.request.method === 'POST' && isSuperuser) {
       .update({ is_active: false })
       .eq('id', id);
     if (e) error = e.message;
-    else success = 'Principal deactivated.';
+    else success = 'Household deactivated.';
   } else if (action === 'reactivate') {
     const { data: target } = await adminClient
       .from('principals')
@@ -104,7 +103,7 @@ if (Astro.request.method === 'POST' && isSuperuser) {
       .update({ is_active: true })
       .eq('id', id);
     if (e) error = e.message;
-    else success = 'Principal reactivated.';
+    else success = 'Household reactivated.';
   }
 }
 
@@ -114,7 +113,7 @@ const { data: principal } = await adminClient
   .eq('id', id)
   .maybeSingle();
 
-if (!principal) return Astro.redirect('/admin/principals');
+if (!principal) return Astro.redirect('/admin/households');
 
 const { data: members } = await adminClient
   .from('members')
@@ -131,13 +130,7 @@ function formatDob(dob: string): string {
 }
 ---
 
-<Layout title={`${principal.display_name} — Admin — Omagh Harriers AC`}>
-  <PageContainer>
-    <p class="text-sm text-gray-500 mb-6">
-      <a href="/members" class="hover:underline">Members' area</a> /
-      <a href="/admin/principals" class="hover:underline">Principals</a> /
-      {principal.display_name}
-    </p>
+<AdminLayout section="households" title={principal.display_name} breadcrumb={[{ label: 'Households', href: '/admin/households' }, { label: principal.display_name }]}>
 
     {
       error && (
@@ -262,7 +255,7 @@ function formatDob(dob: string): string {
                 <button
                   type="submit"
                   class="border border-red-300 text-red-600 rounded px-4 py-2 text-sm hover:bg-red-50 transition-colors"
-                  onclick="return confirm('Deactivate this principal? They will no longer be able to sign in.')"
+                  onclick="return confirm('Deactivate this household? They will no longer be able to sign in.')"
                 >
                   Deactivate
                 </button>
@@ -328,9 +321,8 @@ function formatDob(dob: string): string {
             ))}
           </ul>
         ) : (
-          <p class="text-gray-500 text-sm">No members linked to this principal.</p>
+          <p class="text-gray-500 text-sm">No members linked to this household.</p>
         )
       }
     </section>
-  </PageContainer>
-</Layout>
+</AdminLayout>

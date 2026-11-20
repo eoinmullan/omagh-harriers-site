@@ -28,7 +28,7 @@ export function StartSession({
     return (
       <Note>
         No squads have been set up yet, and a session belongs to one. A club admin adds them on
-        the website under Admin → Groups.
+        the website under Admin → Squads.
       </Note>
     );
   }

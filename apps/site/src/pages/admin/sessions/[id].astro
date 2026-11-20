@@ -1,6 +1,5 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import PageContainer from '../../../components/PageContainer.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
 import { formatClubDateTime } from '../../../lib/training/club-time';
@@ -231,13 +230,7 @@ const money = ledgerDetail
 const hasAttendance = attendanceDetail.length > 0;
 ---
 
-<Layout title={`${session.group?.name} — Sessions — Admin — Omagh Harriers AC`}>
-  <PageContainer>
-    <p class="text-sm text-gray-500 mb-6">
-      <a href="/members" class="hover:underline">Members' area</a> /
-      <a href="/admin/sessions" class="hover:underline">Sessions</a> /
-      {session.group?.name}
-    </p>
+<AdminLayout section="sessions" title={session.group?.name ?? 'Session'} breadcrumb={[{ label: 'Sessions', href: '/admin/sessions' }, { label: session.group?.name ?? 'Session' }]}>
 
     <p class="mb-6">
       <a href={`/admin/sessions/${id}/sheet`} class="text-sm underline hover:text-gray-600">
@@ -358,7 +351,7 @@ const hasAttendance = attendanceDetail.length > 0;
         {
           hasAttendance
             ? `The price is settled: ${heads.total} ${heads.total === 1 ? 'runner has' : 'runners have'} signed in at ${formatPounds(session.pricePence)}, and the ledger records what they were charged. Cancel this session and create another if the price was wrong.`
-            : 'The group and the start time are fixed once a session exists — cancel it and create another if either was wrong.'
+            : 'The squad and the start time are fixed once a session exists — cancel it and create another if either was wrong.'
         }
       </p>
     </section>
@@ -483,5 +476,4 @@ const hasAttendance = attendanceDetail.length > 0;
         they move credit out of a household's pot rather than money into the tin.
       </p>
     </section>
-  </PageContainer>
-</Layout>
+</AdminLayout>

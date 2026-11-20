@@ -19,7 +19,7 @@ export function planNewGroup(request: {
   existing: ExistingGroup[];
 }): GroupCreation {
   const name = request.name.trim();
-  if (!name) return { problem: 'Give the group a name.' };
+  if (!name) return { problem: 'Give the squad a name.' };
 
   const clash = findClash(request.existing, name);
   if (clash) return { problem: clashMessage(clash) };
@@ -33,7 +33,7 @@ export function planGroupRename(request: {
   existing: ExistingGroup[];
 }): GroupChange {
   const name = request.name.trim();
-  if (!name) return { problem: 'Give the group a name.' };
+  if (!name) return { problem: 'Give the squad a name.' };
   if (name === request.group.name) return { problem: `${name} is already called that.` };
 
   const others = request.existing.filter((group) => group.id !== request.group.id);

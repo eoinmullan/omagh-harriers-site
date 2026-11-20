@@ -457,10 +457,41 @@ taken, so an untick gives nothing back. A guest at a free session has
 the registrar's Usuals list useful before any attendance history exists.
 Retiring a group is `is_active = false`; nothing is ever deleted.
 
+## The admin area
+
+`/admin` is an **area**, not a corner of somebody's members' page, and
+`src/layouts/AdminLayout.astro` is what makes it one. Every admin screen used to
+breadcrumb back to "Members' area", which said two untrue things: that squads
+live inside your personal account, and that the way from squads to households is
+out and back in again. An admin doing three jobs went past their own balance
+three times.
+
+A page hands the layout a `section` (which tab is open), a `title`, an optional
+`breadcrumb` rooted inside the area, and `wide` for the one page that mirrors the
+public home page. The layout draws the section nav; the only link that leaves is
+the one that says it leaves — **Your own account →**. The members' area offers
+one door in reply, a single **Club admin** card, rather than five links into the
+deep end.
+
+`/admin` redirects to `/admin/sessions`. **There is no dashboard on purpose** —
+the first screen is the job that actually recurs, not a page of figures standing
+between an admin and it.
+
+**Squads and Households are the club's words; `groups` and `principals` are
+Postgres's.** The routes and every label say squad and household; the tables,
+columns, RLS policies and `lib/training/groups.ts` still say group and principal,
+and should. Renaming a schema to match a vocabulary is a migration that buys
+nothing, but an admin screen that says "Principals" is asking a volunteer to
+learn the schema.
+
+**The middleware gates on `pathname.startsWith('/admin')`**, so a future route
+called `/admin-anything` is gated too, whether or not that was intended. Worth
+knowing before naming one.
+
 ## Admin session management
 
-Four screens, and between them they make the Phase 5 schema usable: `/admin/groups`
-(add, rename, retire), `/admin/groups/[id]` (who trains with a squad),
+Four screens, and between them they make the Phase 5 schema usable: `/admin/squads`
+(add, rename, retire), `/admin/squads/[id]` (who trains with a squad),
 `/admin/sessions` (list and create) and `/admin/sessions/[id]` (edit, cancel, and
 what the night came to).
 
@@ -498,7 +529,7 @@ back either a row to write or one sentence to show the admin.
 ## Roles
 
 `member`, `registrar`, `admin`, `superuser`. Who may hand out which role lives in
-`src/lib/auth/roles.ts`; the screen is `/admin/principals/[id]`, which has always
+`src/lib/auth/roles.ts`; the screen is `/admin/households/[id]`, which has always
 been superuser-only. A superuser cannot change their own role there — it would lock
 them out of the only screen that could put it back.
 

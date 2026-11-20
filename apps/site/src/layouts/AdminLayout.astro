@@ -1,0 +1,97 @@
+---
+import Layout from './Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+
+// The admin area, which is an area rather than a corner of somebody's own
+// members' page.
+//
+// That distinction is the whole reason this exists. Every admin screen used to
+// breadcrumb back to "Members' area", which said two untrue things: that squads
+// live inside your personal account, and that the way from squads to households
+// is out and back in again. An admin doing three jobs went through their own
+// balance three times.
+//
+// So: one area, and moving between sessions, squads, households and members
+// changes the content rather than where you are. The only link that leaves is
+// the one that says it leaves.
+
+interface Props {
+  /** Which section is open, so the nav can say so. */
+  section: 'sessions' | 'squads' | 'households' | 'members' | 'credit' | 'times';
+  title: string;
+  /** Shown under the nav. The area itself is implied, so it is never named. */
+  breadcrumb?: { label: string; href?: string }[];
+  /**
+   * Skip the usual gutters for the one page that mirrors the public home page
+   * and needs its full-width container to mirror it honestly.
+   */
+  wide?: boolean;
+}
+
+const { section, title, breadcrumb = [], wide = false } = Astro.props;
+
+const sections = [
+  { key: 'sessions', label: 'Sessions', href: '/admin/sessions' },
+  { key: 'squads', label: 'Squads', href: '/admin/squads' },
+  { key: 'households', label: 'Households', href: '/admin/households' },
+  { key: 'members', label: 'Members', href: '/admin/members' },
+  { key: 'credit', label: 'Credit', href: '/admin/credits' },
+  { key: 'times', label: 'Training times', href: '/admin/training-times' },
+] as const;
+---
+
+<Layout title={`${title} — Admin — Omagh Harriers AC`}>
+  <PageContainer>
+    <div class="flex flex-wrap items-baseline justify-between gap-3 mb-4">
+      <p class="text-sm font-semibold tracking-wide text-gray-500 uppercase">Club admin</p>
+      <!-- The one link that genuinely leaves the area, and says so. -->
+      <a href="/members" class="text-sm underline hover:text-gray-600">
+        Your own account &rarr;
+      </a>
+    </div>
+
+    <nav aria-label="Admin sections" class="border-b border-gray-200 mb-6">
+      <ul class="flex flex-wrap gap-x-1 gap-y-2 -mb-px">
+        {
+          sections.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                aria-current={section === item.key ? 'page' : undefined}
+                class:list={[
+                  'inline-block px-3 py-2 text-sm border-b-2 transition-colors',
+                  section === item.key
+                    ? 'border-gray-900 font-semibold text-gray-900'
+                    : 'border-transparent text-gray-500 hover:text-gray-900',
+                ]}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    {
+      breadcrumb.length > 0 && (
+        <p class="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-1">
+          {breadcrumb.map((crumb, index) => (
+            <>
+              {index > 0 && <span aria-hidden="true">/</span>}
+              {crumb.href ? (
+                <a href={crumb.href} class="hover:underline">{crumb.label}</a>
+              ) : (
+                <span>{crumb.label}</span>
+              )}
+            </>
+          ))}
+        </p>
+      )
+    }
+
+    {!wide && <slot />}
+  </PageContainer>
+
+  {wide && <slot />}
+</Layout>

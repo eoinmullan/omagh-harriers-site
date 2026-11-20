@@ -1,6 +1,5 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import PageContainer from '../../components/PageContainer.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 
 const {
@@ -83,14 +82,10 @@ for (const m of activeMembers ?? []) {
 }
 ---
 
-<Layout title="Principals — Admin — Omagh Harriers AC">
-  <PageContainer>
+<AdminLayout section="households" title="Households">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <p class="text-sm text-gray-500 mb-1">
-          <a href="/members" class="hover:underline">Members' area</a> / Admin
-        </p>
-        <h1 class="text-3xl font-bold">Principals</h1>
+        <h1 class="text-3xl font-bold">Households</h1>
         <p class="text-gray-500 mt-1">
           {principals?.length ?? 0} total
         </p>
@@ -117,7 +112,7 @@ for (const m of activeMembers ?? []) {
 
     {isSuperuser && <details class="mb-8 border border-gray-200 rounded-lg">
       <summary class="px-5 py-3 font-medium cursor-pointer select-none"
-        >Add principal</summary
+        >Add a household</summary
       >
       <form
         method="POST"
@@ -213,7 +208,7 @@ for (const m of activeMembers ?? []) {
                 <td class="py-3 text-gray-400 text-xs">{p.source}</td>
                 <td class="py-3 text-right">
                   <a
-                    href={`/admin/principals/${p.id}`}
+                    href={`/admin/households/${p.id}`}
                     class="text-xs underline hover:text-gray-600"
                   >
                     View →
@@ -227,13 +222,12 @@ for (const m of activeMembers ?? []) {
       {
         (!principals || principals.length === 0) && (
           <p class="text-gray-500 text-sm py-8 text-center">
-            No principals found.
+            No households found.
           </p>
         )
       }
     </div>
-  </PageContainer>
-</Layout>
+</AdminLayout>
 
 <script>
   const input = document.getElementById('principal-filter') as HTMLInputElement;

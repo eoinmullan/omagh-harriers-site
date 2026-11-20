@@ -198,8 +198,8 @@ User-facing auth: principals can sign in via magic link, accept T&Cs on first si
 Admin tooling for the cases the Klubfunder sync doesn't cover: ad-hoc additions, manual deactivations, role promotions, and viewing the membership at a glance. Two list views with cross-links, since each table answers different operational questions.
 
 ### Pages
-- [x] `apps/site/src/pages/admin/principals.astro` — list principals (display_name, email, role, is_active, source, member count). Click through to a principal detail page showing all members under them.
-- [x] `apps/site/src/pages/admin/principals/[id].astro` — principal detail: edit display_name, deactivate, promote/demote role (latter restricted per role rules below). Shows their members and links to each.
+- [x] `apps/site/src/pages/admin/households.astro` — list principals (display_name, email, role, is_active, source, member count). Click through to a principal detail page showing all members under them.
+- [x] `apps/site/src/pages/admin/households/[id].astro` — principal detail: edit display_name, deactivate, promote/demote role (latter restricted per role rules below). Shows their members and links to each.
 - [x] `apps/site/src/pages/admin/members.astro` — list all members (name, DOB, principal email, status, is_active, source). Click through to a member detail page.
 - [x] `apps/site/src/pages/admin/members/[id].astro` — member detail: edit attributes, deactivate, link to their principal.
 - [x] **Add principal** flow (admin form): email + display_name → server-side endpoint calls Supabase Admin API to create the auth user → inserts `principals` row with `source='manual'`, `role='member'`. Adding a member at the same time is optional (an admin without members is allowed).

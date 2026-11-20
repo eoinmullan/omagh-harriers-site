@@ -1,6 +1,5 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import PageContainer from '../../components/PageContainer.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import {
   planGroupRename,
@@ -53,17 +52,17 @@ if (Astro.request.method === 'POST') {
     case 'rename': {
       plan = group
         ? planGroupRename({ group, name: field('name'), existing })
-        : { problem: 'That group no longer exists.' };
+        : { problem: 'That squad no longer exists.' };
       confirmation = `Renamed to ${field('name').trim()}.`;
       break;
     }
     case 'retire': {
-      plan = group ? planGroupRetirement(group) : { problem: 'That group no longer exists.' };
+      plan = group ? planGroupRetirement(group) : { problem: 'That squad no longer exists.' };
       confirmation = `${group?.name} retired. Its sessions and their attendance are untouched.`;
       break;
     }
     case 'return': {
-      plan = group ? planGroupReturn(group) : { problem: 'That group no longer exists.' };
+      plan = group ? planGroupReturn(group) : { problem: 'That squad no longer exists.' };
       confirmation = `${group?.name} is running again.`;
       break;
     }
@@ -107,14 +106,10 @@ const running = groups.filter((group) => group.isActive);
 const retired = groups.filter((group) => !group.isActive);
 ---
 
-<Layout title="Groups — Admin — Omagh Harriers AC">
-  <PageContainer>
+<AdminLayout section="squads" title="Squads">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <p class="text-sm text-gray-500 mb-1">
-          <a href="/members" class="hover:underline">Members' area</a> / Admin
-        </p>
-        <h1 class="text-3xl font-bold">Groups</h1>
+        <h1 class="text-3xl font-bold">Squads</h1>
         <p class="text-gray-500 mt-1">
           The squads the club trains in. Every session belongs to one.
         </p>
@@ -140,7 +135,7 @@ const retired = groups.filter((group) => !group.isActive);
     }
 
     <section class="mb-10">
-      <h2 class="text-lg font-semibold mb-3">Add a group</h2>
+      <h2 class="text-lg font-semibold mb-3">Add a squad</h2>
       <form method="POST" class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
         <input type="hidden" name="action" value="add" />
         <div>
@@ -182,7 +177,7 @@ const retired = groups.filter((group) => !group.isActive);
                   </div>
                   <div class="flex items-center gap-3">
                     <a
-                      href={`/admin/groups/${group.id}`}
+                      href={`/admin/squads/${group.id}`}
                       class="text-sm underline hover:text-gray-600"
                     >
                       Assign members →
@@ -221,7 +216,7 @@ const retired = groups.filter((group) => !group.isActive);
           </ul>
         ) : (
           <p class="text-gray-500 text-sm">
-            No groups yet. A session cannot be created until there is one, so start
+            No squads yet. A session cannot be created until there is one, so start
             with the squads that train this week.
           </p>
         )
@@ -260,8 +255,7 @@ const retired = groups.filter((group) => !group.isActive);
     }
 
     <p class="text-xs text-gray-400">
-      Retiring a group never deletes it. Its sessions and the attendance against
+      Retiring a squad never deletes it. Its sessions and the attendance against
       them stay exactly as they were.
     </p>
-  </PageContainer>
-</Layout>
+</AdminLayout>

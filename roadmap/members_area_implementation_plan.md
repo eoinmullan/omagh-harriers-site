@@ -176,7 +176,7 @@ The boxes below are kept as the plan, not as outstanding work.
 - [ ] Test: replay the same webhook event → no duplicate transaction (idempotency)
 
 ### Admin tools
-- [x] Create `src/pages/admin/credits.astro` — club float plus every household's balance, filterable, each linking to `/admin/credits/[id]` where the cash payment or adjustment is recorded. Two pages rather than one, mirroring `/admin/principals`: the household you are recording against is the household you are looking at
+- [x] Create `src/pages/admin/credits.astro` — club float plus every household's balance, filterable, each linking to `/admin/credits/[id]` where the cash payment or adjustment is recorded. Two pages rather than one, mirroring `/admin/households`: the household you are recording against is the household you are looking at
 - [x] **Credit transfer** — the source is the household you are on; pick the target, optionally an amount (defaults to the full source balance), required note. Writes paired `transfer_out` (negative) and `transfer_in` (positive) rows naming each other in `notes`, as **one multi-row insert** so neither side can land alone — the ledger is append-only, so a stranded half could not be taken back. Used when a household's contact email changes in Klubfunder and the balance needs to follow them.
 - [x] Gate `/admin/*` to `role IN ('admin', 'superuser')` in middleware — landed in Phase 2
 - [x] Test: admin records a cash payment → principal balance updates and the transaction is labelled "paid by cash" on the credits page
@@ -369,11 +369,11 @@ Two things not to do when it lands:
 
 ### Admin: session management (in the main site)
 - [x] Create `src/pages/admin/sessions.astro` — list upcoming and past sessions, create a new session (name, group, starts_at, location, price defaulted to £2). The start time is read as Omagh's clock rather than the Worker's UTC, so a summer session is not an hour out — `training/club-time.ts`
-- [x] Manage groups from the same area — add one, rename one, retire one. A retired group keeps its history. `/admin/groups`, with the near-duplicate check deliberately stricter than the `lower(name)` index — see *Two groups nobody can tell apart* below
-- [x] Assign members to groups, so a new session's Usuals list is populated before anyone has attended anything. `/admin/groups/[id]`, with the forgiving type-to-filter the registrar screen settled on, shared from `training/names.ts`
+- [x] Manage groups from the same area — add one, rename one, retire one. A retired group keeps its history. `/admin/squads`, with the near-duplicate check deliberately stricter than the `lower(name)` index — see *Two groups nobody can tell apart* below
+- [x] Assign members to groups, so a new session's Usuals list is populated before anyone has attended anything. `/admin/squads/[id]`, with the forgiving type-to-filter the registrar screen settled on, shared from `training/names.ts`
 - [x] Allow editing name/location/price; cancellation is a soft-disable, not a row drop, so attendance history stays intact. A session that has attendance against it keeps its price — editing it would contradict the ledger. The price field disables itself once somebody has signed in, and says why
 - [x] Past sessions are a first-class view, not a by-product: headcount, cash taken, and who recorded each entry. The per-registrar split only appears when more than one person recorded something, because that is the only time it is a question
-- [x] Add a `registrar` role — today the only role that can write is `admin`, which can also reassign roles, deactivate households and move balances. A volunteer signing runners in on a borrowed phone needs none of that. Granted from `/admin/principals/[id]`, which was already the superuser-only place roles are set
+- [x] Add a `registrar` role — today the only role that can write is `admin`, which can also reassign roles, deactivate households and move balances. A volunteer signing runners in on a borrowed phone needs none of that. Granted from `/admin/households/[id]`, which was already the superuser-only place roles are set
 
 ### PWA setup
 - [x] ~~Add `apps/signin` package — Vite + React~~ — **dropped.** It is `apps/site/src/pages/registrar/` with a React island in `components/registrar/`, which is what makes a single sign-in possible at all

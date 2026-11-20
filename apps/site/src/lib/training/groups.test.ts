@@ -38,7 +38,7 @@ describe('planNewGroup', () => {
   });
 
   it('refuses an empty name', () => {
-    expect(problemOf(planNewGroup({ name: '   ', existing: [] }))).toBe('Give the group a name.');
+    expect(problemOf(planNewGroup({ name: '   ', existing: [] }))).toBe('Give the squad a name.');
   });
 
   it('names the group already using that name', () => {
@@ -90,7 +90,7 @@ describe('planGroupRename', () => {
 
   it('refuses an empty name', () => {
     expect(problemOf(planGroupRename({ group: group(), name: '', existing: [] }))).toBe(
-      'Give the group a name.',
+      'Give the squad a name.',
     );
   });
 });

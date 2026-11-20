@@ -1,5 +1,5 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import TrainingTimesSection from '../../components/TrainingTimesSection.astro';
 import { trainingSchedule } from '../../data/training-schedule';
 import { seasonLabel, seasonSegments } from '../../lib/training/season';
@@ -30,7 +30,7 @@ const stalePreview: Preview | undefined = lastPeriod && {
 const previews = [...periodPreviews, ...(stalePreview ? [stalePreview] : [])];
 ---
 
-<Layout title="Training times | Omagh Harriers AC">
+<AdminLayout section="times" title="Training times" wide>
   <section class="py-10 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <h1 class="text-3xl font-bold mb-2">Training times</h1>
@@ -54,4 +54,4 @@ const previews = [...periodPreviews, ...(stalePreview ? [stalePreview] : [])];
       </section>
     ))
   }
-</Layout>
+</AdminLayout>

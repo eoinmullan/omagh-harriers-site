@@ -1,6 +1,5 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import PageContainer from '../../../components/PageContainer.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 
 const { id } = Astro.params;
@@ -80,14 +79,7 @@ const { data: principal } = await adminClient
   .maybeSingle();
 ---
 
-<Layout title={`${member.first_name} ${member.surname} — Admin — Omagh Harriers AC`}>
-  <PageContainer>
-    <p class="text-sm text-gray-500 mb-6">
-      <a href="/members" class="hover:underline">Members' area</a> /
-      <a href="/admin/members" class="hover:underline">Members</a> /
-      {member.first_name}
-      {member.surname}
-    </p>
+<AdminLayout section="members" title={`${member.first_name} ${member.surname}`} breadcrumb={[{ label: 'Members', href: '/admin/members' }, { label: `${member.first_name} ${member.surname}` }]}>
 
     {
       error && (
@@ -114,9 +106,9 @@ const { data: principal } = await adminClient
           {
             principal && (
               <p class="text-gray-500 mt-1">
-                Principal:{' '}
+                Household:{' '}
                 <a
-                  href={`/admin/principals/${principal.id}`}
+                  href={`/admin/households/${principal.id}`}
                   class="hover:underline"
                 >
                   {principal.display_name} ({principal.email})
@@ -267,5 +259,4 @@ const { data: principal } = await adminClient
         </section>
       </>
     )}
-  </PageContainer>
-</Layout>
+</AdminLayout>

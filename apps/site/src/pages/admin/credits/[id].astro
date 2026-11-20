@@ -1,6 +1,5 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import PageContainer from '../../../components/PageContainer.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
 import { describeEntry, isCredit } from '../../../lib/credits/transactions';
@@ -196,13 +195,7 @@ const history = ((rows ?? []) as unknown as LedgerRow[]).map((row) => {
 const idempotencyKey = crypto.randomUUID();
 ---
 
-<Layout title={`${household.displayName} — Training credit — Omagh Harriers AC`}>
-  <PageContainer>
-    <p class="text-sm text-gray-500 mb-6">
-      <a href="/members" class="hover:underline">Members' area</a> /
-      <a href="/admin/credits" class="hover:underline">Training credit</a> /
-      {household.displayName}
-    </p>
+<AdminLayout section="credit" title={`${household.displayName}`} breadcrumb={[{ label: 'Credit', href: '/admin/credits' }, { label: household.displayName }]}>
 
     {
       error && (
@@ -510,5 +503,4 @@ const idempotencyKey = crypto.randomUUID();
         by editing a line.
       </p>
     </section>
-  </PageContainer>
-</Layout>
+</AdminLayout>

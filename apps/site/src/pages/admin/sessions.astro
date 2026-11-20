@@ -1,6 +1,5 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import PageContainer from '../../components/PageContainer.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
 import { formatPounds } from '../../lib/credits/money';
@@ -149,20 +148,16 @@ const pastWithFigures = past.map((session) => {
 const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
 ---
 
-<Layout title="Sessions — Admin — Omagh Harriers AC">
-  <PageContainer>
+<AdminLayout section="sessions" title="Sessions">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <p class="text-sm text-gray-500 mb-1">
-          <a href="/members" class="hover:underline">Members' area</a> / Admin
-        </p>
         <h1 class="text-3xl font-bold">Training sessions</h1>
         <p class="text-gray-500 mt-1">
           {upcoming.length} coming up · {past.length} run
         </p>
       </div>
-      <a href="/admin/groups" class="text-sm underline hover:text-gray-600"
-        >Manage groups →</a
+      <a href="/admin/squads" class="text-sm underline hover:text-gray-600"
+        >Manage squads →</a
       >
     </div>
 
@@ -184,11 +179,11 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
     {
       runningGroups.length === 0 ? (
         <div class="mb-10 border border-gray-200 rounded-lg px-5 py-4">
-          <h2 class="text-lg font-semibold mb-1">Add a group first</h2>
+          <h2 class="text-lg font-semibold mb-1">Add a squad first</h2>
           <p class="text-sm text-gray-600">
-            Every session belongs to a group, and the registrar's list of who to
+            Every session belongs to a squad, and the registrar's list of who to
             expect comes from it.{' '}
-            <a href="/admin/groups" class="underline">Add the squads that train this week →</a>
+            <a href="/admin/squads" class="underline">Add the squads that train this week →</a>
           </p>
         </div>
       ) : (
@@ -196,14 +191,14 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
           <h2 class="text-lg font-semibold mb-3">Create a session</h2>
           <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium mb-1" for="session-group">Group</label>
+              <label class="block text-sm font-medium mb-1" for="session-group">Squad</label>
               <select
                 id="session-group"
                 name="group_id"
                 required
                 class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               >
-                <option value="">Choose a group…</option>
+                <option value="">Choose a squad…</option>
                 {runningGroups.map((group) => (
                   <option value={group.id}>{group.name}</option>
                 ))}
@@ -361,5 +356,4 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
         credit out of a household's pot rather than money into the tin.
       </p>
     </section>
-  </PageContainer>
-</Layout>
+</AdminLayout>

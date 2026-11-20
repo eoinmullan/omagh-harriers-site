@@ -85,13 +85,13 @@ describe('planNewSession', () => {
 
   it('asks for nothing but the group and the time', () => {
     expect(problemOf(planNewSession(newSessionRequest({ groupId: '' })))).toBe(
-      'Choose the group this session is for.',
+      'Choose the squad this session is for.',
     );
   });
 
   it('refuses a group that does not exist', () => {
     expect(problemOf(planNewSession(newSessionRequest({ groupId: 'nonsense' })))).toBe(
-      'Choose the group this session is for.',
+      'Choose the squad this session is for.',
     );
   });
 

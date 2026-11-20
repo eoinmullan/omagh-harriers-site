@@ -1,0 +1,7 @@
+---
+// No dashboard. A page of figures nobody reads is worse than no page, and the
+// thing an admin opens this area to do is nearly always the week's sessions.
+// So the area's front door is the sessions list.
+export const prerender = false;
+return Astro.redirect('/admin/sessions', 302);
+---

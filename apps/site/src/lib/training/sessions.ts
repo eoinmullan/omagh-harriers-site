@@ -35,7 +35,7 @@ export function planNewSession(request: {
   createdBy: string;
 }): SessionCreation {
   const group = request.groups.find((candidate) => candidate.id === request.groupId);
-  if (!group) return { problem: 'Choose the group this session is for.' };
+  if (!group) return { problem: 'Choose the squad this session is for.' };
   if (!group.isActive) {
     return { problem: `${group.name} is retired. Bring it back before running sessions for it.` };
   }

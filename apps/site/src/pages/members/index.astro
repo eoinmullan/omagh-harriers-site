@@ -151,24 +151,16 @@ const { data: members } = await Astro.locals.supabase
     {
       (principal.role === 'admin' || principal.role === 'superuser') && (
         <section class="mt-10 pt-8 border-t border-gray-200">
-          <h2 class="text-lg font-semibold mb-3">Admin</h2>
-          <div class="flex flex-col items-start gap-2">
-            <a href="/admin/principals" class="text-sm underline hover:text-gray-600">
-              Manage principals & members →
-            </a>
-            <a href="/admin/credits" class="text-sm underline hover:text-gray-600">
-              Training credit →
-            </a>
-            <a href="/admin/sessions" class="text-sm underline hover:text-gray-600">
-              Training sessions →
-            </a>
-            <a href="/admin/groups" class="text-sm underline hover:text-gray-600">
-              Groups →
-            </a>
-            <a href="/admin/training-times" class="text-sm underline hover:text-gray-600">
-              Preview training times →
-            </a>
-          </div>
+          <h2 class="text-lg font-semibold mb-3">Running the club</h2>
+          <a
+            href="/admin/sessions"
+            class="block border border-gray-300 rounded-lg px-5 py-4 hover:bg-gray-50 transition-colors"
+          >
+            <span class="block font-semibold">Club admin &rarr;</span>
+            <span class="block text-sm text-gray-500 mt-0.5">
+              Sessions, squads, households, members and training credit.
+            </span>
+          </a>
         </section>
       )
     }

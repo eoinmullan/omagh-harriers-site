@@ -773,7 +773,7 @@ different threat models.
 
 - [x] **Backend** ([findings](reviews/round-2-backend.md)) — migrations, RLS policies, the RPCs, PostgREST query shapes, the sync CLI
 - [x] **Frontend** ([findings](reviews/round-2-frontend.md)) — the registrar island, the Astro pages, state handling, the optimistic write path
-- [ ] **Code quality** — the lib-module contract (rules out of pages, unit tested without a database) and whether it has held. Includes the test suite itself: **CI runs `typecheck` and `build` but not the tests**, so 293 tests pass only when somebody remembers to run them
+- [x] **Code quality** ([findings](reviews/round-2-code-quality.md)) — the lib-module contract (rules out of pages, unit tested without a database) and whether it has held. Includes the test suite itself: **CI runs `typecheck` and `build` but not the tests**, so 293 tests pass only when somebody remembers to run them
 
 ### Round 3 — behaviour
 

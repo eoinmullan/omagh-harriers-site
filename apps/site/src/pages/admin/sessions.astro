@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { everyRow } from '../../lib/supabase/every-row';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
 import { formatPounds } from '../../lib/credits/money';
 import { formatClubDateTime } from '../../lib/training/club-time';
@@ -94,25 +95,31 @@ const sessions = ((sessionRows ?? []) as unknown as SessionListRow[]).map((row) 
 const { upcoming, past } = partitionByStart(sessions);
 
 // Headcount and cash for the past list, which is the view the committee
-// actually reads. Two queries for the whole list rather than two per row.
-const pastIds = past.map((session) => session.id);
+// actually reads. The money rule stays in session-cash.ts, which is tested
+// and must agree with the registrar's cash.ts, so the rows come here rather
+// than the sum being worked out in SQL. `everyRow` pages past PostgREST's
+// 1000-row limit: these reads grow with every session the club runs, and a
+// cut-off read made the money figures wrong without any error. It also
+// replaces an `.in()` filter that put every past session's id into one URL.
+const attendanceRows = await everyRow((from, to) =>
+  adminClient
+    .from('attendance')
+    .select('id, session_id, member_id, guest_id, amount_paid_pence, recorded_by')
+    .order('id')
+    .range(from, to),
+);
 
-const { data: attendanceRows } = pastIds.length
-  ? await adminClient
-      .from('attendance')
-      .select('session_id, member_id, guest_id, amount_paid_pence, recorded_by')
-      .in('session_id', pastIds)
-  : { data: [] };
-
-const { data: ledgerRows } = pastIds.length
-  ? await adminClient
-      .from('credit_transactions')
-      .select('session_id, type, amount_pence, created_by')
-      .in('session_id', pastIds)
-  : { data: [] };
+const ledgerRows = await everyRow((from, to) =>
+  adminClient
+    .from('credit_transactions')
+    .select('id, session_id, type, amount_pence, created_by')
+    .not('session_id', 'is', null)
+    .order('id')
+    .range(from, to),
+);
 
 const attendanceBySession = new Map<string, SessionAttendanceRow[]>();
-for (const row of attendanceRows ?? []) {
+for (const row of attendanceRows) {
   attendanceBySession.set(row.session_id, [
     ...(attendanceBySession.get(row.session_id) ?? []),
     {
@@ -125,7 +132,7 @@ for (const row of attendanceRows ?? []) {
 }
 
 const ledgerBySession = new Map<string, SessionLedgerRow[]>();
-for (const row of ledgerRows ?? []) {
+for (const row of ledgerRows) {
   if (!row.session_id) continue;
   ledgerBySession.set(row.session_id, [
     ...(ledgerBySession.get(row.session_id) ?? []),

@@ -104,7 +104,7 @@ credit to prove it.
 
 ## B2. Totals are computed from reads that PostgREST silently cuts off
 
-**Severity: medium. They start going wrong within the first season.**
+**Severity: medium. They start going wrong within the first season. Fixed.**
 
 Supabase's hosted API stops returning rows after a maximum, which is 1000 by
 default, and it doesn't raise an error. `supabase/config.toml` doesn't
@@ -127,6 +127,33 @@ returns one row per session or squad, rather than shipping raw history to add
 up. Round 3's performance pass would ask for the same thing. Confirm the
 max-rows value in the dashboard's API settings, since the hosted default is
 1000.
+
+**Done, but not everything moved to Postgres.** Summing in SQL would have put
+the money-collected rule in a third place, beside `session-cash.ts` and the
+registrar's `cash.ts`, which must already agree. So:
+
+- **`/admin/sessions` and `/admin/squads`** fetch through `everyRow`, a helper in
+  `lib/supabase/` that's unit tested without a database. It pages until an empty
+  page comes back. Each page starts where the last one actually ended, so it
+  still gets every row if the server's limit is below the page size. A failed
+  page throws rather than returning part of the rows. That also removes the
+  `.in()` filter carrying every past session's id. The squad-membership count on
+  `/admin/squads` had the same problem and goes through it too.
+- **The registrar's Usuals** only ever needed *who* had trained with a squad, so
+  `0020` adds `squad_regulars`: each member once per squad. It's
+  `security_invoker`, so RLS still decides who sees what, and its size depends
+  on the membership, not the history. One request on track wifi.
+
+Verified: five new unit tests, including a server whose limit is half the
+page size and a failure partway through. Applied, the figures were checked
+against a snapshot taken before any code changed. `/admin/sessions` and
+`/admin/squads` were identical. Asked as the logged-in user, the view returns
+exactly the people the old query did for both squads. The registrar app loads
+through it with every request returning 200, and still shows Usuals 14.
+
+What this doesn't do is limit how much history those two admin pages load.
+They're correct now, but they'll get slower as the years add up. That's for
+Round 3.
 
 ## B3. The sync can leave a household it can never add
 
@@ -217,6 +244,12 @@ those imports. How to make the switch belongs to the code-quality review.
   deleted, and RESTRICT prevents that.
 - **The sync loads every existing principal and member** with `select('*')` and
   no paging, so it would be cut off past 1000 members. The club has 314.
+- **For the frontend review: an admin form resubmits on reload.** Admin pages
+  show the result of a POST directly, without redirecting, so reloading that page
+  sends the form again. During B1's verification, a test squad that had been
+  added and then deleted came back a second time, about the only way that
+  happens. Forms with a per-render idempotency key, such as the ledger forms,
+  are protected. The squad form isn't.
 
 ## What stood up
 

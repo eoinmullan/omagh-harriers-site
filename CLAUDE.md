@@ -117,8 +117,10 @@ draws it; every decision about which rows appear is in
 
 - **The Usuals are seeded from `member_groups` and learn from history.** Anyone
   ticked tonight is on the list by definition, which is how "the registrar can
-  add somebody by hand" works without a second control. The history query is an
-  inner join filtered on the group, so the database narrows it — not the phone
+  add somebody by hand" works without a second control. History comes from the
+  `squad_regulars` view (migration `0020`): each member who has trained with the
+  squad, once. So its size depends on the membership, not the history, and it
+  never meets PostgREST's row limit
 - **Frequency decides who is on the list; surname decides the order.** The plan
   once asked for both as the ordering, which cannot hold at once. Siblings
   arrive together, so they must be adjacent
@@ -591,6 +593,16 @@ back either a row to write or one sentence to show the admin.
   open, and it only appears on screen when more than one person recorded something
 - **A member's charge is found through `(member_id, session_id)`**, which is the join
   that stands in for the foreign key the schema deliberately does without
+- **A read that grows with the club's history goes through `everyRow`**
+  (`lib/supabase/every-row.ts`). PostgREST stops at 1000 rows on hosted Supabase
+  without raising an error, so a total added up from that read is quietly
+  wrong. That had already happened to money collected on `/admin/sessions`.
+  `everyRow` pages until an empty page comes back, and throws rather than
+  returning part of the rows. Order the query by a unique column. Where the
+  answer is naturally small, a view that returns that small answer is better,
+  as with `squad_regulars`. Don't move a money rule into SQL to make a read
+  smaller: `session-cash.ts` and `cash.ts` must agree, and a third copy in SQL
+  would drift
 - **`training/names.ts` is shared with the browser.** The member-assignment filter
   imports it from the page's `<script>`, so what the admin screen matches and what
   the registrar app will match cannot drift apart

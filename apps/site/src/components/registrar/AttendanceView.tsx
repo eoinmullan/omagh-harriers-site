@@ -129,15 +129,15 @@ export function AttendanceView({
               .from('attendance')
               .select('id, member_id, guest_id, amount_paid_pence')
               .eq('session_id', session.id),
-            // Who has turned up to this group before, which is how the Usuals learn.
-            // The group filter is an inner join on the embed so the database does the
-            // narrowing — otherwise this is every attendance row the club has ever
-            // recorded, fetched to a phone, to answer a question about one squad.
+            // Who has turned up to this squad before, which is how the Usuals
+            // learn. Each of them once (migration 0020), so the answer is sized by
+            // the membership rather than the history. Fetching the raw attendance
+            // used to run past PostgREST's 1000-row limit within a season, and
+            // the list then learned from whatever happened to come back.
             supabase
-              .from('attendance')
-              .select('member_id, session:session_id!inner(group_id)')
-              .eq('session.group_id', session.groupId)
-              .not('member_id', 'is', null),
+              .from('squad_regulars')
+              .select('member_id')
+              .eq('group_id', session.groupId),
             supabase
               .from('credit_transactions')
               .select('principal_id, type, amount_pence')

@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { everyRow } from '../../lib/supabase/every-row';
 import {
   planGroupRename,
   planGroupRetirement,
@@ -88,8 +89,14 @@ if (Astro.request.method === 'POST') {
 
 const groups = await loadGroups();
 
-const { data: memberships } = await adminClient.from('member_groups').select('group_id');
-const { data: sessions } = await adminClient.from('training_sessions').select('group_id');
+// Counted from every row: both reads grow past PostgREST's 1000-row limit as
+// the club does, and a cut-off read undercounts without saying so.
+const memberships = await everyRow((from, to) =>
+  adminClient.from('member_groups').select('group_id').order('member_id').order('group_id').range(from, to),
+);
+const sessions = await everyRow((from, to) =>
+  adminClient.from('training_sessions').select('group_id').order('id').range(from, to),
+);
 
 function countBy(rows: { group_id: string }[] | null): Map<string, number> {
   const counts = new Map<string, number>();

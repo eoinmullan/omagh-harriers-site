@@ -437,6 +437,11 @@ export type Database = {
           },
         ];
       };
+      // Migration 0020. Each member who has trained with a squad, once.
+      squad_regulars: {
+        Row: { group_id: string; member_id: string };
+        Relationships: [];
+      };
     };
     Functions: {
       // Migration 0011. A tick is two rows in two tables and PostgREST cannot

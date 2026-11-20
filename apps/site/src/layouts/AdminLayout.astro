@@ -17,7 +17,7 @@ import PageContainer from '../components/PageContainer.astro';
 
 interface Props {
   /** Which section is open, so the nav can say so. */
-  section: 'sessions' | 'squads' | 'households' | 'members' | 'credit' | 'times';
+  section: 'sessions' | 'squads' | 'households' | 'members' | 'times';
   title: string;
   /** Shown under the nav. The area itself is implied, so it is never named. */
   breadcrumb?: { label: string; href?: string }[];
@@ -35,7 +35,6 @@ const sections = [
   { key: 'squads', label: 'Squads', href: '/admin/squads' },
   { key: 'households', label: 'Households', href: '/admin/households' },
   { key: 'members', label: 'Members', href: '/admin/members' },
-  { key: 'credit', label: 'Credit', href: '/admin/credits' },
   { key: 'times', label: 'Training times', href: '/admin/training-times' },
 ] as const;
 ---

@@ -1,6 +1,11 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { formatBalance } from '../../lib/credits/money';
+
+// The one list of households, balances included. Credit used to be a second
+// section listing the same 220 rows with different columns, which made "has
+// Jack Kelly's mum paid?" two screens instead of one.
 
 const {
   data: { user },
@@ -73,6 +78,10 @@ const { data: activeMembers } = await adminClient
   .select('principal_id')
   .eq('is_active', true);
 
+const { data: balances } = await adminClient
+  .from('principal_balances')
+  .select('principal_id, balance_pence');
+
 const memberCountByPrincipal = new Map<string, number>();
 for (const m of activeMembers ?? []) {
   memberCountByPrincipal.set(
@@ -80,20 +89,54 @@ for (const m of activeMembers ?? []) {
     (memberCountByPrincipal.get(m.principal_id) ?? 0) + 1,
   );
 }
+
+const balanceByPrincipal = new Map(
+  (balances ?? []).map((row) => [row.principal_id, row.balance_pence]),
+);
+
+const households = (principals ?? []).map((principal) => ({
+  ...principal,
+  memberCount: memberCountByPrincipal.get(principal.id) ?? 0,
+  balancePence: balanceByPrincipal.get(principal.id) ?? 0,
+}));
+
+const clubFloatPence = households.reduce((total, h) => total + h.balancePence, 0);
+const overdrawn = households.filter((h) => h.balancePence < 0).length;
+
+const roleBadge: Record<string, string> = {
+  superuser: 'bg-purple-100 text-purple-700',
+  admin: 'bg-blue-100 text-blue-700',
+  registrar: 'bg-amber-100 text-amber-700',
+};
 ---
 
 <AdminLayout section="households" title="Households">
-    <div class="flex items-center justify-between mb-8">
+    <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-3xl font-bold">Households</h1>
         <p class="text-gray-500 mt-1">
-          {principals?.length ?? 0} total
+          {households.length} total
         </p>
       </div>
       <a href="/admin/members" class="text-sm underline hover:text-gray-600"
         >View members →</a
       >
     </div>
+
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div class="bg-gray-50 border border-gray-200 rounded-lg px-5 py-4">
+        <dt class="text-sm text-gray-500">Club float</dt>
+        <dd class="text-2xl font-bold mt-0.5">{formatBalance(clubFloatPence)}</dd>
+      </div>
+      <div class="bg-gray-50 border border-gray-200 rounded-lg px-5 py-4">
+        <dt class="text-sm text-gray-500">Overdrawn</dt>
+        <dd
+          class:list={['text-2xl font-bold mt-0.5', overdrawn > 0 && 'text-red-600']}
+        >
+          {overdrawn}
+        </dd>
+      </div>
+    </dl>
 
     {
       error && (
@@ -158,10 +201,19 @@ for (const m of activeMembers ?? []) {
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-200 text-left">
-            <th class="pb-3 font-semibold">Name</th>
+            <th class="pb-3 font-semibold">
+              <button type="button" data-sort="name" class="font-semibold hover:underline"
+                >Name</button
+              >
+            </th>
             <th class="pb-3 font-semibold">Email</th>
             <th class="pb-3 font-semibold">Role</th>
             <th class="pb-3 font-semibold">Members</th>
+            <th class="pb-3 font-semibold text-right">
+              <button type="button" data-sort="balance" class="font-semibold hover:underline"
+                >Balance</button
+              >
+            </th>
             <th class="pb-3 font-semibold">Status</th>
             <th class="pb-3 font-semibold">Source</th>
             <th class="pb-3"></th>
@@ -169,46 +221,48 @@ for (const m of activeMembers ?? []) {
         </thead>
         <tbody class="divide-y divide-gray-100">
           {
-            principals?.map((p) => (
+            households.map((h) => (
               <tr
-                class={!p.is_active ? 'opacity-50' : ''}
-                data-filter={`${p.display_name} ${p.email}`.toLowerCase()}
+                class={!h.is_active ? 'opacity-50' : ''}
+                data-filter={`${h.display_name} ${h.email}`.toLowerCase()}
+                data-balance={h.balancePence}
               >
-                <td class="py-3 font-medium">{p.display_name}</td>
-                <td class="py-3 text-gray-600">{p.email}</td>
+                <td class="py-3 font-medium">{h.display_name}</td>
+                <td class="py-3 text-gray-600">{h.email}</td>
                 <td class="py-3">
                   <span
                     class={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      p.role === 'superuser'
-                        ? 'bg-purple-100 text-purple-700'
-                        : p.role === 'admin'
-                          ? 'bg-blue-100 text-blue-700'
-                          : p.role === 'registrar'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-gray-100 text-gray-600'
+                      roleBadge[h.role] ?? 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {p.role}
+                    {h.role}
                   </span>
                 </td>
-                <td class="py-3">
-                  {memberCountByPrincipal.get(p.id) ?? 0}
+                <td class="py-3">{h.memberCount}</td>
+                <td
+                  class:list={[
+                    'py-3 text-right font-medium',
+                    h.balancePence < 0 && 'text-red-600',
+                    h.balancePence === 0 && 'text-gray-400',
+                  ]}
+                >
+                  {formatBalance(h.balancePence)}
                 </td>
                 <td class="py-3">
                   <span
                     class={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      p.is_active
+                      h.is_active
                         ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}
                   >
-                    {p.is_active ? 'Active' : 'Inactive'}
+                    {h.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                <td class="py-3 text-gray-400 text-xs">{p.source}</td>
+                <td class="py-3 text-gray-400 text-xs">{h.source}</td>
                 <td class="py-3 text-right">
                   <a
-                    href={`/admin/households/${p.id}`}
+                    href={`/admin/households/${h.id}`}
                     class="text-xs underline hover:text-gray-600"
                   >
                     View →
@@ -220,7 +274,7 @@ for (const m of activeMembers ?? []) {
         </tbody>
       </table>
       {
-        (!principals || principals.length === 0) && (
+        households.length === 0 && (
           <p class="text-gray-500 text-sm py-8 text-center">
             No households found.
           </p>
@@ -231,12 +285,39 @@ for (const m of activeMembers ?? []) {
 
 <script>
   const input = document.getElementById('principal-filter') as HTMLInputElement;
-  const rows = document.querySelectorAll<HTMLTableRowElement>('tbody tr[data-filter]');
+  const body = document.querySelector('tbody');
+  const rows = Array.from(
+    document.querySelectorAll<HTMLTableRowElement>('tbody tr[data-filter]'),
+  );
 
   input?.addEventListener('input', () => {
     const term = input.value.toLowerCase();
     rows.forEach((row) => {
       row.hidden = term !== '' && !row.dataset.filter?.includes(term);
+    });
+  });
+
+  // Who owes money is the question the balance column exists to answer, so
+  // sorting by it is one click: poorest first, then richest.
+  const nameOrder = rows.slice();
+  let ascending = true;
+
+  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const byBalance = button.dataset.sort === 'balance';
+      ascending = byBalance ? !ascending : true;
+
+      const sorted = byBalance
+        ? nameOrder
+            .slice()
+            .sort(
+              (a, b) =>
+                (Number(a.dataset.balance) - Number(b.dataset.balance)) *
+                (ascending ? 1 : -1),
+            )
+        : nameOrder;
+
+      sorted.forEach((row) => body?.appendChild(row));
     });
   });
 </script>

@@ -38,7 +38,7 @@ There is no `supabase/config.toml`, so none of this is in the repo.
 | **Access-token hook** | Authentication → Hooks → Customize Access Token (JWT) Claims | **Enabled**, Postgres function `public.custom_access_token_hook`. Defined in migrations `0003` and `0004`; registering it is manual. Without it no token carries `app_role`, RLS refuses every registrar write, and the registrar app shows *"Club roles aren't reaching this app"*. |
 | **New sign-ups** | Authentication → Sign In / Providers | **Off**. Confirmed: `disable_signup: true`. Only the Klubfunder sync and the admin area create logins. |
 | **Email provider** | Authentication → Sign In / Providers → Email | **On** (magic links). Confirmed. |
-| **SMTP** | Authentication → Emails → SMTP Settings | **To confirm.** Supabase's built-in sender only delivers to the project's team members, a few an hour. Members need a custom SMTP provider (OR1). |
+| **SMTP** | Authentication → Emails → SMTP Settings | **Resend.** Confirmed by the user on 20 November 2026. Supabase's built-in sender only delivers to the project's team members, a few an hour, so a custom provider is required (OR1). |
 | **Email rate limit** | Authentication → Rate Limits | **To confirm.** Raise it to match the SMTP provider once one is set. |
 | **Site URL** | Authentication → URL Configuration | **To confirm.** Should be `https://omaghharriers.com`. |
 | **Redirect URLs** | Authentication → URL Configuration | **To confirm.** Must allow `https://omaghharriers.com/signin/callback` and, for local development, `http://localhost:4321/signin/callback`. Both sign-in paths in `signin.astro` return there. |

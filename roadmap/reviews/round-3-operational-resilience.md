@@ -33,7 +33,7 @@ this round closed the gaps they found:
 
 ## OR1. Sign-in emails may only reach the Supabase team
 
-**Severity: possibly a go-live blocker. Check in the Supabase dashboard. Being checked by the user.**
+**Severity: possibly a go-live blocker. Resolved: the user has set up Resend as the SMTP provider.**
 
 Email sign-in is switched on and the sign-in page relies on it: every member
 without Gmail or Outlook signs in that way. What the settings endpoint can't

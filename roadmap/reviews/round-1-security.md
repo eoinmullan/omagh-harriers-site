@@ -145,7 +145,7 @@ finding: the `authenticated` DELETE policy on `attendance` is gated only on
 `can_run_a_session()`, with no `guest_id IS NOT NULL` restriction, so a registrar
 token can delete a member's attendance row by direct REST call and leave the
 `session` debit standing — the exact money/attendance divergence the RPCs exist
-to prevent. Fix is in that write-up.
+to prevent. **Fixed in `0019`** by a delete trigger that refuses a charged sign-in until its refund exists; see that write-up for the live test.
 
 ## S5. The service-role key lives on the unauthenticated sign-in page
 

@@ -108,7 +108,7 @@ throwaway free session was deleted.
 
 ## 2. An untick can be aimed at a row that never existed
 
-**Severity: medium. Fixable in the client, better fixed in the RPC.**
+**Severity: medium. Fixed by migration `0019`.**
 
 A tick is addressed by `(member, session)`; an untick is addressed by row id.
 The two don't always agree on which row that is.
@@ -157,9 +157,34 @@ in the way. Options, cheapest first:
 - Key the untick on `(member, session)`, as the guest path does. Honest, and a
   bigger change.
 
+**Done differently from all three.** The queue retries forever, and that rules
+out the two server-side options. Suppose A's untick lands but its response is
+lost, B ticks the runner in again (row Z), and A retries. A `(member, session)`
+lookup would find Z and delete a sign-in nobody wanted undone. The client
+write-back can't cover an untick queued before the tick's response comes back.
+
+So `0019` has the tick record what the phone's id turned out to mean. When
+`sign_in_member` is handed X and finds row Y already there, it writes alias
+X -> Y to `attendance_aliases`, and the untick follows it. The alias cascades
+with Y, so a replay after Y is gone finds nothing and Z is safe. The registrar
+app doesn't change.
+
+Verified live by playing two phones as a signed-in admin:
+
+| Step | Result |
+|---|---|
+| B ticks with Y | row Y, £2 charged |
+| A ticks with X | Y returned; alias X -> Y recorded |
+| A unticks X | Y removed, `untick:Y` +£2, alias cascaded |
+| B re-ticks with Z | row Z, £2 charged |
+| A *replays* the untick of X | nothing happens; **Z survives** |
+
+Ledger afterwards: one charge and one refund each for Y and Z, nothing keyed
+on X, and the household back to £0.00.
+
 ## 3. RLS lets a registrar delete attendance without reversing the charge
 
-**Severity: medium. Overlaps the Round 1 security pass.**
+**Severity: medium. Overlaps the Round 1 security pass. Fixed by migration `0019`.**
 
 The RPCs exist so that the attendance row and the money cannot diverge. The RLS
 policy underneath them leaves the back door open:
@@ -182,6 +207,14 @@ works is to insert the reversal *before* the delete, and add a `BEFORE DELETE`
 trigger refusing a charged member row whose `untick:{id}` is not present. That
 makes "the money came back" a precondition of the row going, rather than a
 convention the RPC happens to follow.
+
+**Done in `0019`**, exactly that shape. The trigger
+`attendance_keeps_its_money` refuses the delete, and the untick now refunds and
+then deletes. Verified live: a direct REST `DELETE` of a charged member's row,
+made with a token that can run sessions, came back `400 P0001` *"That sign-in
+was charged. Undo it with undo_member_sign_in, which gives the money back."*,
+and the row stayed. The same row then went through the RPC cleanly. The app's
+only direct delete is the guest undo, which carries no money and passes.
 
 ## 4. The transfer's balance rules are enforced only against a stale read
 

@@ -422,6 +422,26 @@ household pot and so lives in `credit_transactions` instead.
 Unlike the ledger, **attendance is not append-only** — unticking somebody
 removes the row. There is deliberately no UPDATE policy on it.
 
+**A charged sign-in can't leave without its money.** A `BEFORE DELETE` trigger,
+`attendance_keeps_its_money`, refuses to delete a member's attendance row while
+its `session:{id}` debit has no `untick:{id}` refund. So the RLS delete
+policy can't be used to remove a sign-in and keep the £2. The untick writes the
+refund first and deletes second, which is how it passes. Guest rows and
+uncharged member rows (a free session) carry no money and delete freely.
+**Anything new that removes attendance has to give the money back first**, or
+the trigger refuses it.
+
+**An untick follows its alias.** A phone mints the attendance id at tick time.
+If the other phone at the gate already signed that runner in, `sign_in_member`
+returns the other row and records the phone's id in `attendance_aliases`
+(alias -> real row), and `undo_member_sign_in` follows it. The alias cascades
+with the row. That is what makes a replayed untick safe: once the row is gone,
+the alias is gone too, so a retry that lands after somebody re-ticks the runner
+finds nothing, instead of deleting the new sign-in. Don't replace it with a
+(member, session) fallback, because that version deletes the re-tick. Every key
+derives from the real row's id, so two phones unticking the same runner still
+refund once. Migration `0019`.
+
 That is why `credit_transactions` has **no `attendance_id`**, despite the plan
 once asking for one: a foreign key to `attendance` is a RESTRICT reference
 pinning the row the untick has to delete, and `ON DELETE SET NULL` is refused by

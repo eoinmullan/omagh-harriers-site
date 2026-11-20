@@ -65,9 +65,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
 
       const { data, error } = await supabase
         .from('training_sessions')
-        .select(
-          'id, name, starts_at, location, price_pence, is_cancelled, group_id, group:group_id(name)',
-        )
+        .select('id, starts_at, note, price_pence, is_cancelled, group_id, group:group_id(name)')
         .gte('starts_at', window.from)
         .lt('starts_at', window.until)
         .order('starts_at');

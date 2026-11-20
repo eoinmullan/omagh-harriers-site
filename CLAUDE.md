@@ -199,7 +199,13 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   sign-in because a leisure centre's wifi blinked is how somebody ends up
   unrecorded; retrying a Postgres refusal just hides the bug until the end of
   the night. A refusal reloads the list, because the screen is then wrong and
-  guessing which optimistic change to unpick is worse than asking the database
+  guessing which optimistic change to unpick is worse than asking the database.
+  **The registrar is told what was lost, in words they can act on.**
+  `training/lost-write.ts` builds the sentence from the write itself (*"£10
+  from the Kellys wasn't recorded. Note it on paper."*), with Postgres's text
+  underneath for whoever investigates. Every refusal stays on screen until
+  it's dismissed. A new tap doesn't clear one, because a lost cash entry
+  must not be pushed off the screen by the next tick
 - **Money collected says when it is only this phone's view** — pending count
   while sending, and an amber line when offline. Under the figure, not in its
   label, so the common case reads plainly
@@ -533,6 +539,25 @@ deep end.
 `/admin` redirects to `/admin/sessions`. **There is no dashboard on purpose** —
 the first screen is the job that actually recurs, not a page of figures standing
 between an admin and it.
+
+**A successful form redirects; a reload is a GET.** Every admin page calls
+`redirectAfterPost` (`lib/http/after-post.ts`) once its form succeeds: a 303
+back to itself, with the confirmation in a one-minute cookie that's read
+once. The cookie keeps "James Conway added." out of URLs and logs. Before
+this, reloading resubmitted the form, and creating a session that way made a
+second identical one, which splits a night between two registrars. A failed
+form still renders its own result, keeping what was typed. **A form that
+creates a row also carries an id minted when it's drawn** (`lib/http/form-id.ts`).
+The page inserts under that id and ignores a conflict, so a double click
+writes once. Copy both into any new admin form.
+
+**A page read that fails fails the page.** Every server read goes through
+`orThrow` (`lib/supabase/or-throw.ts`), and so does the middleware's. A
+Supabase blip used to render as an empty club: no households, a £0.00
+float, a statement with no lines. In the middleware it signed the user out
+as "not registered". Now it reaches `pages/500.astro`, which says the
+records couldn't be reached and shows nothing about the error. Never
+destructure only `data` from a query.
 
 **Squads and Households are the club's words; `groups` and `principals` are
 Postgres's.** The routes and every label say squad and household; the tables,

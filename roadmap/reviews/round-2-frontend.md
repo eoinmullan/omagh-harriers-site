@@ -15,7 +15,7 @@ cash), S3 (the callback fallback), P3 (snapshots kept on the phone), P6
 
 ## F1. Reloading a page can create a session or a member twice
 
-**Severity: medium. A duplicate session splits a training night in two.**
+**Severity: medium. A duplicate session splits a training night in two. Fixed.**
 
 No admin page redirects after a POST. Each one renders the result directly,
 so a reload, the back button, or *Confirm Form Resubmission* sends the form
@@ -46,9 +46,20 @@ ledger forms already do with their key, and the registrar app does when it
 starts a session) and insert with it, so a resubmit that gets through anyway
 writes nothing.
 
+**Done.** All eight admin pages call `redirectAfterPost` after a successful
+form: a 303 to the same page, with the confirmation in a one-minute,
+read-once cookie, not the URL. Creating a session and adding a member insert
+under a form id minted at render (`lib/http/form-id.ts`) and ignore a
+conflict. Verified live:
+
+- A session created through the UI landed under the form's own id, and the
+  confirmation showed after the redirect.
+- A reload created nothing, and the confirmation had gone.
+- The same form, with the same id, posted twice wrote **one** row.
+
 ## F2. A failed read looks like an empty club
 
-**Severity: medium-low.**
+**Severity: medium-low. Fixed.**
 
 Forty-four server-side reads take `data` and never look at `error`. Three
 check it. When Supabase is unreachable, or a query is refused, those pages
@@ -69,9 +80,19 @@ by every page read. Then a database failure shows as Astro's error page,
 which can be styled to say *"Couldn't reach the club's records — try again
 in a minute"*, rather than as a club with no data.
 
+**Done.** `orThrow` (`lib/supabase/or-throw.ts`) wraps all 44 page reads,
+plus the middleware's. That one was worse than the review said: a failed read
+there signed the user out and told them they weren't registered.
+`pages/500.astro` explains in plain words and reveals nothing about the
+error. Three unit tests cover it, including that a `.maybeSingle()` finding
+nothing still comes back as null rather than as a failure. **Not seen live:**
+Supabase can't be made to fail on demand, and the dev server shows its own
+error overlay instead of `500.astro`, so the page will first be seen in
+production.
+
 ## F3. A refused write is reported in Postgres's words, and doesn't say what was lost
 
-**Severity: medium-low.**
+**Severity: medium-low. Fixed.**
 
 When Postgres refuses a queued write (as opposed to the network dropping it),
 the queue drops it, reloads the list and shows:
@@ -98,6 +119,22 @@ Two other problems with it:
 the queue item (*"Jack Kelly's sign-in wasn't saved"*, *"£10 from the Kellys
 wasn't recorded — note it on paper"*), keep every one until it's dismissed,
 and keep Postgres's text in a detail line for whoever investigates later.
+
+**Done.** `describeLostWrite` (`lib/training/lost-write.ts`, nine tests)
+writes the sentence. The queue keeps a list of refusals until a **Got it**
+button clears them. `astro check` also caught that a new tap called
+`setRefused(null)`, which would have cleared a lost-cash notice on the next
+tick, and that's been removed. The old effect also fired only when the
+message *text* changed, so a second refusal with the same wording went
+unnoticed.
+
+Verified live by cancelling a test session while it was open in the
+registrar app, then ticking two runners. Each tick was refused, and the
+screen showed *"Jos Adams's sign-in wasn't saved."* and *"Phil Adams's
+sign-in wasn't saved."*, each over *"That session was cancelled."*, with
+**Got all 2**. The second tap didn't clear the first notice. Dismissing
+cleared both, and the database held no attendance or ledger rows for the
+session.
 
 ## F4. Every query cast matches today, but nothing would catch it if one stopped
 

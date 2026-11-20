@@ -110,6 +110,7 @@ const households = (principals ?? []).map((principal) => ({
 
 const clubFloatPence = households.reduce((total, h) => total + h.balancePence, 0);
 const overdrawn = households.filter((h) => h.balancePence < 0).length;
+const inCredit = households.filter((h) => h.balancePence > 0).length;
 
 const roleBadge: Record<string, string> = {
   superuser: 'bg-purple-100 text-purple-700',
@@ -131,20 +132,33 @@ const roleBadge: Record<string, string> = {
       >
     </div>
 
-    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+    <!-- Overdrawn and In credit are filters as well as figures: most
+         households sit at £0, so the question is usually "who isn't?".
+         Pressed shows the filter is on; pressing again clears it. -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
       <div class="bg-gray-50 border border-gray-200 rounded-lg px-5 py-4">
-        <dt class="text-sm text-gray-500">Club float</dt>
-        <dd class="text-2xl font-bold mt-0.5">{formatBalance(clubFloatPence)}</dd>
+        <p class="text-sm text-gray-500">Club float</p>
+        <p class="text-2xl font-bold mt-0.5">{formatBalance(clubFloatPence)}</p>
       </div>
-      <div class="bg-gray-50 border border-gray-200 rounded-lg px-5 py-4">
-        <dt class="text-sm text-gray-500">Overdrawn</dt>
-        <dd
-          class:list={['text-2xl font-bold mt-0.5', overdrawn > 0 && 'text-red-600']}
-        >
-          {overdrawn}
-        </dd>
-      </div>
-    </dl>
+      <button
+        type="button"
+        data-balance-filter="overdrawn"
+        aria-pressed="false"
+        class="text-left bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 hover:border-gray-400 aria-pressed:bg-white aria-pressed:border-black aria-pressed:ring-1 aria-pressed:ring-black transition-colors"
+      >
+        <span class="block text-sm text-gray-500">Overdrawn <span aria-hidden="true">▾</span></span>
+        <span class:list={['block text-2xl font-bold mt-0.5', overdrawn > 0 && 'text-red-600']}>{overdrawn}</span>
+      </button>
+      <button
+        type="button"
+        data-balance-filter="in-credit"
+        aria-pressed="false"
+        class="text-left bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 hover:border-gray-400 aria-pressed:bg-white aria-pressed:border-black aria-pressed:ring-1 aria-pressed:ring-black transition-colors"
+      >
+        <span class="block text-sm text-gray-500">In credit <span aria-hidden="true">▾</span></span>
+        <span class="block text-2xl font-bold mt-0.5">{inCredit}</span>
+      </button>
+    </div>
 
     {
       error && (
@@ -300,10 +314,36 @@ const roleBadge: Record<string, string> = {
     document.querySelectorAll<HTMLTableRowElement>('tbody tr[data-filter]'),
   );
 
-  input?.addEventListener('input', () => {
-    const term = input.value.toLowerCase();
+  // The search box and the balance filter narrow the list together.
+  type BalanceFilter = 'overdrawn' | 'in-credit' | null;
+  let balanceFilter: BalanceFilter = null;
+
+  function passesBalanceFilter(row: HTMLTableRowElement): boolean {
+    const balance = Number(row.dataset.balance);
+    if (balanceFilter === 'overdrawn') return balance < 0;
+    if (balanceFilter === 'in-credit') return balance > 0;
+    return true;
+  }
+
+  function applyFilters() {
+    const term = input?.value.toLowerCase() ?? '';
     rows.forEach((row) => {
-      row.hidden = term !== '' && !row.dataset.filter?.includes(term);
+      const matchesTerm = term === '' || Boolean(row.dataset.filter?.includes(term));
+      row.hidden = !matchesTerm || !passesBalanceFilter(row);
+    });
+  }
+
+  input?.addEventListener('input', applyFilters);
+
+  const filterButtons = document.querySelectorAll<HTMLButtonElement>('[data-balance-filter]');
+  filterButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const chosen = button.dataset.balanceFilter as BalanceFilter;
+      balanceFilter = balanceFilter === chosen ? null : chosen;
+      filterButtons.forEach((other) =>
+        other.setAttribute('aria-pressed', String(other.dataset.balanceFilter === balanceFilter)),
+      );
+      applyFilters();
     });
   });
 

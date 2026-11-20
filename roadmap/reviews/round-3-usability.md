@@ -25,7 +25,7 @@ Ticked as each one lands, in the order they're tackled.
   Google Calendar pattern. No scrolling through every minute, and no clicking
   away to confirm.
 - [x] **New sessions default to 6pm.**
-- [ ] **The households KPIs become filters.** "Overdrawn" becomes a button
+- [x] **The households KPIs become filters.** "Overdrawn" becomes a button
   that filters to overdrawn households, and a new "In credit" does the same,
   because most households sit at £0. These are filter chips with a pressed
   state, and clicking again clears.

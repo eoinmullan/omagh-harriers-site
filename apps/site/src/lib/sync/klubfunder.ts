@@ -639,6 +639,62 @@ export function planIsEmpty(plan: SyncPlan): boolean {
 
 const BAN_DURATION_LAPSED = '876000h'; // ~100 years
 
+// A household's login, created or found.
+//
+// Adding a principal takes two writes that nothing makes atomic: the login,
+// then the `principals` row. If the second failed, the login survived with no
+// household, and every later run tried to create it again and was refused as
+// already registered. That household could never be added without somebody
+// removing the login by hand in the dashboard.
+//
+// So a refusal for an address that's already registered isn't treated as a
+// failure. It's the trace of an earlier run that got halfway, and the login it
+// left is the one this household should have. Any other refusal still fails
+// the action.
+//
+// Narrow on purpose, so the test can fake it. Supabase's auth admin API
+// satisfies it as it is.
+export interface LoginDirectory {
+  createUser(attributes: { email: string; email_confirm: boolean }): PromiseLike<{
+    data: { user: { id: string } | null };
+    error: { message: string; code?: string } | null;
+  }>;
+  listUsers(params: { page: number; perPage: number }): PromiseLike<{
+    data: { users: { id: string; email?: string }[] };
+    error: { message: string } | null;
+  }>;
+}
+
+const ALREADY_REGISTERED = new Set(['email_exists', 'user_already_exists']);
+
+export async function loginFor(logins: LoginDirectory, email: string): Promise<string> {
+  const { data, error } = await logins.createUser({ email, email_confirm: true });
+  if (data.user) return data.user.id;
+
+  if (!error || !ALREADY_REGISTERED.has(error.code ?? '')) {
+    throw new Error(error?.message ?? 'auth.admin.createUser returned no user');
+  }
+
+  const existing = await findLogin(logins, email);
+  if (!existing) throw new Error(`${email} is registered, but its login could not be found to link`);
+  return existing;
+}
+
+// Pages until an empty page, like `everyRow`, so a server page smaller than
+// the one asked for still reaches every login.
+async function findLogin(logins: LoginDirectory, email: string): Promise<string | undefined> {
+  const wanted = email.toLowerCase();
+
+  for (let page = 1; ; page++) {
+    const { data, error } = await logins.listUsers({ page, perPage: 1000 });
+    if (error) throw new Error(error.message);
+
+    const match = data.users.find((user) => user.email?.toLowerCase() === wanted);
+    if (match) return match.id;
+    if (data.users.length === 0) return undefined;
+  }
+}
+
 export async function loadExistingState(
   supabase: SupabaseAdminClient,
 ): Promise<ExistingState> {
@@ -677,19 +733,12 @@ export async function applyPlan(
   // === Principal: add ===
   for (const action of plan.principals.add) {
     try {
-      const { data: created, error: authErr } =
-        await supabase.auth.admin.createUser({
-          email: action.email,
-          email_confirm: true,
-        });
-      if (authErr || !created.user) {
-        throw new Error(authErr?.message ?? 'auth.admin.createUser returned no user');
-      }
+      const authUserId = await loginFor(supabase.auth.admin, action.email);
       const { data: inserted, error: insertErr } = await supabase
         .from('principals')
         .insert({
           email: action.email,
-          auth_user_id: created.user.id,
+          auth_user_id: authUserId,
           display_name: action.displayName,
           source: 'klubfunder',
           last_seen_in_klubfunder_at: now,

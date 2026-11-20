@@ -157,7 +157,7 @@ Round 3.
 
 ## B3. The sync can leave a household it can never add
 
-**Severity: medium-low.**
+**Severity: medium-low. Fixed.**
 
 Adding a principal takes two writes: `auth.admin.createUser`, then the
 `principals` insert. Nothing makes them atomic. If the insert fails, the login
@@ -173,9 +173,21 @@ Fix: write the row the plan can see first, which is the `principals` row with
 a null `auth_user_id`. Then create the login and link it. A failure then
 leaves a principal without a login, which the next plan can detect and finish.
 
+**Done differently.** Writing the row first only moves the gap: if the login
+were created and the link then failed, the next run would still be refused as
+already registered. So `loginFor` makes the login step itself recoverable. A
+refusal coded `email_exists` or `user_already_exists` means an earlier run got
+halfway, so it pages through the logins, finds that address, and the
+principal is inserted against it. Any other refusal still fails the action.
+It's typed against a narrow `LoginDirectory` interface, which Supabase's auth
+admin API satisfies as it is (`tsc` and `astro check` confirm), so it's unit
+tested with a fake. Five tests: a new address, a stranded login, one found
+three pages deep, the older error code, and an unrelated refusal passed
+through. Not run live, because that would mean a sync creating real logins.
+
 ## B4. Seven functions don't fix their search path
 
-**Severity: low.**
+**Severity: low. Fixed by migration `0021`.**
 
 `current_app_role`, `is_club_admin`, `can_run_a_session`,
 `own_household_member_ids`, `custom_access_token_hook`,
@@ -188,6 +200,14 @@ every token issued.
 Every function written this session pins the search path. One migration of
 `ALTER FUNCTION … SET search_path = public, pg_temp` would cover the other
 seven.
+
+**Done in `0021`**, with the bodies unchanged. One trade-off: Postgres won't
+inline a SQL function with a `SET` clause, so the three RLS helpers now cost
+a function call per row checked. That's negligible here, and Round 3 is
+expected to wrap them as `(select …)`, which makes it irrelevant. Verified
+live: a token refreshed after the migration through the app's own client
+still carries `app_role` from the hook, and the helpers still allow the
+registrar's reads.
 
 ## B5. TRUNCATE bypasses the append-only ledger
 

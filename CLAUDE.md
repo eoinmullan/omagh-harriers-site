@@ -341,6 +341,13 @@ The script always uses `source='klubfunder'` for the rows it creates and **never
 
 No emails are sent: auth users are created with `email_confirm: true`, which skips Supabase's confirmation-email step.
 
+**An interrupted Add recovers on the next run.** Adding a principal takes two
+writes that nothing makes atomic: the login, then the `principals` row. If the
+row fails, the login is left with no household. `loginFor` treats a refusal
+for an already-registered address as the trace of that earlier run, finds the
+login and links it, rather than failing on every later run. Any other refusal
+still fails the action.
+
 ## Training credits
 
 A household's balance is never stored — it is the sum of `credit_transactions`,
@@ -487,6 +494,10 @@ for a token carrying no `app_role` claim, so `can_run_a_session()` is NULL, and
 fire and execution falls through. `0011` had this and `0013` fixed it. RLS was
 never fooled (its policies refuse a NULL just as firmly), but the function's own
 guard did nothing. Copy the `IS NOT TRUE` form into anything new.
+
+**Every function pins its search path** (`SET search_path = public, pg_temp`).
+The seven older functions that didn't were fixed in `0021`. Copy that into
+anything new, along with `IS NOT TRUE`.
 
 **A guest never goes through these.** Their cash lives on the attendance row, so
 ticking and unticking a guest is a single-table write through PostgREST.

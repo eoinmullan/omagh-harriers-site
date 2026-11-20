@@ -424,6 +424,16 @@ session [, attendance_id])` writes both in one transaction and returns the
 attendance id; `public.undo_member_sign_in(attendance_id)` deletes the row and
 gives the money back. Both are in migration `0011`.
 
+**The untick reads the charge it is reversing**, rather than rebuilding it from
+the member's household and the session's price as those stand today. Both can
+have moved: the Klubfunder sync re-points `members.principal_id` when a member
+changes household and rightly leaves the ledger with the household that paid, so
+reading the member's current household credited the wrong pot — the payer stayed
+down and somebody else went up. The amount and the `principal_id` now come off
+the row keyed `session:{attendance_id}`, which the function had to find anyway to
+know whether anything was taken. A NULL there means nothing was, which covers a
+free session and a tick whose charge never landed. Migration `0015`.
+
 They are **SECURITY INVOKER** on purpose. RLS already says who may write what,
 and a definer function would restate that rule and then be where it goes stale.
 The role check at the top of each only turns a silent RLS denial into a sentence.

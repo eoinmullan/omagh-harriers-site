@@ -201,6 +201,18 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
 - **Money collected says when it is only this phone's view** — pending count
   while sending, and an amber line when offline. Under the figure, not in its
   label, so the common case reads plainly
+- **One outbox for the phone, not one per screen.** Mounted at the island root,
+  so a tick owed for Monday's session keeps being retried while the registrar
+  is on the picker or in another session. A queued write names its own author;
+  nothing is resolved at send time that could be resolved at tap time
+- **The screen catches up when a restored backlog clears.** A queue loaded from
+  storage lands after the view has already loaded, so the database has moved
+  and the view cannot know. Reloading after every tap would be a round trip per
+  tick, and the optimistic state is already right in that case
+- **The other phone is polled, not subscribed to** — every twenty seconds and
+  on regaining focus, and only when this phone owes nothing, has no sheet open
+  and is on screen. `lib/training/watching.ts` holds that rule and the reason
+  for choosing a poll over Realtime
 - **Adding a guest is the one write that cannot be queued**: the rest of the
   night needs the id Postgres gives back. Offline, the registrar is told to take
   the name on paper

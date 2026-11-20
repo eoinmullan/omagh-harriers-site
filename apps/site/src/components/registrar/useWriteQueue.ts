@@ -11,11 +11,16 @@ import {
 import { loadQueue, saveQueue } from '../../lib/training/queue-store';
 import { send } from '../../lib/training/queue-sender';
 
-// The queue, driven.
+// The outbox, driven.
 //
 // Nothing here decides anything: `queue.ts` says what cancels what and what is
 // worth retrying, `queue-sender.ts` says how a write is made, and this keeps
 // the wheel turning and the screen honest about how much is still in flight.
+//
+// **It belongs to the app, not to a screen.** Mounted once at the island root,
+// so a tick made on Monday's session is still being retried while the registrar
+// is looking at the picker, or at a different session entirely. Writes are owed
+// by the phone.
 
 /**
  * How long a tap is held before it is sent.
@@ -30,21 +35,38 @@ const COALESCING_WINDOW_MS = 2_000;
 /** How long to wait after a failure that is worth retrying. */
 const RETRY_AFTER_MS = 5_000;
 
-export function useWriteQueue(sessionId: string, recordedBy: string) {
+export interface Outbox {
+  add: (write: Write) => void;
+  pending: number;
+  online: boolean;
+  refused: string | null;
+  /**
+   * Bumped when a queue restored from storage finishes landing.
+   *
+   * A screen that loaded its data before those writes arrived is showing the
+   * database as it was a moment ago, and has no other way to know. Watching
+   * this is cheaper than reloading after every tap.
+   */
+  caughtUp: number;
+}
+
+export function useWriteQueue(): Outbox {
   const [pending, setPending] = useState(0);
   const [online, setOnline] = useState(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine,
   );
   const [refused, setRefused] = useState<string | null>(null);
+  const [caughtUp, setCaughtUp] = useState(0);
 
   const queue = useRef<Queued[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sending = useRef(false);
+  const holdingRestoredWork = useRef(false);
 
   const persist = useCallback(() => {
     setPending(queue.current.length);
-    void saveQueue(sessionId, queue.current);
-  }, [sessionId]);
+    void saveQueue(queue.current);
+  }, []);
 
   const flush = useCallback(async () => {
     if (sending.current) return;
@@ -54,10 +76,11 @@ export function useWriteQueue(sessionId: string, recordedBy: string) {
       const supabase = createSupabaseBrowserClient();
 
       // One at a time, oldest first, so a tick never lands after its own
-      // untick. A failure stops the run rather than skipping ahead.
+      // untick and a session is always written before the attendance that
+      // names it. A failure stops the run rather than skipping ahead.
       while (queue.current.length > 0) {
         const item = nextToSend(queue.current)!;
-        const failure = await send(supabase, item.write, recordedBy);
+        const failure = await send(supabase, item.write);
 
         if (!failure) {
           queue.current = settle(queue.current, item.id);
@@ -76,10 +99,15 @@ export function useWriteQueue(sessionId: string, recordedBy: string) {
         persist();
         setRefused(failure.message);
       }
+
+      if (holdingRestoredWork.current) {
+        holdingRestoredWork.current = false;
+        setCaughtUp((count) => count + 1);
+      }
     } finally {
       sending.current = false;
     }
-  }, [persist, recordedBy]);
+  }, [persist]);
 
   const add = useCallback(
     (write: Write) => {
@@ -100,16 +128,17 @@ export function useWriteQueue(sessionId: string, recordedBy: string) {
   // Pick up whatever the last opening of the app left behind.
   useEffect(() => {
     let live = true;
-    void loadQueue(sessionId).then((stored) => {
+    void loadQueue().then((stored) => {
       if (!live || stored.length === 0) return;
       queue.current = [...stored, ...queue.current];
+      holdingRestoredWork.current = true;
       setPending(queue.current.length);
       void flush();
     });
     return () => {
       live = false;
     };
-  }, [sessionId, flush]);
+  }, [flush]);
 
   useEffect(() => {
     const goOnline = () => {
@@ -126,5 +155,5 @@ export function useWriteQueue(sessionId: string, recordedBy: string) {
     };
   }, [flush]);
 
-  return { add, pending, online, refused };
+  return { add, pending, online, refused, caughtUp };
 }

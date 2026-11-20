@@ -16,8 +16,9 @@ import {
 } from '../../lib/training/usuals';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
 import { moneyCaveat } from '../../lib/training/queue';
+import { safeToRefresh, WATCH_INTERVAL_MS } from '../../lib/training/watching';
 import { describeSnapshotAge, loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
-import { useWriteQueue } from './useWriteQueue';
+import type { Outbox } from './useWriteQueue';
 import {
   flip,
   headcount as countHere,
@@ -88,11 +89,14 @@ function snapshotKey(sessionId: string): string {
 
 export function AttendanceView({
   authUserId,
+  outbox,
   session,
   onBack,
 }: {
   /** Passed in rather than fetched — see the note in `load`. */
   authUserId: string;
+  /** The phone's one outbox, mounted at the island root. */
+  outbox: Outbox;
   session: SelectableSession;
   onBack?: () => void;
 }) {
@@ -107,7 +111,6 @@ export function AttendanceView({
   const [showingSnapshotFrom, setShowingSnapshotFrom] = useState<number | null>(null);
 
   const actorId = state.phase === 'ready' ? state.data.actorId : '';
-  const outbox = useWriteQueue(session.id, actorId);
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -311,6 +314,110 @@ export function AttendanceView({
     if (cameBack) void load();
   }, [outbox.online, load]);
 
+  // What the other phone can have changed, and nothing else. The member list,
+  // the squads and the guest list do not move during a session, so re-fetching
+  // 314 names every twenty seconds would be paying for nothing.
+  const catchUpOnTheOtherPhone = useCallback(async () => {
+    const supabase = createSupabaseBrowserClient();
+
+    try {
+      const [attendanceRows, cashRows, balances] = await Promise.all([
+        supabase
+          .from('attendance')
+          .select('id, member_id, guest_id, amount_paid_pence')
+          .eq('session_id', session.id),
+        supabase
+          .from('credit_transactions')
+          .select('principal_id, type, amount_pence')
+          .eq('session_id', session.id),
+        supabase.from('principal_balances').select('principal_id, balance_pence'),
+      ]);
+
+      if (attendanceRows.error || cashRows.error || balances.error) return;
+
+      setState((current) => {
+        if (current.phase !== 'ready') return current;
+
+        const here = new Map<string, string>();
+        const guestsHere = new Map<string, string>();
+        const guestPayments: (number | null)[] = [];
+        for (const row of attendanceRows.data ?? []) {
+          if (row.member_id) here.set(row.member_id, row.id);
+          if (row.guest_id) {
+            guestsHere.set(row.guest_id, row.id);
+            guestPayments.push(row.amount_paid_pence);
+          }
+        }
+
+        const households = new Map(current.data.households);
+        for (const row of balances.data ?? []) {
+          const household = households.get(row.principal_id);
+          if (household) {
+            households.set(row.principal_id, { ...household, balancePence: row.balance_pence });
+          }
+        }
+
+        return {
+          phase: 'ready',
+          data: {
+            ...current.data,
+            here,
+            guestsHere,
+            guestPayments,
+            households,
+            cash: (cashRows.data ?? []).map((row): CashRow => ({
+              principalId: row.principal_id,
+              type: row.type,
+              amountPence: row.amount_pence,
+            })),
+          },
+        };
+      });
+    } catch {
+      // A failed catch-up is not worth saying anything about: the screen is
+      // still the registrar's own view, and the next one is twenty seconds away.
+    }
+  }, [session.id]);
+
+  useEffect(() => {
+    if (state.phase !== 'ready' || showingSnapshotFrom !== null) return;
+
+    const look = () => {
+      const conditions = {
+        online: outbox.online,
+        pending: outbox.pending,
+        busy: cashFor !== undefined || saving.size > 0,
+        visible: typeof document === 'undefined' || document.visibilityState === 'visible',
+      };
+      if (safeToRefresh(conditions)) void catchUpOnTheOtherPhone();
+    };
+
+    const ticking = setInterval(look, WATCH_INTERVAL_MS);
+    // Coming back to the app is the moment most likely to be out of date.
+    document.addEventListener('visibilitychange', look);
+    return () => {
+      clearInterval(ticking);
+      document.removeEventListener('visibilitychange', look);
+    };
+  }, [
+    state.phase,
+    showingSnapshotFrom,
+    outbox.online,
+    outbox.pending,
+    cashFor,
+    saving,
+    catchUpOnTheOtherPhone,
+  ]);
+
+  // A queue restored from storage lands after this screen has already loaded,
+  // so the database has moved and the screen has no way to know. Reloading on
+  // every tap would be a round trip per tick; reloading when the backlog clears
+  // is one round trip per opening of the app.
+  useEffect(() => {
+    if (outbox.caughtUp === 0) return;
+    void load();
+  }, [outbox.caughtUp, load]);
+
   useEffect(() => {
     if (!outbox.refused) return;
     setProblem(`${outbox.refused} — the list has been reloaded.`);
@@ -489,6 +596,7 @@ export function AttendanceView({
             guestId: guest.id,
             sessionId: session.id,
             pricePence: session.pricePence,
+            recordedBy: data.actorId,
           },
     );
   }

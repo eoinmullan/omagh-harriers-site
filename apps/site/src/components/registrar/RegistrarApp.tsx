@@ -7,6 +7,7 @@ import { SessionPicker } from './SessionPicker';
 import { SignedOut } from './SignedOut';
 import { Screen } from './ui';
 import { useServiceWorker } from './useServiceWorker';
+import { useWriteQueue } from './useWriteQueue';
 
 // The whole route, as one island.
 //
@@ -27,6 +28,12 @@ export function RegistrarApp() {
   // origin is public, and a worker registered by one of those would be able to
   // answer for the marketing site.
   useServiceWorker();
+
+  // One outbox for the phone, mounted here so it keeps sending whatever screen
+  // the registrar is on — or none of them. A tick owed for Monday's session is
+  // not the picker's business, and it should not stop being retried because
+  // somebody tapped Back.
+  const outbox = useWriteQueue();
 
   useEffect(() => {
     // supabase-js emits INITIAL_SESSION as soon as it has read the cookies, so
@@ -56,5 +63,5 @@ export function RegistrarApp() {
   // Passed down rather than re-fetched: any auth call inside the night's load
   // can hang on a token refresh when the network is dead, and take the whole
   // screen with it.
-  return <SessionPicker authUserId={session.user.id} />;
+  return <SessionPicker authUserId={session.user.id} outbox={outbox} />;
 }

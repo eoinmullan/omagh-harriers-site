@@ -18,7 +18,6 @@ export interface SendFailure {
 export async function send(
   supabase: SupabaseClient<Database>,
   write: Write,
-  recordedBy: string,
 ): Promise<SendFailure | undefined> {
   switch (write.kind) {
     case 'create_session': {
@@ -53,7 +52,7 @@ export async function send(
         planGuestSignIn({
           guestId: write.guestId,
           sessionId: write.sessionId,
-          recordedBy,
+          recordedBy: write.recordedBy,
           pricePence: write.pricePence,
         }),
         { onConflict: 'idempotency_key', ignoreDuplicates: true },

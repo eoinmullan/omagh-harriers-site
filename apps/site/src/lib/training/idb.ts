@@ -55,6 +55,42 @@ export async function read<T>(store: string, key: string): Promise<T | undefined
   });
 }
 
+export async function allKeys(store: string): Promise<string[]> {
+  const database = await open();
+  if (!database) return [];
+
+  return new Promise((resolve) => {
+    try {
+      const request = database.transaction(store, 'readonly').objectStore(store).getAllKeys();
+      request.onsuccess = () => resolve(request.result.map(String));
+      request.onerror = () => resolve([]);
+    } catch {
+      resolve([]);
+    } finally {
+      database.close();
+    }
+  });
+}
+
+export async function remove(store: string, key: string): Promise<void> {
+  const database = await open();
+  if (!database) return;
+
+  return new Promise((resolve) => {
+    try {
+      const transaction = database.transaction(store, 'readwrite');
+      transaction.objectStore(store).delete(key);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => resolve();
+      transaction.onabort = () => resolve();
+    } catch {
+      resolve();
+    } finally {
+      database.close();
+    }
+  });
+}
+
 export async function write(store: string, key: string, value: unknown): Promise<void> {
   const database = await open();
   if (!database) return;

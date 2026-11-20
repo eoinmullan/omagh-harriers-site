@@ -523,7 +523,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [x] Unticking a guest deletes the attendance row. Guests have no ledger to compensate against, and attendance is not append-only — only `credit_transactions` is
 - [x] `describeEntry` should surface a refund's note the way it does for an adjustment. *"£10.00 deducted — refunded"* does not say why, and a keying slip corrected in front of the member deserves a reason
 - [x] The total is only complete once every device has synced. A registrar working offline sees what their own phone has taken, not the session's — say so on screen rather than showing a confident wrong number. The figure is labelled **Money collected**, so that caveat has to appear under it when it applies rather than hiding in the label, which is the right trade: the common case reads plainly and the exception announces itself
-- [ ] **Two registrars at once.** A busy track will have more than one phone open on the same session. Idempotency keys stop a double charge; the view should also not fight itself when somebody else's sign-in arrives
+- [x] **Two registrars at once.** A busy track will have more than one phone open on the same session. Idempotency keys stop a double charge; the view now also catches up with the other phone every twenty seconds, and on coming back to the app — but only when this phone owes nothing, so a tick never vanishes from under the registrar. A poll rather than a live subscription, deliberately — `lib/training/watching.ts` says why
 - [x] **Built for the conditions.** Large targets, high contrast, legible under floodlights and in rain, usable one-handed and with cold fingers. No small text, no long presses, no precision gestures
 - [ ] Paper fallback — a printable session list, for the night a phone dies
 
@@ -619,17 +619,35 @@ has already narrowed the night to an answer.
 `prototype/registrar-screen` is pushed, since it is the reference for how this
 screen looks.
 
-#### Two rough edges in the offline work
+#### One outbox, owed by the phone
 
-Found by driving it with the network cut, recorded rather than fixed.
+Both rough edges the offline work left behind turned out to be the same
+mistake: the queue was scoped to a screen when it is owed by the phone.
 
-- **After a queued write flushes, the screen does not re-render to show it.**
-  The data is right and a reload shows it; the display lags. A few lines
-- **The queue only flushes while that session's attendance view is open.** Work
-  pending for one session is not sent while the registrar sits on the picker or
-  works a different session. Nothing is lost — reopening sends it — but that is
-  less eager than "flushed when connectivity returns" suggests, and the fix is a
-  real question about where the queue should live rather than a patch
+It was keyed per session and mounted inside the attendance view, so work
+pending for Monday's session sat untouched while the registrar looked at the
+picker or at another session. Nothing was lost — reopening sent it — but
+"flushed when connectivity returns" was not true. There were two of them, in
+fact: a second queue keyed `track-sessions` for sessions started at the track,
+which could not see the first.
+
+Now there is one outbox, mounted at the island root, alive for as long as the
+app is open and whatever is on screen. Anything left under the old per-session
+keys is swept into it on load and the old key dropped, so a queue stranded by
+the previous shape is sent rather than forgotten.
+
+**A queued write names its own author.** The guest sign-in used to have
+`recorded_by` handed to it at send time, which meant a write queued at seven
+depended on who could be resolved at nine. Every other write already carried
+its author — the RPCs read it from the token, the cash and session rows have
+`created_by` on them — and this one now does too.
+
+The screen catching up falls out of the same change. A queue restored from
+storage lands *after* the screen has loaded, so the database has moved and the
+screen cannot know; the outbox counts each time a restored backlog clears and
+the view reloads on that. Reloading after every tap would be a round trip per
+tick, and the optimistic state is already correct in that case — this is one
+round trip per opening of the app, in the only case that needs it.
 
 ### Idempotency
 - [x] Use deterministic `idempotency_key` for all writes — `attendance:{member_id}:{session_id}`, `session:{attendance_id}` for the paired debit, `untick:{attendance_id}` for the adjustment that gives a mis-tapped charge back, `attendance:guest:{guest_id}:{session_id}`, and `cash:{member_id}:{client_uuid}`

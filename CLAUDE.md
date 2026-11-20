@@ -47,8 +47,10 @@ to principals with role `admin` or `superuser`, so it needs no guard of its own.
 `import.meta.env.DEV` like the WIP flag.
 
 Schedule invariants TypeScript can't express (real calendar dates, ordering, overlaps,
-empty groups) are checked by `apps/site/src/lib/training/schedule.test.ts`. **CI does not run
-tests**, so run `pnpm --filter @omagh/site test` after editing the schedule.
+empty groups) are checked by `apps/site/src/lib/training/schedule.test.ts`. CI runs the
+tests (`pnpm -r test`) on every push to `main` and every pull request, but run
+`pnpm --filter @omagh/site test` before pushing anyway: a fast-forward to `main` is checked
+only after it has landed.
 
 ## The registrar app (`/registrar`)
 
@@ -200,6 +202,13 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   unrecorded; retrying a Postgres refusal just hides the bug until the end of
   the night. A refusal reloads the list, because the screen is then wrong and
   guessing which optimistic change to unpick is worse than asking the database.
+  **The decision uses the status the server actually sent**, carried through
+  by `failureFrom` in `queue.ts`, plus the SQLSTATEs that mean "try again"
+  whatever their status: timeouts, deadlocks, serialization failures,
+  connection errors, and PostgREST's `PGRST000`–`003` for not reaching the
+  database. The sender used to guess a status from the code and map every
+  `PGRST…` code to 400, so a Supabase database outage dropped every tick
+  queued during it. Keep the decision in `queue.ts`, where it's tested.
   **The registrar is told what was lost, in words they can act on.**
   `training/lost-write.ts` builds the sentence from the write itself (*"£10
   from the Kellys wasn't recorded. Note it on paper."*), with Postgres's text

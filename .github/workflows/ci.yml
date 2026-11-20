@@ -1,6 +1,11 @@
 name: CI
 
+# On a push to main as well as on a pull request: most of this project lands
+# by fast-forwarding main directly, which a pull_request trigger never sees.
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -21,5 +26,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm -r typecheck
+
+      # The rules live in lib/ and are unit tested without a database. Until
+      # this step they only ran when somebody remembered.
+      - run: pnpm -r test
 
       - run: pnpm -r build

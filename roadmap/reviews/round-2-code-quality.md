@@ -13,7 +13,7 @@ that count are our own bugs and honest mistakes.
 ## Q1. The queue drops writes when Supabase's database is down
 
 **Severity: high. The queue's central promise breaks on the most likely bad
-night.**
+night. Fixed.**
 
 CLAUDE.md says of the registrar's write queue: *"Retry forever on a dropped
 connection; give up on a refusal."* `isWorthRetrying` in `queue.ts` puts that
@@ -60,9 +60,19 @@ up, and on the transient SQLSTATEs even when they arrive with a 4xx. Refuse
 on 42501, 23514, 23503 and our own P0001 sentences. Treat 23505 on a cash
 insert as success, as now. Test it against each row of the table above.
 
+**Done.** `failureFrom` in `queue.ts` carries the response's own status and
+code. `isWorthRetrying` also retries the transient SQLSTATEs and PostgREST's
+connection codes whatever status comes with them. `statusOf` is gone. Seven
+new tests, including the original bug end to end: `PGRST001` at 503 is now
+retried. Checked through the real client in the browser: a refusal (a tick
+into a cancelled session) arrives as `400 / P0001` and is dropped with its
+notice, and a failed `fetch` arrives as status 0 and is retried. A real 503
+from Supabase can't be produced on demand, so that row is covered by the
+tests.
+
 ## Q2. CI runs no tests, and every merge today skipped CI entirely
 
-**Severity: medium.**
+**Severity: medium. Fixed.**
 
 `.github/workflows/ci.yml` runs on `pull_request` only, and runs
 `pnpm -r typecheck` and `pnpm -r build`. It never runs the tests, and the
@@ -74,6 +84,10 @@ this round was a local run.
 **Fix.** Two lines, since a root `test` script already exists: add
 `- run: pnpm -r test`, and add `push: branches: [main]` to the triggers. The
 suite runs in under a second.
+
+**Done**, both lines. `pnpm -r test` was run from the root first, as CI will
+run it, and passed with 427 tests. Whether the workflow file is valid will
+show on the first push to `main`.
 
 There's also no linter or formatter config in the repo. That's a note, not a
 finding. The code is consistent by hand.

@@ -147,14 +147,58 @@ export function settle(queue: Queued[], id: string): Queued[] {
  * ends up unrecorded. A refusal from Postgres is the app being wrong, and
  * retrying it just hides the problem until the end of the night.
  */
-export function isWorthRetrying(failure: { status?: number; message?: string }): boolean {
-  const status = failure.status;
+/** A write that didn't land, as the server reported it. */
+export interface Failure {
+  /** The HTTP status the response carried. 0 or absent: it never arrived. */
+  status?: number;
+  /** The Postgres SQLSTATE, or PostgREST's `PGRST…` code. */
+  code?: string;
+  message: string;
+}
+
+/**
+ * The failure a supabase-js response describes, with the status the server
+ * actually sent.
+ *
+ * The sender used to throw that status away and guess one from the code,
+ * mapping every `PGRST…` code and every SQLSTATE it didn't know to 400.
+ * PostgREST's own "can't reach the database" errors arrive as 503 and 504,
+ * so a database outage was read as a refusal and every tick queued during it
+ * was dropped. Keep what the server said.
+ */
+export function failureFrom(response: {
+  error: { message: string; code?: string } | null;
+  status?: number;
+}): Failure | undefined {
+  if (!response.error) return undefined;
+  return {
+    status: response.status,
+    code: response.error.code || undefined,
+    message: response.error.message,
+  };
+}
+
+// Postgres errors that mean "this attempt failed, the next may not", whatever
+// HTTP status PostgREST attaches: serialization failure, deadlock, statement
+// timeout, too many connections, admin shutdown, cannot connect now, and the
+// connection-exception class. Plus PostgREST's codes for not reaching the
+// database at all.
+const TRANSIENT_CODES = new Set([
+  '40001', '40P01', '57014', '53300', '57P01', '57P02', '57P03',
+  'PGRST000', 'PGRST001', 'PGRST002', 'PGRST003',
+]);
+
+export function isWorthRetrying(failure: { status?: number; code?: string; message?: string }): boolean {
+  const { status, code } = failure;
 
   // No status at all means the request never reached PostgREST.
   if (status === undefined || status === 0) return true;
 
   // 408 timeout, 429 too many, and anything the server broke on.
   if (status === 408 || status === 429 || status >= 500) return true;
+
+  // The database itself said "not now", even if it came back as a 4xx.
+  if (code && (TRANSIENT_CODES.has(code) || code.startsWith('08'))) return true;
 
   return false;
 }

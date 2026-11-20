@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   enqueue,
+  failureFrom,
   isWorthRetrying,
   moneyCaveat,
   nextToSend,
@@ -156,6 +157,64 @@ describe('isWorthRetrying', () => {
     expect(isWorthRetrying({ status: 400 })).toBe(false);
     expect(isWorthRetrying({ status: 403 })).toBe(false);
     expect(isWorthRetrying({ status: 409 })).toBe(false);
+  });
+
+  it('retries when PostgREST is up but cannot reach the database', () => {
+    expect(isWorthRetrying({ status: 503, code: 'PGRST000' })).toBe(true);
+    expect(isWorthRetrying({ status: 503, code: 'PGRST001' })).toBe(true);
+    expect(isWorthRetrying({ status: 503, code: 'PGRST002' })).toBe(true);
+    expect(isWorthRetrying({ status: 504, code: 'PGRST003' })).toBe(true);
+  });
+
+  it('retries the database errors that mean "try again", whatever status they come with', () => {
+    expect(isWorthRetrying({ status: 500, code: '57014' })).toBe(true);
+    expect(isWorthRetrying({ status: 409, code: '40001' })).toBe(true);
+    expect(isWorthRetrying({ status: 409, code: '40P01' })).toBe(true);
+    expect(isWorthRetrying({ status: 400, code: '53300' })).toBe(true);
+    expect(isWorthRetrying({ status: 400, code: '08006' })).toBe(true);
+    expect(isWorthRetrying({ status: 400, code: '57P01' })).toBe(true);
+  });
+
+  it('still gives up on our own refusals and on rules the row broke', () => {
+    expect(isWorthRetrying({ status: 400, code: 'P0001', message: 'That session was cancelled.' })).toBe(false);
+    expect(isWorthRetrying({ status: 403, code: '42501' })).toBe(false);
+    expect(isWorthRetrying({ status: 400, code: '23514' })).toBe(false);
+    expect(isWorthRetrying({ status: 409, code: '23503' })).toBe(false);
+  });
+});
+
+describe('failureFrom', () => {
+  it('is nothing when the write landed', () => {
+    expect(failureFrom({ error: null, status: 201 })).toBeUndefined();
+  });
+
+  it('keeps the status the server actually sent, not one guessed from the code', () => {
+    const failure = failureFrom({
+      error: { message: 'Could not connect with the database', code: 'PGRST001' },
+      status: 503,
+    });
+
+    expect(failure).toEqual({
+      status: 503,
+      code: 'PGRST001',
+      message: 'Could not connect with the database',
+    });
+  });
+
+  it('treats a request that never arrived as having no status', () => {
+    const failure = failureFrom({ error: { message: 'TypeError: Failed to fetch', code: '' }, status: 0 });
+
+    expect(failure?.status).toBe(0);
+    expect(failure?.code).toBeUndefined();
+  });
+
+  it('retries a database outage end to end, which it used to drop', () => {
+    const failure = failureFrom({
+      error: { message: 'Could not connect with the database', code: 'PGRST001' },
+      status: 503,
+    });
+
+    expect(isWorthRetrying(failure!)).toBe(true);
   });
 });
 

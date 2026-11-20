@@ -239,8 +239,10 @@ type SessionRow = {
   group: { name: string } | null;
 };
 
-function asSelectable(row: unknown): SelectableSession {
-  const session = row as SessionRow;
+// Typed as the query's row, not `unknown`: the picker once shipped asking for
+// two dropped columns, and a cast through `unknown` stopped TypeScript
+// comparing the query with this shape.
+function asSelectable(session: SessionRow): SelectableSession {
   return {
     id: session.id,
     startsAt: session.starts_at,

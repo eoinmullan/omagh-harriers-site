@@ -98,7 +98,7 @@ type SessionListRow = {
   group: { name: string } | null;
 };
 
-const sessions = ((sessionRows ?? []) as unknown as SessionListRow[]).map((row) => ({
+const sessions = ((sessionRows ?? []) satisfies SessionListRow[]).map((row) => ({
   ...row,
   startsAt: row.starts_at,
 }));

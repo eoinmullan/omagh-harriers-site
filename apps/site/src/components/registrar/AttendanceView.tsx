@@ -184,7 +184,7 @@ export function AttendanceView({
       }
 
       const roster: RosterMember[] = [];
-      for (const row of (members.data ?? []) as unknown as MemberRow[]) {
+      for (const row of (members.data ?? []) satisfies MemberRow[]) {
         roster.push({
           id: row.id,
           firstName: row.first_name,

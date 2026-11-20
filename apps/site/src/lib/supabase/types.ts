@@ -424,6 +424,21 @@ export type Database = {
           },
         ];
       };
+      // Migration 0019. Written and read only inside the sign-in RPCs; listed
+      // so the tables here match the database (types-match-schema.ts).
+      attendance_aliases: {
+        Row: { alias_id: string; attendance_id: string };
+        Insert: { alias_id: string; attendance_id: string };
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: 'attendance_aliases_attendance_id_fkey';
+            columns: ['attendance_id'];
+            referencedRelation: 'attendance';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       principal_balances: {

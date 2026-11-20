@@ -45,14 +45,14 @@ async function loadSession(sessionId: string) {
 
   if (!data) return undefined;
 
-  const row = data as unknown as {
+  const row: {
     id: string;
     starts_at: string;
     note: string | null;
     price_pence: number;
     is_cancelled: boolean;
     group: { id: string; name: string } | null;
-  };
+  } = data;
 
   return {
     ...row,
@@ -156,12 +156,12 @@ type AttendanceDetailRow = {
   recorder: { display_name: string } | null;
 };
 
-const attendanceDetail = (attendanceRows ?? []) as unknown as AttendanceDetailRow[];
+const attendanceDetail = (attendanceRows ?? []) satisfies AttendanceDetailRow[];
 
 const ledgerRows = orThrow(await adminClient
   .from('credit_transactions')
   .select(
-    'id, type, amount_pence, member_id, notes, created_at, principal:principal_id(display_name), recorder:created_by(display_name)',
+    'id, type, amount_pence, member_id, notes, created_at, principal:principals!principal_id(display_name), recorder:principals!created_by(display_name)',
   )
   .eq('session_id', id)
   .order('created_at'));
@@ -177,7 +177,7 @@ type SessionLedgerDetailRow = {
   recorder: { display_name: string } | null;
 };
 
-const ledgerDetail = (ledgerRows ?? []) as unknown as SessionLedgerDetailRow[];
+const ledgerDetail = (ledgerRows ?? []) satisfies SessionLedgerDetailRow[];
 
 const attendanceForSummary: SessionAttendanceRow[] = attendanceDetail.map((row) => ({
   memberId: row.member_id,

@@ -106,7 +106,7 @@ const allMemberships = orThrow(await adminClient
 type MembershipRow = { member_id: string; group: { name: string } | null };
 
 const otherGroupNames = new Map<string, string[]>();
-for (const row of (allMemberships ?? []) as unknown as MembershipRow[]) {
+for (const row of (allMemberships ?? []) satisfies MembershipRow[]) {
   if (!row.group || row.group.name === group.name) continue;
   otherGroupNames.set(row.member_id, [
     ...(otherGroupNames.get(row.member_id) ?? []),

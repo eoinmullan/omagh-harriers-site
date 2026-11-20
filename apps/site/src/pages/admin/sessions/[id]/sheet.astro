@@ -60,7 +60,7 @@ const balances = new Map(
 );
 
 const roster: (RosterMember & { householdName: string; balancePence: number })[] = (
-  (memberRows ?? []) as unknown as MemberRow[]
+  (memberRows ?? []) satisfies MemberRow[]
 )
   .filter((row) => expected.has(row.id))
   .map((row) => ({

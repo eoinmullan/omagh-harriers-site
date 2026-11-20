@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { planDisplayName } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS } from '../../../lib/auth/roles';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
@@ -95,12 +96,12 @@ async function changeIdentity(action: string, field: Field): Promise<Outcome> {
   }
 
   if (action === 'update_name') {
-    const displayName = field('display_name').trim();
-    if (!displayName) return { error: 'Display name is required.' };
+    const name = planDisplayName(field('display_name'));
+    if ('problem' in name) return { error: name.problem };
 
     const { error } = await adminClient
       .from('principals')
-      .update({ display_name: displayName })
+      .update({ display_name: name.displayName })
       .eq('id', householdId);
 
     return error ? { error: error.message } : { success: 'Display name updated.' };
@@ -265,7 +266,7 @@ const otherHouseholds = orThrow(await adminClient
 const rows = orThrow(await adminClient
   .from('credit_transactions')
   .select(
-    'id, type, amount_pence, notes, created_at, recorder:created_by(display_name), member:member_id(first_name, surname), counterparty:counterparty_principal_id(display_name)',
+    'id, type, amount_pence, notes, created_at, recorder:principals!created_by(display_name), member:member_id(first_name, surname), counterparty:principals!counterparty_principal_id(display_name)',
   )
   .eq('principal_id', householdId)
   .order('created_at', { ascending: false }));
@@ -281,7 +282,7 @@ type LedgerRow = {
   counterparty: { display_name: string } | null;
 };
 
-const history = ((rows ?? []) as unknown as LedgerRow[]).map((row) => {
+const history = ((rows ?? []) satisfies LedgerRow[]).map((row) => {
   const entry = {
     type: row.type,
     amountPence: row.amount_pence,

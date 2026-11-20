@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { planMemberEdit } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { orThrow } from '../../../lib/supabase/or-throw';
 
@@ -30,22 +31,25 @@ let success: string | null = null;
 if (Astro.request.method === 'POST' && isSuperuser) {
   const formData = await Astro.request.formData();
   const action = formData.get('action') as string;
+  const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
 
   if (action === 'update') {
-    const firstName = (formData.get('first_name') as string)?.trim();
-    const surname = (formData.get('surname') as string)?.trim();
-    const dob = formData.get('date_of_birth') as string;
-    const gender = (formData.get('gender') as string) || null;
-    const aan = (formData.get('athletic_association_number') as string)?.trim() || null;
-    const status = formData.get('status') as 'paid' | 'lapsed';
+    const plan = planMemberEdit(
+      {
+        firstName: field('first_name'),
+        surname: field('surname'),
+        dateOfBirth: field('date_of_birth'),
+        gender: field('gender'),
+        associationNumber: field('athletic_association_number'),
+        status: field('status'),
+      },
+      new Date().toISOString().slice(0, 10),
+    );
 
-    if (!firstName || !surname || !dob) {
-      error = 'First name, surname, and date of birth are required.';
+    if ('problem' in plan) {
+      error = plan.problem;
     } else {
-      const { error: e } = await adminClient
-        .from('members')
-        .update({ first_name: firstName, surname, date_of_birth: dob, gender, athletic_association_number: aan, status })
-        .eq('id', id);
+      const { error: e } = await adminClient.from('members').update(plan.update).eq('id', id);
       if (e) error = e.message;
       else success = 'Member updated.';
     }

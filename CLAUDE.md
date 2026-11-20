@@ -317,6 +317,14 @@ python3 -c "import json;print(json.load(open('apps/site/node_modules/.vite/deps/
 
 Two different values is this, not you.
 
+**`astro build` isn't the only thing that does it.** The cache was rewritten
+twice during the Round 2 reviews with no build running, both times to the
+same hash (`5a04923f`), and both within a minute of running `pnpm test` and
+`astro check` together. The second time, `package.json` had also just
+changed, and Astro restarts the dev server when that file changes. Which of
+these is responsible isn't pinned down yet. If the registrar island goes
+blank after either, check the hash before anything else.
+
 ## Klubfunder sync
 
 The membership data in `principals` and `members` is reconciled from a Klubfunder CSV export by `apps/site/scripts/sync-klubfunder.ts`. Run it from the repo root.
@@ -363,6 +371,13 @@ for an already-registered address as the trace of that earlier run, finds the
 login and links it, rather than failing on every later run. Any other refusal
 still fails the action.
 
+`loginFor` lives in `lib/auth/logins.ts` and `/admin/households` uses it too.
+It returns whether it **created** the login or **found** it. Anything that
+deletes a login when its own insert fails must only delete one it created: a
+found login belongs to an earlier attempt, or to a household that already
+exists. That's why the admin page refuses an email that already belongs to a
+household before it touches logins at all.
+
 ## Training credits
 
 A household's balance is never stored — it is the sum of `credit_transactions`,
@@ -382,6 +397,12 @@ in the page — a transaction has to read as a sentence a parent can check again
 their own memory ("£10.00 added — paid by cash at training, recorded by ...").
 `money.ts` is the only place pounds and pence meet: admins type pounds, the app
 stores pence, and a minus sign is never typed — direction is a control.
+
+**The screens that edit people follow the same contract.** `lib/people.ts`
+(`planHousehold`, `planMember`, `planMemberEdit`, `planDisplayName`) turns
+those forms into a row or a sentence, and rejects a date of birth in the
+future or before 1900, a date that doesn't exist, and a membership status
+other than paid or lapsed. Those checks used to live in the pages, untested.
 
 Every rule about what may be written lives in `credits/ledger.ts`, which turns a
 form into rows or into one sentence for the admin. The admin pages decide
@@ -714,6 +735,25 @@ was written against the old name and so never matched anybody; `0010` repairs
 it. Phase 4 didn't notice because its admin pages use the service-role client,
 which bypasses RLS entirely — if a page reads the ledger with the anon key,
 check the claim name first.
+
+## Database types
+
+`lib/supabase/types.ts` is **hand-written, on purpose**. It narrows text
+columns to the values their CHECKs allow (`PrincipalRole`,
+`CreditTransactionType`), and it knows a view column is never null, which the
+generator can't. `types-match-schema.ts` compares it with the live schema **at
+compile time**: same tables, same columns, same nullability. After a
+migration, run `pnpm supabase:types` (it writes `generated-types.ts` and never
+touches `types.ts`), then `astro check`. A drifted table fails there and in
+CI.
+
+**Don't cast a query result through `unknown`.** Write the expected row shape
+with `satisfies`, so TypeScript compares it with what the select string
+actually fetches. The session picker once shipped asking for two dropped
+columns because a cast hid exactly that. When a table points at another table
+in more than one way, as `credit_transactions` does at `principals`, embed with
+the explicit hint, `recorder:principals!created_by(display_name)`. PostgREST
+resolves both forms the same way at runtime, but only this one gets a type.
 
 ## Members area layout
 

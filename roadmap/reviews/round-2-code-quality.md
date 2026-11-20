@@ -94,7 +94,7 @@ finding. The code is consistent by hand.
 
 ## Q3. Adding a household by hand has the gap B3 closed in the sync
 
-**Severity: medium.**
+**Severity: medium. Fixed.**
 
 `/admin/households` adds a household the way the sync used to: create the
 login, then insert the principal. If the insert fails, the login is left
@@ -105,9 +105,22 @@ but it lives in `sync/klubfunder.ts` and the page doesn't use it.
 **Fix.** Move `loginFor` and `LoginDirectory` to `lib/auth/`, and have both
 the sync and the page use them.
 
+**Correction.** The page was less broken than this says. It already deletes
+the login it just created when the insert fails, so a login is only left
+behind if that cleanup also fails, or the request dies in between.
+
+**Done, and the obvious version would have caused a new bug.** Simply
+calling `loginFor` from the page would, for an email that already belongs to
+a household, *find that household's login*. The insert would then fail on
+the duplicate email, and the page's cleanup would **delete that household's
+login**. So `loginFor` now returns `{ id, created }`, the page refuses an
+existing household's email before touching logins, and it deletes a login
+only if this request created it. `loginFor` moved to `lib/auth/logins.ts`,
+with its tests, and the sync uses it from there.
+
 ## Q4. The contract held everywhere except the screens that edit people
 
-**Severity: medium-low.**
+**Severity: medium-low. Fixed.**
 
 The lib-module contract has held almost everywhere it was meant to. The
 ledger (`ledger.ts`), roles (`roles.ts`), squads (`groups.ts`), sessions
@@ -133,10 +146,19 @@ accepted. These are also the screens an admin uses by hand most often.
 tested. Add a date-of-birth sanity check (not in the future, not absurdly far
 back).
 
+**Done.** `lib/people.ts`, with 16 tests, now covers adding a household,
+adding a member, editing a member, and renaming a household, a fourth page
+that also checked its input inline. It rejects a date of birth in the future,
+before 1900, or one that doesn't exist (30 February), and a status other than
+paid or lapsed. The member edit page used to cast `status` straight from the
+form. **Not exercised live:** all four actions are superuser-only, and the
+signed-in account is an admin. The pages still render, and `astro check`
+covers the wiring.
+
 ## Q5. The types are accurate. The casts are the risk (B6, resolved)
 
 **Severity: medium. This is the class of bug that took the registrar app
-down today.**
+down today. Fixed.**
 
 `types.ts` is hand-written, and the backend review assumed that meant drift.
 It doesn't, yet. The live schema's generated types were compared with the
@@ -167,13 +189,34 @@ have.
    columns differ from `types.ts`. That's drift detection, without inheriting
    the nullable view columns.
 
+**Done, and it showed why the casts existed.** With all ten removed (eight
+replaced by `satisfies`, two by typed parameters), `astro check` reported
+nine errors, all the same: `credit_transactions` points at `principals` three
+ways, so the type inference couldn't tell which one `recorder:created_by(…)`
+meant. PostgREST resolves that form fine at runtime, which is why the pages
+worked. Rewriting the three selects as `principals!created_by(…)` made them
+type-check without changing anything at runtime. Recorders, households and
+transfer counterparties still render.
+
+The drift check is `types-match-schema.ts`, checked at compile time: same
+tables, columns and nullability, and the same columns on the views. It was
+proved by breaking it twice. Dropping `members.gender` failed on `members`,
+and claiming `training_sessions.note` can't be null failed on
+`training_sessions`. The file was restored byte-for-byte afterwards.
+`pnpm supabase:types` used to write **over** `types.ts`, so running it after a
+migration, as its own comment suggested, would have thrown the hand-written
+types away. It now writes `generated-types.ts`. `attendance_aliases` was added
+to the hand types so the table lists match.
+
 ## Q6. A rule about money has no test
 
-**Severity: low.**
+**Severity: low. Fixed.**
 
 `credits/cash-label.ts` turns pence into what a registrar says at the gate:
 *"£10"*, not *"£10.00"*. It's 13 lines, it shows on every cash cell and in
 F3's lost-cash sentence, and nothing tests it.
+
+**Done.** Five tests: round and part amounts, the sign dropped, zero, and the £1,000 maximum.
 
 ---
 

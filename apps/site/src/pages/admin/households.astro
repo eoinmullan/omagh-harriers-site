@@ -1,6 +1,8 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
+import { planHousehold } from '../../lib/people';
+import { loginFor } from '../../lib/auth/logins';
 import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
 import { formatBalance } from '../../lib/credits/money';
 import { orThrow } from '../../lib/supabase/or-throw';
@@ -34,36 +36,44 @@ if (Astro.request.method === 'POST') {
   const action = formData.get('action') as string;
 
   if (action === 'add' && isSuperuser) {
-    const email = (formData.get('email') as string)?.trim().toLowerCase();
-    const displayName = (formData.get('display_name') as string)?.trim();
+    const plan = planHousehold({
+      email: ((formData.get('email') as string) ?? '').toString(),
+      displayName: ((formData.get('display_name') as string) ?? '').toString(),
+    });
 
-    if (!email || !displayName) {
-      error = 'Email and display name are required.';
+    if ('problem' in plan) {
+      error = plan.problem;
     } else {
-      const { data: authUser, error: authError } =
-        await adminClient.auth.admin.createUser({
-          email,
-          email_confirm: true,
-        });
+      const { email, display_name: displayName } = plan.row;
 
-      if (authError) {
-        error = authError.message;
+      // Checked before any login is touched. loginFor finds an existing login
+      // for this address, and if that login belongs to a household already
+      // here, the insert below would fail and the cleanup would delete it.
+      const existing = orThrow(
+        await adminClient.from('principals').select('id').eq('email', email).maybeSingle(),
+      );
+
+      if (existing) {
+        error = `A household with ${email} already exists.`;
       } else {
-        const { error: insertError } = await adminClient
-          .from('principals')
-          .insert({
-            email,
-            display_name: displayName,
-            auth_user_id: authUser.user.id,
-            source: 'manual',
-            role: 'member',
-          });
+        try {
+          // A login left over from an earlier attempt that got halfway is
+          // reused rather than refused. See lib/auth/logins.ts.
+          const login = await loginFor(adminClient.auth.admin, email);
+          const { error: insertError } = await adminClient
+            .from('principals')
+            .insert({ ...plan.row, auth_user_id: login.id });
 
-        if (insertError) {
-          await adminClient.auth.admin.deleteUser(authUser.user.id);
-          error = insertError.message;
-        } else {
-          success = `${displayName} (${email}) added.`;
+          if (insertError) {
+            // Only undo a login this request made. One that was found is left
+            // for the next attempt to pick up.
+            if (login.created) await adminClient.auth.admin.deleteUser(login.id);
+            error = insertError.message;
+          } else {
+            success = `${displayName} (${email}) added.`;
+          }
+        } catch (e) {
+          error = e instanceof Error ? e.message : String(e);
         }
       }
     }

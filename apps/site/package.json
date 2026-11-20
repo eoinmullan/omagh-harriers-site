@@ -10,7 +10,7 @@
     "typecheck": "astro check",
     "test": "vitest run",
     "astro": "astro",
-    "supabase:types": "supabase gen types typescript --project-id jwjkyiushsrtuvqdtwsx --schema public > src/lib/supabase/types.ts",
+    "supabase:types": "supabase gen types typescript --project-id jwjkyiushsrtuvqdtwsx --schema public > src/lib/supabase/generated-types.ts",
     "sync-klubfunder": "tsx scripts/sync-klubfunder.ts"
   },
   "dependencies": {

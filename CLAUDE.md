@@ -14,6 +14,14 @@ GH_CONFIG_DIR="$(pwd)/.gh" gh <command>
 
 (or `$(git rev-parse --show-toplevel)/.gh` if not at the root). The default `~/.config/gh` is reserved for work accounts — don't run bare `gh` in this repo, it'll either fail (no auth) or use the wrong account.
 
+## Operations
+
+**`OPERATIONS.md` holds everything that isn't in the code**: every Supabase and
+Cloudflare dashboard setting the site depends on (there's no
+`supabase/config.toml`), what to do when a training night goes wrong, the
+one-click Cloudflare rollback, and how to renew the Microsoft secret. Change a
+dashboard setting, change that file.
+
 ## Project management
 
 The roadmap for the members area lives at `roadmap/members_area_implementation_plan.md` — phases are shipped independently and each one's checkboxes are ticked as they land.
@@ -76,6 +84,13 @@ gap: the shell is empty, RLS gates every read and write, and
 `lib/training/registrar.ts` reads the **`app_role`** claim off the token to
 decide only what gets drawn. Don't "fix" it with a middleware rule; it would buy
 nothing and break opening the app offline.
+
+**No role in the token is a broken hook, not a member.** The access-token hook
+writes `app_role` (`member`, or `none` for a login with no household), so a token
+with no `app_role` at all means the hook isn't running. `roleClaimIsMissing`
+tells the two apart, and the app shows *"Club roles aren't reaching this app"*,
+with paper as tonight's fallback and the setting to fix, instead of telling a
+real registrar they're only a member.
 
 Rules live in `lib/training/{registrar,tonight}.ts` and are unit tested without a
 database, like everything else. The island decides nothing. It deliberately does
@@ -220,6 +235,10 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   database. The sender used to guess a status from the code and map every
   `PGRST…` code to 400, so a Supabase database outage dropped every tick
   queued during it. Keep the decision in `queue.ts`, where it's tested.
+  A 401 *"JWT expired"* is retried too, because supabase-js refreshes the
+  token before the next attempt. It's matched on the message, because
+  PostgREST has moved its code between versions. A token that's wrong rather
+  than expired is still a refusal.
   **The registrar is told what was lost, in words they can act on.**
   `training/lost-write.ts` builds the sentence from the write itself (*"£10
   from the Kellys wasn't recorded. Note it on paper."*), with Postgres's text
@@ -826,4 +845,7 @@ member's face — magic link and Google carry on regardless.
 
 **Renewing the secret in Azure means moving that date to match**, otherwise the
 button stays hidden. Deleting the constant is the way to retire Microsoft
-sign-in for good.
+sign-in for good. **A test starts failing 60 days before the date**
+(`microsoft-oauth.test.ts`) and CI runs it on every push, so the reminder
+comes on its own. Its failure message carries the renewal steps, which are
+also in `OPERATIONS.md`.

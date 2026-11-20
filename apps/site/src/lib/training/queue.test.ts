@@ -175,6 +175,17 @@ describe('isWorthRetrying', () => {
     expect(isWorthRetrying({ status: 400, code: '57P01' })).toBe(true);
   });
 
+  it('retries a token that expired while the refresh could not reach Supabase Auth', () => {
+    expect(isWorthRetrying({ status: 401, code: 'PGRST303', message: 'JWT expired' })).toBe(true);
+    expect(isWorthRetrying({ status: 401, code: 'PGRST301', message: 'JWT expired' })).toBe(true);
+  });
+
+  it('still gives up on a token that is not just expired but wrong', () => {
+    expect(
+      isWorthRetrying({ status: 401, code: 'PGRST301', message: 'No suitable key or wrong key type' }),
+    ).toBe(false);
+  });
+
   it('still gives up on our own refusals and on rules the row broke', () => {
     expect(isWorthRetrying({ status: 400, code: 'P0001', message: 'That session was cancelled.' })).toBe(false);
     expect(isWorthRetrying({ status: 403, code: '42501' })).toBe(false);

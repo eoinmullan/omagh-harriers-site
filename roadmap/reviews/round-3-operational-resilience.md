@@ -33,7 +33,7 @@ this round closed the gaps they found:
 
 ## OR1. Sign-in emails may only reach the Supabase team
 
-**Severity: possibly a go-live blocker. Check in the Supabase dashboard.**
+**Severity: possibly a go-live blocker. Check in the Supabase dashboard. Being checked by the user.**
 
 Email sign-in is switched on and the sign-in page relies on it: every member
 without Gmail or Outlook signs in that way. What the settings endpoint can't
@@ -55,6 +55,9 @@ that isn't on the Supabase team.
 
 **Severity: high once the club depends on it.**
 
+> **Decision: deferred.** Fine while the members' area is being demoed. Whether to go
+> ahead is decided after the demo, and a development project comes with that decision.
+
 There's one project. Every migration this round was applied straight to it,
 the test data lives in it, and today's usability test is writing permanent
 ledger rows into it against real members' names. That was right while
@@ -73,7 +76,7 @@ data, then add B5.
 
 ## OR3. The auth setup lives only in the dashboard
 
-**Severity: medium.**
+**Severity: medium. Fixed.**
 
 There's no `supabase/config.toml`. Every setting that makes sign-in work was
 made by hand in the dashboard, and nothing in the repo records it:
@@ -107,9 +110,19 @@ harder still to see.
    aren't reaching this app — this isn't your account. Tell whoever looks after
    the club's Supabase."* That's a small, testable change.
 
+**Done, both parts.** `OPERATIONS.md` lists every dashboard setting the site
+depends on, marking what was confirmed (signups off; email, Google and
+Microsoft on) and what's still to confirm (SMTP, rate limit, URLs, token
+lifetime, the Pages build command). It also has a table for a broken training
+night and the rollback. In the app, `roleClaimIsMissing` (four tests) tells a
+missing claim from a member or `none`, and `RolesNotArriving` says it's not the
+registrar's account, to take the night on paper, and which setting to fix.
+That screen only appears when the hook is broken, so it's covered by the
+tests and `astro check`, not seen live.
+
 ## OR4. A deploy doesn't wait for the tests
 
-**Severity: medium. Check the Cloudflare Pages build command.**
+**Severity: medium. Check the Cloudflare Pages build command. Agreed; the build command is a dashboard change, recorded in `OPERATIONS.md`, and the rollback is written down there.**
 
 Cloudflare Pages builds and deploys `main` itself. GitHub Actions runs the
 typecheck, tests and build separately, and since Q2 it runs on every push.
@@ -135,6 +148,10 @@ deploy reaches every phone that's online as soon as it's out.
 
 **Severity: medium. Check the Supabase plan.**
 
+> **Decision: accepted for now.** The project is on the Free plan. If the club goes live,
+> there's activity every week until the summer, so pausing isn't a risk before then;
+> reconsider before the summer. Recorded in `OPERATIONS.md`.
+
 `credit_transactions` is the club's financial record. Nothing in the repo
 backs it up, and how much Supabase does depends on the plan:
 
@@ -153,12 +170,18 @@ on any plan.
 
 ## OR6. Nothing will remind anyone about the Microsoft secret
 
-**Severity: low. Due 16 November 2028.**
+**Severity: low. Due 16 November 2028. Fixed.**
 
 `MICROSOFT_CLIENT_SECRET_EXPIRES_ON` is 16 November 2028. When it passes,
 the button withdraws itself and nobody is locked out, which is the right
 behaviour. But nothing warns ahead of time, and renewing in Azure takes a few
 minutes only if someone remembers.
+
+**Done.** `daysUntilMicrosoftSecretExpires` is tested, and a test using
+today's date fails once 60 days or fewer are left. Its failure message
+carries the renewal steps. Proved by moving the date to 30 days away: the test
+failed with *"…expires in 29 days. Azure portal -> App registrations…"*. The
+file was then restored byte-for-byte.
 
 **Fix:** a unit test that starts failing 60 days before the date. CI now runs
 on every push, so the first push in that window flags it, with the renewal
@@ -167,7 +190,7 @@ account.
 
 ## OR7. An expired token can look like a refusal
 
-**Severity: low.**
+**Severity: low. Fixed.**
 
 Access tokens last an hour. supabase-js refreshes before each request when
 it's online, so a long session is fine. The edge case is Supabase Auth
@@ -176,6 +199,14 @@ an expired token, PostgREST answers 401, and `isWorthRetrying` treats a 401
 as a refusal, so the write is dropped, with F3's notice. That's rare, and the
 notice makes it visible. Treating a 401 *"JWT expired"* (`PGRST301`) as
 "refresh and retry" would close it. One more test case in `queue.ts`.
+
+**Done.** `isWorthRetrying` retries a 401 whose message says *"JWT
+expired"*, and still refuses a 401 for a token that's wrong rather than
+expired. It's matched on the message because the code changed between
+PostgREST versions, and this project runs v14.5. A live expired-token reply
+couldn't be produced: a hand-made token fails its signature check
+(`PGRST301`, *"No suitable key"*) before PostgREST looks at the expiry, and
+a real one takes an hour to expire. Covered by three tests.
 
 ---
 

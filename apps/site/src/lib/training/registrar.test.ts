@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mayRunASession, roleFromAccessToken } from './registrar';
+import { mayRunASession, roleClaimIsMissing, roleFromAccessToken } from './registrar';
 
 function tokenCarrying(claims: Record<string, unknown>): string {
   const payload = Buffer.from(JSON.stringify(claims), 'utf8')
@@ -72,5 +72,24 @@ describe('roleFromAccessToken', () => {
     expect(roleFromAccessToken(null)).toBeUndefined();
     expect(roleFromAccessToken(undefined)).toBeUndefined();
     expect(roleFromAccessToken('')).toBeUndefined();
+  });
+});
+
+describe('roleClaimIsMissing', () => {
+  it('notices a token with no club role at all, which is the access-token hook not running', () => {
+    expect(roleClaimIsMissing(tokenCarrying({ sub: 'user', email: 'a@example.com' }))).toBe(true);
+  });
+
+  it('takes a member at their word, because the hook ran and said so', () => {
+    expect(roleClaimIsMissing(tokenCarrying({ sub: 'user', app_role: 'member' }))).toBe(false);
+  });
+
+  it("takes the hook's 'none' at its word too: the hook ran and found no household", () => {
+    expect(roleClaimIsMissing(tokenCarrying({ sub: 'user', app_role: 'none' }))).toBe(false);
+  });
+
+  it('says nothing about a token it cannot read', () => {
+    expect(roleClaimIsMissing('not-a-token')).toBe(false);
+    expect(roleClaimIsMissing(undefined)).toBe(false);
   });
 });

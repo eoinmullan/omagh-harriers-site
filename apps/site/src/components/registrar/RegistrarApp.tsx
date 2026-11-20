@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { mayRunASession, roleFromAccessToken } from '../../lib/training/registrar';
+import { mayRunASession, roleClaimIsMissing, roleFromAccessToken } from '../../lib/training/registrar';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
 import { NotForYou } from './NotForYou';
+import { RolesNotArriving } from './RolesNotArriving';
 import { SessionPicker } from './SessionPicker';
 import { SignedOut } from './SignedOut';
 import { Screen } from './ui';
@@ -57,7 +58,14 @@ export function RegistrarApp() {
   if (session === null) return <SignedOut />;
 
   if (!mayRunASession(roleFromAccessToken(session.access_token))) {
-    return <NotForYou email={session.user.email ?? null} />;
+    // No role at all is a broken access-token hook, not a member. Saying
+    // "you're a member" would send a real registrar to an admin who'd find
+    // nothing wrong.
+    return roleClaimIsMissing(session.access_token) ? (
+      <RolesNotArriving />
+    ) : (
+      <NotForYou email={session.user.email ?? null} />
+    );
   }
 
   // Passed down rather than re-fetched: any auth call inside the night's load

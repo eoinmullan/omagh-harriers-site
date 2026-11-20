@@ -200,6 +200,13 @@ export function isWorthRetrying(failure: { status?: number; code?: string; messa
   // The database itself said "not now", even if it came back as a 4xx.
   if (code && (TRANSIENT_CODES.has(code) || code.startsWith('08'))) return true;
 
+  // The access token expired because its refresh couldn't reach Supabase Auth
+  // while the API could. supabase-js refreshes before each request, so the next
+  // attempt carries a new token once Auth answers. Matched on the message
+  // because PostgREST has moved the code between versions (PGRST301, then
+  // PGRST303). A token that's wrong rather than expired is still a refusal.
+  if (status === 401 && /JWT expired/i.test(failure.message ?? '')) return true;
+
   return false;
 }
 

@@ -44,6 +44,22 @@ export function roleFromAccessToken(token: string | null | undefined): Principal
   return KNOWN_ROLES.find((role) => role === claimed);
 }
 
+/**
+ * True when a readable token carries no `app_role` claim at all.
+ *
+ * That isn't a member: the access-token hook writes `member` for a member and
+ * `none` for a login with no household. A token with no claim means the hook
+ * isn't running. It's registered by hand in the Supabase dashboard
+ * (Authentication -> Hooks) and in no migration, so a restored project or a
+ * mis-click loses it. Without this, every registrar would be told they're
+ * "a club member rather than a registrar" and sent to an admin who'd find
+ * their role already set.
+ */
+export function roleClaimIsMissing(token: string | null | undefined): boolean {
+  const claims = claimsFromAccessToken(token);
+  return typeof claims === 'object' && claims !== null && !('app_role' in claims);
+}
+
 function claimsFromAccessToken(token: string | null | undefined): unknown {
   const payload = token?.split('.')[1];
   if (!payload) return undefined;

@@ -41,7 +41,7 @@ Ticked as each one lands, in the order they're tackled.
 - [ ] **Preset amounts come first in the cash sheet**, as large buttons, with
   a smaller keypad below them.
 - [x] **"Pick a different session" becomes "Done".**
-- [ ] **One choice of five views**, not two sets of filters that combine:
+- [x] **One choice of five views**, not two sets of filters that combine:
   Usuals, Everyone, Signed in, Paid, Guests. A single segmented control.
 - [x] **The app is called "Harriers Sign-in"** in the manifest, on the home
   screen and in the title.

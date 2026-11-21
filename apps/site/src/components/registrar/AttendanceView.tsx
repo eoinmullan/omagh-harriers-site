@@ -12,7 +12,7 @@ import {
   rosterToShow,
   usualsFor,
   type RosterMember,
-  type Showing,
+  type NightView,
 } from '../../lib/training/usuals';
 import { describeLostWrite, type Names } from '../../lib/training/lost-write';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
@@ -99,11 +99,8 @@ export function AttendanceView({
   onBack?: () => void;
 }) {
   const [state, setState] = useState<State>({ phase: 'loading' });
-  const [tab, setTab] = useState<Showing | 'guests'>('usuals');
-  const showing: Showing = tab === 'guests' ? 'usuals' : tab;
+  const [view, setView] = useState<NightView>('usuals');
   const [term, setTerm] = useState('');
-  const [hereOnly, setHereOnly] = useState(false);
-  const [paidOnly, setPaidOnly] = useState(false);
   const [cashFor, setCashFor] = useState<RosterMember | undefined>();
   const [guestProblem, setGuestProblem] = useState<string | null>(null);
   const [showingSnapshotFrom, setShowingSnapshotFrom] = useState<number | null>(null);
@@ -443,20 +440,15 @@ export function AttendanceView({
   const rows = useMemo(() => {
     if (!data) return [];
 
-    const shown = rosterToShow({
+    return rosterToShow({
       members: data.members,
       usuals,
-      showing,
+      view,
       term,
-      presentOnly: hereOnly,
       present,
+      paidHouseholds,
     });
-
-    // Money collected is a filter in the same way the headcount is: the number
-    // and the names behind it are one control, so when the tin does not match
-    // there is nothing to go hunting for.
-    return paidOnly ? shown.filter((member) => paidHouseholds.has(member.principalId)) : shown;
-  }, [data, usuals, showing, term, hereOnly, present, paidOnly, paidHouseholds]);
+  }, [data, usuals, view, term, present, paidHouseholds]);
 
   // One write per tap. The queue that coalesces a mis-tap before it reaches the
   // database belongs with the offline work; until then the RPC's idempotency is
@@ -682,64 +674,58 @@ export function AttendanceView({
           </p>
         </div>
 
-        {/* Both numbers are filters, and the names behind them are the same
-            control. The caret says so without a legend. One at a time: tapping
-            either clears the other. */}
-        <div className="flex divide-x divide-neutral-800 border-y border-neutral-800 text-center">
-          <Tile
-            figure={String(headcount)}
-            label="here"
-            activeLabel="showing who is here"
-            on={hereOnly}
-            onClick={() => {
-              setHereOnly((was) => !was);
-              setTerm('');
-              setPaidOnly(false);
-            }}
-          />
-          <Tile
-            figure={cashLabel(collected)}
-            label="money collected"
-            activeLabel="showing who paid"
-            accent
-            on={paidOnly}
-            onClick={() => {
-              setPaidOnly((was) => !was);
-              setTerm('');
-              setHereOnly(false);
-            }}
-          />
-        </div>
-
-        <div className="flex gap-1 border-t border-neutral-800 p-2">
+        {/* One choice of five. The night's two figures are views like the
+            rest: tapping the headcount lists who is signed in, tapping the money
+            lists the households that paid. Nothing combines, so what is on
+            screen is always exactly what the highlighted button says. */}
+        <div role="radiogroup" aria-label="Show" className="grid grid-cols-6 gap-1 p-2">
           {(
             [
-              ['usuals', 'Usuals', usuals.size],
-              ['everyone', 'All', data!.members.length],
-              ['guests', 'Guests', data!.guests.length],
+              ['usuals', 'Usuals', String(usuals.size)],
+              ['everyone', 'Everyone', String(data!.members.length)],
+              ['guests', 'Guests', String(data!.guests.length)],
             ] as const
           ).map(([option, label, count]) => (
-            <button
+            <ViewChoice
               key={option}
-              type="button"
-              onClick={() => {
-                setTab(option);
+              label={label}
+              figure={count}
+              chosen={view === option}
+              className="col-span-2"
+              onChoose={() => {
+                setView(option);
                 setTerm('');
               }}
-              aria-pressed={tab === option}
-              className={`flex-1 rounded-lg py-3 text-sm font-semibold ${
-                tab === option ? 'bg-neutral-100 text-black' : 'bg-neutral-900 text-neutral-300'
-              }`}
-            >
-              {label} {count}
-            </button>
+            />
           ))}
+          <ViewChoice
+            label="Signed in"
+            figure={String(headcount)}
+            large
+            chosen={view === 'here'}
+            className="col-span-3"
+            onChoose={() => {
+              setView('here');
+              setTerm('');
+            }}
+          />
+          <ViewChoice
+            label="Paid"
+            figure={cashLabel(collected)}
+            large
+            accent
+            chosen={view === 'paid'}
+            className="col-span-3"
+            onChoose={() => {
+              setView('paid');
+              setTerm('');
+            }}
+          />
         </div>
 
-        {/* Only on the full list, and only when neither filter is on — matching
-            the prototype. The Usuals are short enough to read, and a filter has
-            already narrowed the night to an answer. */}
-        {tab === 'everyone' && !hereOnly && !paidOnly && (
+        {/* Only on Everyone. The Usuals are short enough to read, and the
+            other views have already narrowed the night to an answer. */}
+        {view === 'everyone' && (
           <div className="px-2 pb-2">
             <input
               type="search"
@@ -797,7 +783,7 @@ export function AttendanceView({
           </div>
         )}
 
-        {tab === 'guests' ? (
+        {view === 'guests' ? (
           <div className="pb-6">
             <ul className="-mx-4">
               {guestRows.map((guest) => (
@@ -842,9 +828,9 @@ export function AttendanceView({
         ) : (
           <div className="py-6">
             <Note>
-              {hereOnly
+              {view === 'here'
                 ? 'Nobody is signed in yet.'
-                : paidOnly
+                : view === 'paid'
                   ? 'Nobody has handed anything over yet.'
                   : term
                     ? `Nobody matches "${term}". Guests are not in this list yet.`
@@ -884,36 +870,43 @@ function removeOne(payments: (number | null)[], pence: number | null): (number |
 }
 
 /** A figure in the header, and the names behind it, as one control. */
-function Tile({
-  figure,
+function ViewChoice({
   label,
-  activeLabel,
-  on,
+  figure,
+  chosen,
+  large,
   accent,
-  onClick,
+  className,
+  onChoose,
 }: {
-  figure: string;
   label: string;
-  activeLabel: string;
-  on: boolean;
+  figure: string;
+  chosen: boolean;
+  large?: boolean;
   accent?: boolean;
-  onClick: () => void;
+  className: string;
+  onChoose: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      aria-pressed={on}
-      className={`flex-1 py-2 ${on ? 'bg-amber text-black' : ''}`}
+      role="radio"
+      aria-checked={chosen}
+      onClick={onChoose}
+      className={`${className} rounded-lg px-1 ${large ? 'py-2' : 'py-2.5'} ${
+        chosen ? 'bg-neutral-100 text-black' : 'bg-neutral-900 text-neutral-300'
+      }`}
     >
-      <p className={`text-2xl font-bold ${!on && accent ? 'text-amber' : ''}`}>{figure}</p>
-      <p
-        className={`text-[11px] tracking-wider uppercase ${
-          on ? 'text-black/70' : 'text-neutral-400'
+      <span
+        className={`block font-bold ${large ? 'text-2xl' : 'text-base'} ${
+          !chosen && accent ? 'text-amber' : !chosen ? 'text-white' : ''
         }`}
       >
-        {on ? activeLabel : `${label} ▾`}
-      </p>
+        {figure}
+      </span>
+      <span className={`block text-xs font-semibold tracking-wide uppercase ${chosen ? 'text-black/70' : 'text-neutral-400'}`}>
+        {label}
+      </span>
     </button>
   );
 }

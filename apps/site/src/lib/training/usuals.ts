@@ -49,41 +49,47 @@ export function usualsFor(sources: {
   ]);
 }
 
-export type Showing = 'usuals' | 'everyone';
+/**
+ * The five ways to look at the night, of which exactly one is showing. They
+ * used to be two sets of controls that combined, a list (Usuals, All, Guests)
+ * and a filter over it (here, money collected), and a registrar could not say
+ * what the combination on screen meant. One choice of five can't be misread.
+ */
+export type NightView = 'usuals' | 'everyone' | 'here' | 'paid' | 'guests';
 
 /**
- * The rows to draw, which is every decision about the list in one place so the
- * screen makes none of them.
+ * The member rows to draw for a view, which is every decision about the list
+ * in one place so the screen makes none of them. Guests are a list of their
+ * own, so their view draws no member rows.
  *
- * `term` searches the whole club whichever list is showing: somebody typing a
- * name has already decided the Usuals do not contain who they want, and making
- * them flip a toggle first is a tap that teaches nothing.
+ * `here` and `paid` answer for the whole night, not the Usuals: somebody
+ * found in Everyone and ticked counts in the headcount, so they must be on the
+ * list the headcount opens.
+ *
+ * `term` searches the whole club: somebody typing a name has already decided
+ * the Usuals do not contain who they want.
  */
 export function rosterToShow(options: {
   members: RosterMember[];
   usuals: ReadonlySet<string>;
-  showing: Showing;
+  view: NightView;
   term?: string;
-  presentOnly?: boolean;
   present?: ReadonlySet<string>;
+  paidHouseholds?: ReadonlySet<string>;
 }): RosterMember[] {
   const term = options.term?.trim() ?? '';
   const present = options.present ?? new Set<string>();
+  const paidHouseholds = options.paidHouseholds ?? new Set<string>();
 
-  return options.members
-    .filter((member) => {
-      // The here filter answers for the whole night. Leaving the Usuals filter
-      // underneath it would make the headcount describe people the registrar
-      // cannot see — somebody found in the full list and ticked would be
-      // counted and then hidden.
-      if (options.presentOnly) {
-        return present.has(member.id) && (!term || matchesName(member, term));
-      }
-      if (term) return matchesName(member, term);
-      if (options.showing === 'usuals') return options.usuals.has(member.id);
-      return true;
-    })
-    .sort(bySurname);
+  const belongs: Record<NightView, (member: RosterMember) => boolean> = {
+    usuals: (member) => (term ? matchesName(member, term) : options.usuals.has(member.id)),
+    everyone: (member) => !term || matchesName(member, term),
+    here: (member) => present.has(member.id),
+    paid: (member) => paidHouseholds.has(member.principalId),
+    guests: () => false,
+  };
+
+  return options.members.filter(belongs[options.view]).sort(bySurname);
 }
 
 // What the balance line says, and the only thing it ever says.

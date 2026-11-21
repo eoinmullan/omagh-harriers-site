@@ -59,73 +59,75 @@ describe('rosterToShow', () => {
   const usuals = new Set(['jack', 'sophie']);
 
   it('opens on the Usuals, not the whole club', () => {
-    const shown = rosterToShow({ members: everyone, usuals, showing: 'usuals' });
+    const shown = rosterToShow({ members: everyone, usuals, view: 'usuals' });
 
     expect(shown.map((m) => m.id)).toEqual(['jack', 'sophie']);
   });
 
   it('shows everyone when asked, still by surname', () => {
-    const shown = rosterToShow({ members: everyone, usuals, showing: 'everyone' });
+    const shown = rosterToShow({ members: everyone, usuals, view: 'everyone' });
 
     expect(shown.map((m) => m.id)).toEqual(['jack', 'sophie', 'burns', 'kane']);
   });
 
   it('searches the whole club even while the Usuals are showing', () => {
-    const shown = rosterToShow({ members: everyone, usuals, showing: 'usuals', term: 'kane' });
+    const shown = rosterToShow({ members: everyone, usuals, view: 'usuals', term: 'kane' });
 
     expect(shown.map((m) => m.id)).toEqual(['kane']);
   });
 
   it('forgives the apostrophe somebody at a track will not type', () => {
-    const shown = rosterToShow({ members: everyone, usuals, showing: 'usuals', term: 'okane' });
+    const shown = rosterToShow({ members: everyone, usuals, view: 'usuals', term: 'okane' });
 
     expect(shown.map((m) => m.id)).toEqual(['kane']);
   });
 
   it('forgives a fada a phone keyboard will not produce', () => {
-    const shown = rosterToShow({ members: everyone, usuals, showing: 'everyone', term: 'siobhan' });
+    const shown = rosterToShow({ members: everyone, usuals, view: 'everyone', term: 'siobhan' });
 
     expect(shown.map((m) => m.id)).toEqual(['burns']);
   });
 
   it('matches anywhere in the name, not just the start', () => {
-    const shown = rosterToShow({ members: everyone, usuals, showing: 'everyone', term: 'shb' });
+    const shown = rosterToShow({ members: everyone, usuals, view: 'everyone', term: 'shb' });
 
     expect(shown.map((m) => m.id)).toEqual(['jack', 'sophie']);
   });
 
-  it('shows who is here when the headcount is tapped', () => {
+  it('shows who is signed in, from the whole club', () => {
     const shown = rosterToShow({
       members: everyone,
       usuals,
-      showing: 'usuals',
-      presentOnly: true,
+      view: 'here',
       present: new Set(['kane', 'jack']),
     });
 
     expect(shown.map((m) => m.id)).toEqual(['jack', 'kane']);
   });
 
-  it('answers for the whole night, not just the list that happens to be open', () => {
+  it('shows everybody in a household that paid tonight', () => {
     const shown = rosterToShow({
       members: everyone,
       usuals,
-      showing: 'usuals',
-      presentOnly: true,
-      present: new Set(['burns']),
+      view: 'paid',
+      paidHouseholds: new Set(['household-1']),
     });
 
-    expect(shown.map((m) => m.id)).toEqual(['burns']);
+    expect(shown.map((m) => m.id)).toEqual(['jack', 'sophie']);
+  });
+
+  it('draws no member rows on the guests view', () => {
+    expect(rosterToShow({ members: everyone, usuals, view: 'guests' })).toEqual([]);
   });
 
   it('an empty search is not a search', () => {
-    const shown = rosterToShow({ members: everyone, usuals, showing: 'usuals', term: '   ' });
+    const shown = rosterToShow({ members: everyone, usuals, view: 'usuals', term: '   ' });
 
     expect(shown.map((m) => m.id)).toEqual(['jack', 'sophie']);
   });
 
   it('says nothing rather than everything when a search matches nobody', () => {
-    const shown = rosterToShow({ members: everyone, usuals, showing: 'everyone', term: 'zzz' });
+    const shown = rosterToShow({ members: everyone, usuals, view: 'everyone', term: 'zzz' });
 
     expect(shown).toEqual([]);
   });

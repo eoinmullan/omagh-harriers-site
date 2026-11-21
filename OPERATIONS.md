@@ -76,6 +76,28 @@ them the same way.
 
 ---
 
+## Test data, and clearing it before go-live
+
+Two SQL scripts in `supabase/scripts/`, run in the Supabase **SQL Editor**.
+They aren't migrations, because they must never run against a fresh database.
+Nothing else can run them: the ledger's append-only trigger refuses every
+DELETE, the service-role key included.
+
+| Script | What it does |
+|---|---|
+| `remove-zz-test-data.sql` | Removes the ZZ test records (squads, sessions, a household and its member and login, a guest) and every sign-in and ledger row that hangs off them. Switches the two guarding triggers off inside its own transaction and back on before it ends. |
+| `clear-training-data.sql` | **Once, at go-live.** Clears every session, sign-in, guest and ledger row, so every balance starts at £0.00. Keeps households, members, logins, roles, squads and squad places. Irreversible once committed, short of restoring a backup. |
+
+Both are dry runs as written: they make every change, then stop with an error
+listing what they changed, and the error undoes it all. The SQL Editor shows
+only the last result, which is why the counts come back as an error. To run
+one for real, uncomment its `SET LOCAL omagh.confirm` line.
+
+Both were tested against a local copy of the schema, built from the
+migrations, before they were run live.
+
+---
+
 ## Microsoft sign-in
 
 Azure caps an OAuth client secret at 24 months. The date it expires is

@@ -138,26 +138,3 @@ export function describeCashChange(currentPence: number, targetPence: number): s
   if (targetPence === 0) return `Remove the ${cashLabel(currentPence)}`;
   return `Change ${cashLabel(currentPence)} to ${cashLabel(targetPence)}`;
 }
-
-/**
- * The small word under the cash a household has handed over, on each of its
- * members' rows.
- *
- * Cash belongs to the household, so every sibling's row shows the same
- * figure. Under each of two Bennetts, "£10 added" reads as £10 each, and a
- * registrar adding up the column gets twice what's in the tin. "£10 for both"
- * says it's one £10 covering the two of them. A household of one keeps
- * "added", because there is nobody else for it to be confused with.
- */
-export function cashCaption(householdSize: number): string {
-  if (householdSize <= 1) return 'added';
-  if (householdSize === 2) return 'for both';
-  return `for all ${householdSize}`;
-}
-
-/** How many members each household has, by household id. */
-export function householdSizes(members: { principalId: string }[]): Map<string, number> {
-  const sizes = new Map<string, number>();
-  for (const member of members) sizes.set(member.principalId, (sizes.get(member.principalId) ?? 0) + 1);
-  return sizes;
-}

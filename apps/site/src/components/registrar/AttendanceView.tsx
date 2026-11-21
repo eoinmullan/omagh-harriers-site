@@ -3,7 +3,6 @@ import { cashLabel } from '../../lib/credits/cash-label';
 import { clubDayKey, formatClubDate, formatClubTime } from '../../lib/training/club-time';
 import {
   cashTonight,
-  householdSizes,
   householdsWhoPaid,
   moneyCollected,
   planCashChange,
@@ -433,8 +432,6 @@ export function AttendanceView({
 
   const present = useMemo(() => new Set(data ? data.here.keys() : []), [data]);
 
-  const sizes = useMemo(() => householdSizes(data?.members ?? []), [data]);
-
   const paidHouseholds = useMemo(
     () => (data ? householdsWhoPaid(data.cash) : new Set<string>()),
     [data],
@@ -827,7 +824,6 @@ export function AttendanceView({
                 household={data!.households.get(member.principalId)}
                 pricePence={session.pricePence}
                 cashPence={cashTonight(data!.cash, member.principalId)}
-                householdSize={sizes.get(member.principalId) ?? 1}
                 isHere={present.has(member.id)}
                 onToggle={() => toggle(member)}
                 onCash={() => setCashFor(member)}

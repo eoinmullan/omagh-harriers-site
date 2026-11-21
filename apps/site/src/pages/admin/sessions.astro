@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import { nudgeTheRegistrarApp } from '../../lib/training/admin-nudge';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
 import { newFormId, submittedFormId } from '../../lib/http/form-id';
@@ -55,6 +56,9 @@ const draft = {
   price: formatPounds(DEFAULT_SESSION_PRICE_PENCE),
 };
 
+// The session a successful form created, so its day's phones can be told.
+let changedSession: { id?: string; startsAt: string } | undefined;
+
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
@@ -92,13 +96,18 @@ if (Astro.request.method === 'POST') {
     } else {
       const group = (await loadGroups()).find((candidate) => candidate.id === plan.insert.group_id);
       success = `${group?.name ?? 'Session'} created for ${formatClubDateTime(plan.insert.starts_at)}.`;
+      changedSession = { id, startsAt: plan.insert.starts_at };
     }
   }
 }
 
 // Succeeded: send the browser back here as a GET, so a reload can't
 // submit the form again. A failure renders below, keeping what was typed.
-if (success) return redirectAfterPost(Astro, success);
+if (success) {
+  // Whatever an admin changed here, the registrar app shows it.
+  await nudgeTheRegistrarApp(adminClient, changedSession);
+  return redirectAfterPost(Astro, success);
+}
 success = takeFlash(Astro.cookies);
 
 const groups = await loadGroups();

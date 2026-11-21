@@ -6,11 +6,11 @@
 // reloads, so both are quietly describing a night that has moved on.
 //
 // Two things keep a screen current. The fast one is a nudge (nudge.ts): when
-// the other phone's writes land, it says "something changed" on a Realtime
-// Broadcast channel, with no data, and this phone refreshes as soon as the
-// rule below allows. That is about a second behind. The slow one is this
-// poll, which catches whatever a nudge didn't: a missed message, a change made
-// on the admin site, and coming back to the app.
+// the other phone's writes land, or an admin's change does, it says
+// "something changed" on a Realtime Broadcast channel, with no data, and this
+// phone refreshes as soon as the rule below allows. That is about a second
+// behind. The slow one is this poll, which catches whatever a nudge didn't: a
+// missed message, a phone that was offline, and coming back to the app.
 //
 // The nudge is deliberately not a subscription to table changes. That would
 // mean a migration to publish the tables and merging rows into a screen that

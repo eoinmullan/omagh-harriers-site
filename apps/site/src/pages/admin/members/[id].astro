@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { nudgeTheRegistrarApp } from '../../../lib/training/admin-nudge';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { planMemberEdit } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
@@ -67,7 +68,11 @@ if (Astro.request.method === 'POST' && isSuperuser) {
 
 // Succeeded: send the browser back here as a GET, so a reload can't
 // submit the form again. A failure renders below, keeping what was typed.
-if (success) return redirectAfterPost(Astro, success);
+if (success) {
+  // Whatever an admin changed here, the registrar app shows it.
+  await nudgeTheRegistrarApp(adminClient);
+  return redirectAfterPost(Astro, success);
+}
 success = takeFlash(Astro.cookies);
 
 const member = orThrow(await adminClient

@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { nudgeTheRegistrarApp } from '../../../lib/training/admin-nudge';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
@@ -62,6 +63,9 @@ async function countAttendance(sessionId: string): Promise<number> {
 let error: string | null = null;
 let success: string | null = null;
 
+// This session, so its own day's phones are told whatever day it falls on.
+let changedSession: { id?: string; startsAt: string } | undefined;
+
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
@@ -70,6 +74,7 @@ if (Astro.request.method === 'POST') {
   if (!session) {
     error = 'That session no longer exists.';
   } else {
+    changedSession = { id: session.id, startsAt: session.starts_at };
     let plan: SessionChange | undefined;
     let confirmation = '';
 
@@ -118,7 +123,11 @@ if (Astro.request.method === 'POST') {
 
 // Succeeded: send the browser back here as a GET, so a reload can't
 // submit the form again. A failure renders below, keeping what was typed.
-if (success) return redirectAfterPost(Astro, success);
+if (success) {
+  // Whatever an admin changed here, the registrar app shows it.
+  await nudgeTheRegistrarApp(adminClient, changedSession);
+  return redirectAfterPost(Astro, success);
+}
 success = takeFlash(Astro.cookies);
 
 const session = await loadSession(id);

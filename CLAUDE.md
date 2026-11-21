@@ -287,12 +287,20 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   and no table in Realtime's publication, and carries no rows for RLS to
   check. The channels aren't private: anybody holding the public key and a
   channel name could send a nudge, but it carries nothing and only makes a
-  phone refresh, and session ids are random UUIDs. Only the registrar app
-  sends them, over HTTP (`httpSend`), so the admin site's changes come by the
-  poll
+  phone refresh, and session ids are random UUIDs. Both sides send over HTTP
+  (`httpSend`), so neither has to hold a connection open to send
+- **The admin site nudges too**, so an admin setting things up at the last
+  minute reaches the phones within a second. Every admin form that succeeds
+  calls `nudgeTheRegistrarApp` (`lib/training/admin-nudge.ts`) before its
+  redirect, because every one of them changes something the app shows. It
+  nudges today's session list and every session on today, plus the session
+  it changed and that session's day (`channelsForAdminChange`). It waits at
+  most two seconds, since a Worker drops unfinished work once it has
+  responded, and a failure never fails the form. **A new admin form that
+  writes should call it too**
 - **The poll is the safety net under the nudges**: every minute, and on
-  coming back to the app. It catches a missed nudge, a change made on the
-  admin site, and anything sent while a phone had no signal
+  coming back to the app. It catches a missed nudge and anything sent while a
+  phone had no signal
 - **The session list refreshes itself the same way**, so a session the other
   phone has just started appears without anybody pressing anything. It
   refreshes quietly: the list stays until a new one arrives, and a failed

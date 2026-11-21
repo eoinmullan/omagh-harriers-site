@@ -16,8 +16,9 @@ import type { Write } from './queue';
 // do is make a phone refresh; session ids are random UUIDs besides. A nudge
 // can also be missed, which is why the poll stays, only slower.
 //
-// Only the registrar app sends nudges. A change made on the admin site is
-// picked up by the poll.
+// The registrar app nudges when its writes land, and so does the admin site
+// when an admin's change succeeds (`channelsForAdminChange`), so somebody
+// setting things up at the last minute reaches the phones straight away.
 
 export const NUDGE_EVENT = 'changed';
 
@@ -60,5 +61,29 @@ export function channelsToNudge(writes: Write[]): string[] {
     }
   }
 
+  return [...channels];
+}
+
+/**
+ * Which channels an admin's change should nudge.
+ *
+ * Every admin form changes something the registrar app shows: a session, a
+ * squad or who's in it, a household's balance or name. Working out exactly
+ * which phones care would be more machinery than it saves, and the admin
+ * site is quiet while sessions run, so a change nudges today: the session
+ * list and every session on today. A change to one particular session also
+ * nudges that session and its own day, which may not be today.
+ */
+export function channelsForAdminChange(change: {
+  today: string;
+  todaysSessionIds: string[];
+  /** A new session's id may not be known yet; its day is what matters then. */
+  session?: { id?: string; startsAt: string };
+}): string[] {
+  const channels = new Set<string>([dayChannel(change.today), ...change.todaysSessionIds.map(sessionChannel)]);
+  if (change.session) {
+    if (change.session.id) channels.add(sessionChannel(change.session.id));
+    channels.add(dayChannel(clubDayKey(change.session.startsAt)));
+  }
   return [...channels];
 }

@@ -480,7 +480,7 @@ regardless — but the guard was not doing the job it was written to do.
 
 ### Member-facing
 
-- [x] Training history in the members' area — which sessions each member of the household attended and when. `/members/training`, linked from the members' area under the credit card: a section per member, the 20 most recent sessions each, read on the member's own session under RLS. The original goal for this area was a member checking their credit *and* when they trained; Phase 4 shipped the credit half, and the RLS planned above already allows the other, but no page was ever listed for it
+- [x] Training history in the members' area — which sessions each member of the household attended and when. **Merged into `/members/credits`** on 21 November: every paid session was already a line on the statement, so the page lists sessions and payments together, newest first, names the squad on each session, adds a line for free sessions (which leave no ledger row), and offers a filter by member when two or more have lines. `/members/training` redirects there
 
 ### The Usuals — who the registrar actually sees
 
@@ -692,7 +692,7 @@ A read-only reporting area inside `/admin` for committee operational needs. No n
 - [x] Create `src/pages/admin/reports.astro` — index page linking to the reports below. `/admin/reports`, a **Reports** tab in the admin area. Three reports were built; the rest were already answered by existing screens, as marked below
 - [~] Attendance by session — **who attended is `/admin/sessions/[id]`**. Who didn't (absent Usuals) isn't built, because nobody has asked for it yet
 - [x] Attendance by group — headcounts and trends per squad. `/admin/reports/attendance`: week by week, a column per squad
-- [~] Attendance by member — **the member's admin page lists their 20 most recent sessions**, and a household sees the same at `/members/training`. No date range, because nobody has asked for it yet
+- [~] Attendance by member — **the member's admin page lists their 20 most recent sessions**, and a household sees its own on `/members/credits`. No date range, because nobody has asked for it yet
 - [x] Member balances — **already `/admin/households`**: a sortable balance column, the Overdrawn and In credit filters, and the club float
 - [x] Top-up summary — `/admin/reports/money`: cash at training, guest payments, money handed back, and cash an admin recorded, by kind and by who recorded it. The cash rule is `session-cash.ts`'s
 - [x] Session summary — the same report as attendance by group, whose All squads column is sessions and headcount per week

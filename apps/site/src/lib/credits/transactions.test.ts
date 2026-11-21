@@ -157,6 +157,18 @@ describe('a line tied to a session names the night', () => {
     expect(description).toBe('£2.00 deducted — training session for Jack Kelly on Tue 17 Nov');
   });
 
+  it('names the squad when the session has one', () => {
+    const description = describeEntry({
+      type: 'session',
+      amountPence: -200,
+      memberName: 'Jack Kelly',
+      sessionSquad: 'Middle Distance',
+      sessionStartsAt: '2026-11-17T18:00:00Z',
+    });
+
+    expect(description).toBe('£2.00 deducted — Middle Distance session for Jack Kelly on Tue 17 Nov');
+  });
+
   it('dates cash taken at a session, before saying who recorded it', () => {
     const description = describeEntry(
       entry({ type: 'top_up_cash', amountPence: 1000, recordedBy: 'Eoin Mullan', sessionStartsAt: tuesday }),

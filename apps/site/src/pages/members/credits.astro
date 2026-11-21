@@ -2,16 +2,22 @@
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
-import { describeEntry, isCredit } from '../../lib/credits/transactions';
 import { formatBalance } from '../../lib/credits/money';
+import { householdHistory, linesFor, membersWithLines, type HistoryKind } from '../../lib/credits/history';
 import type { CreditTransactionType } from '../../lib/supabase/types';
+import { everyRow } from '../../lib/supabase/every-row';
 import { orThrow } from '../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../lib/auth/signed-in';
 
-// Middleware guarantees auth + active principal + terms accepted before we get here.
-// Defensive fallback only.
-const { principal } = whoIsSignedIn(Astro.locals);
+// A household's training credit and everything that moved it, sessions
+// included. This page and /members/training were mostly the same record, so
+// they are one page now; see lib/credits/history.ts.
+//
+// The wording has to fit a household of one as well as a household of five,
+// so nothing here assumes there are several members.
 
+// Middleware guarantees auth + active principal + terms accepted before we get here.
+const { principal } = whoIsSignedIn(Astro.locals);
 
 const balance = orThrow(await Astro.locals.supabase
   .from('principal_balances')
@@ -19,14 +25,26 @@ const balance = orThrow(await Astro.locals.supabase
   .eq('principal_id', principal.id)
   .maybeSingle());
 
-// The ledger is read with the service-role client because a line needs the name
-// of the admin who recorded it, and RLS rightly hides every principal row but
-// the member's own. Scoped to this household's principal_id, server-side only.
-const rows = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
-  .from('credit_transactions')
-  .select('id, type, amount_pence, notes, created_at, recorder:principals!created_by(display_name), member:member_id(first_name, surname), session:session_id(starts_at)')
-  .eq('principal_id', principal.id)
-  .order('created_at', { ascending: false }));
+// Read with the service role because a line names the admin who recorded it,
+// and RLS rightly hides every principal row but the member's own. Every read
+// here is scoped to this household's principal_id, server-side only.
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+
+const [rows, members] = await Promise.all([
+  everyRow((from, to) =>
+    adminClient
+      .from('credit_transactions')
+      .select('id, type, amount_pence, notes, created_at, member_id, recorder:principals!created_by(display_name), member:member_id(first_name, surname), session:session_id(starts_at, group:group_id(name))')
+      .eq('principal_id', principal.id)
+      .order('id')
+      .range(from, to),
+  ),
+  adminClient
+    .from('members')
+    .select('id, first_name, surname')
+    .eq('principal_id', principal.id)
+    .then(orThrow),
+]);
 
 type LedgerRow = {
   id: string;
@@ -34,33 +52,84 @@ type LedgerRow = {
   amount_pence: number;
   notes: string | null;
   created_at: string;
+  member_id: string | null;
   recorder: { display_name: string } | null;
   member: { first_name: string; surname: string } | null;
-  session: { starts_at: string } | null;
+  session: { starts_at: string; group: { name: string } | null } | null;
 };
 
-const history = ((rows ?? []) satisfies LedgerRow[]).map((row) => {
-  const entry = {
-    type: row.type,
-    amountPence: row.amount_pence,
-    notes: row.notes,
-    recordedBy: row.recorder?.display_name ?? null,
-    memberName: row.member ? `${row.member.first_name} ${row.member.surname}` : null,
-    sessionStartsAt: row.session?.starts_at ?? null,
-  };
-  return {
+const names = new Map((members ?? []).map((member) => [member.id, `${member.first_name} ${member.surname}`]));
+const memberIds = [...names.keys()];
+
+// A session that cost nothing leaves no ledger row, so it comes from the
+// attendance of this household's members instead.
+const attendanceRows = memberIds.length === 0 ? [] : await everyRow((from, to) =>
+  adminClient
+    .from('attendance')
+    .select('id, member_id, session:session_id(starts_at, price_pence, group:group_id(name))')
+    .in('member_id', memberIds)
+    .order('id')
+    .range(from, to),
+);
+
+type AttendanceRow = {
+  id: string;
+  member_id: string | null;
+  session: { starts_at: string; price_pence: number; group: { name: string } | null } | null;
+};
+
+const history = householdHistory({
+  ledger: (rows satisfies LedgerRow[]).map((row) => ({
     id: row.id,
-    description: describeEntry(entry),
-    isCredit: isCredit(entry),
-    on: new Date(row.created_at).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }),
-  };
+    createdAt: row.created_at,
+    memberId: row.member_id,
+    entry: {
+      type: row.type,
+      amountPence: row.amount_pence,
+      notes: row.notes,
+      recordedBy: row.recorder?.display_name ?? null,
+      memberName: row.member ? `${row.member.first_name} ${row.member.surname}` : null,
+      sessionStartsAt: row.session?.starts_at ?? null,
+      sessionSquad: row.session?.group?.name ?? null,
+    },
+  })),
+  freeSessions: (attendanceRows satisfies AttendanceRow[]).flatMap((row) =>
+    row.member_id && row.session && row.session.price_pence === 0
+      ? [{
+          attendanceId: row.id,
+          memberId: row.member_id,
+          memberName: names.get(row.member_id) ?? 'A member',
+          squad: row.session.group?.name ?? null,
+          startsAt: row.session.starts_at,
+        }]
+      : [],
+  ),
 });
 
+// The filter is offered only when there's a real choice: two or more members
+// with lines of their own. A household of one, or one where only one member
+// trains, sees the plain list.
+const choices = membersWithLines(history, names);
+const askedFor = Astro.url.searchParams.get('member');
+const chosen = choices.some((choice) => choice.memberId === askedFor) ? askedFor : null;
+const shown = linesFor(history, chosen);
+
 const balancePence = balance?.balance_pence ?? 0;
+
+const badges: Record<HistoryKind, { label: string; className: string }> = {
+  credit: { label: 'Credit', className: 'bg-green-100 text-green-700' },
+  debit: { label: 'Debit', className: 'bg-gray-100 text-gray-600' },
+  free: { label: 'Free', className: 'bg-gray-50 text-gray-500 border border-gray-200' },
+};
+
+function dated(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    timeZone: 'Europe/London',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
 ---
 
 <Layout title="Training credit — Omagh Harriers AC">
@@ -71,8 +140,8 @@ const balancePence = balance?.balance_pence ?? 0;
 
     <h1 class="text-3xl font-bold mb-2">Training credit</h1>
     <p class="text-gray-600 mb-8">
-      One balance covers everyone in your household. Any of your members can use
-      it at training.
+      Your household has one balance. Each session a member of your household is signed in at is
+      paid from it.
     </p>
 
     <div class="bg-gray-50 border border-gray-200 rounded-lg px-6 py-5 mb-10">
@@ -88,39 +157,68 @@ const balancePence = balance?.balance_pence ?? 0;
       {
         balancePence < 0 && (
           <p class="text-sm text-red-600 mt-2">
-            Your account is overdrawn. Please settle up at training.
+            Your balance is below zero. Please top up at the next session.
           </p>
         )
       }
     </div>
 
     <section>
-      <h2 class="text-xl font-semibold mb-4">History</h2>
+      <h2 class="text-xl font-semibold mb-1">History</h2>
+      <p class="text-sm text-gray-500 mb-4">Sessions, payments and corrections, newest first.</p>
 
       {
-        history.length > 0 ? (
+        choices.length > 1 && (
+          <nav aria-label="Show the history of" class="flex flex-wrap gap-2 mb-4">
+            <a
+              href="/members/credits"
+              aria-current={chosen === null ? 'page' : undefined}
+              class:list={[
+                'text-sm rounded-full px-3 py-1 border',
+                chosen === null ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:border-gray-500',
+              ]}
+            >
+              Everything
+            </a>
+            {choices.map((choice) => (
+              <a
+                href={`/members/credits?member=${choice.memberId}`}
+                aria-current={chosen === choice.memberId ? 'page' : undefined}
+                class:list={[
+                  'text-sm rounded-full px-3 py-1 border',
+                  chosen === choice.memberId ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:border-gray-500',
+                ]}
+              >
+                {choice.name}
+              </a>
+            ))}
+          </nav>
+        )
+      }
+
+      {
+        shown.length > 0 ? (
           <ul class="divide-y divide-gray-200 border-t border-b border-gray-200">
-            {history.map((line) => (
+            {shown.map((line) => (
               <li class="py-4 flex items-baseline justify-between gap-4">
                 <div>
                   <p class="font-medium">{line.description}</p>
-                  <p class="text-sm text-gray-500 mt-0.5">{line.on}</p>
+                  <p class="text-sm text-gray-500 mt-0.5">{dated(line.at)}</p>
                 </div>
                 <span
                   class:list={[
                     'text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap',
-                    line.isCredit ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600',
+                    badges[line.kind].className,
                   ]}
                 >
-                  {line.isCredit ? 'Credit' : 'Debit'}
+                  {badges[line.kind].label}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
           <p class="text-gray-500 text-sm">
-            Nothing here yet. Top-ups and training sessions will appear as soon as
-            they are recorded.
+            Nothing here yet. Sessions and payments appear as soon as they're recorded.
           </p>
         )
       }

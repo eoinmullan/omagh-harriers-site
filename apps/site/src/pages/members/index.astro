@@ -69,7 +69,7 @@ const members = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
 
     <a
       href="/members/credits"
-      class="block bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 mb-4 hover:border-gray-400 transition-colors"
+      class="block bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 mb-10 hover:border-gray-400 transition-colors"
     >
       <div class="flex items-center justify-between">
         <div>
@@ -83,20 +83,7 @@ const members = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
             {formatBalance(balancePence)}
           </p>
         </div>
-        <span class="text-sm underline">View history &rarr;</span>
-      </div>
-    </a>
-
-    <a
-      href="/members/training"
-      class="block bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 mb-10 hover:border-gray-400 transition-colors"
-    >
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-gray-500">Training history</p>
-          <p class="font-medium mt-0.5">Who trained when</p>
-        </div>
-        <span class="text-sm underline">View sessions &rarr;</span>
+        <span class="text-sm underline">Sessions and payments &rarr;</span>
       </div>
     </a>
 

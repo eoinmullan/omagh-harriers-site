@@ -257,7 +257,7 @@ const otherHouseholds = orThrow(await adminClient
 const rows = orThrow(await adminClient
   .from('credit_transactions')
   .select(
-    'id, type, amount_pence, notes, created_at, recorder:principals!created_by(display_name), member:member_id(first_name, surname), session:session_id(starts_at), counterparty:principals!counterparty_principal_id(display_name)',
+    'id, type, amount_pence, notes, created_at, recorder:principals!created_by(display_name), member:member_id(first_name, surname), session:session_id(starts_at, group:group_id(name)), counterparty:principals!counterparty_principal_id(display_name)',
   )
   .eq('principal_id', householdId)
   .order('created_at', { ascending: false }));
@@ -270,7 +270,7 @@ type LedgerRow = {
   created_at: string;
   recorder: { display_name: string } | null;
   member: { first_name: string; surname: string } | null;
-  session: { starts_at: string } | null;
+  session: { starts_at: string; group: { name: string } | null } | null;
   counterparty: { display_name: string } | null;
 };
 
@@ -282,6 +282,7 @@ const history = ((rows ?? []) satisfies LedgerRow[]).map((row) => {
     recordedBy: row.recorder?.display_name ?? null,
     memberName: row.member ? `${row.member.first_name} ${row.member.surname}` : null,
     sessionStartsAt: row.session?.starts_at ?? null,
+    sessionSquad: row.session?.group?.name ?? null,
     // An admin may see who the money went to or came from. A member's own
     // statement leaves this out and reads "another account".
     counterpartyName: row.counterparty?.display_name ?? null,

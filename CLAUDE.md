@@ -499,6 +499,15 @@ Admin forms carry an `idempotency_key` minted per render. A refresh, a double
 click or the back button resends the same key, the unique index refuses it, and
 the admin is told it was already recorded rather than shown an error.
 
+**A household's history is one page.** `/members/credits` lists sessions,
+payments and corrections together, newest first (`lib/credits/history.ts`).
+Every paid session is already a ledger line, so a separate training history
+page repeated it; what that page had and the statement didn't, sessions that
+cost nothing, are added from attendance as lines of their own. Session lines
+name the squad, on the admin statement too. A filter by member appears only
+when two or more members have lines, and the wording assumes neither one
+member nor several. `/members/training` redirects there.
+
 `/members/credits` reads the ledger with the service-role client, scoped to the
 signed-in principal. That is deliberate: a line names the admin who recorded it,
 and RLS rightly hides every principal row but the member's own.

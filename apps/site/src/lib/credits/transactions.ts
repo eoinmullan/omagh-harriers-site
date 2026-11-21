@@ -19,6 +19,8 @@ export interface LedgerEntry {
    * it was entered, so the session's own date has to be said as well.
    */
   sessionStartsAt?: string | null;
+  /** The squad of the session this entry belongs to, so a line says which. */
+  sessionSquad?: string | null;
 }
 
 export function isCredit(entry: LedgerEntry): boolean {
@@ -37,7 +39,7 @@ function reasonFor(entry: LedgerEntry): string {
     case 'top_up_cash':
       return attributed(onTheNight('paid by cash at training', entry), entry.recordedBy);
     case 'session':
-      return onTheNight(forMember('training session', entry.memberName), entry);
+      return onTheNight(forMember(sessionName(entry.sessionSquad), entry.memberName), entry);
     case 'refund':
       // A refund carries its reason the way an adjustment does. "£10.00
       // deducted — refunded" does not say why, and a keying slip corrected in
@@ -62,6 +64,19 @@ function reasonFor(entry: LedgerEntry): string {
         entry.recordedBy,
       );
   }
+}
+
+/**
+ * A session that cost nothing, which leaves no row in the ledger. A
+ * household's history lists it anyway, so that every session a member was
+ * signed in at is there, whatever it cost.
+ */
+export function describeFreeSession(session: { squad: string | null; memberName: string; startsAt: string }): string {
+  return `No charge — ${forMember(sessionName(session.squad), session.memberName)} on ${formatClubNight(session.startsAt)}`;
+}
+
+function sessionName(squad?: string | null): string {
+  return squad ? `${squad} session` : 'training session';
 }
 
 function forMember(reason: string, memberName?: string | null): string {

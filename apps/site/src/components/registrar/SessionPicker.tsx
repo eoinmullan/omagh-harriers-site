@@ -11,6 +11,8 @@ import {
 } from '../../lib/training/tonight';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
 import { WATCH_INTERVAL_MS } from '../../lib/training/watching';
+import { dayChannel } from '../../lib/training/nudge';
+import { listenForNudges } from './nudges';
 import { loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
 import { planTrackSession, type SessionGroup } from '../../lib/training/track-session';
 import { AttendanceView } from './AttendanceView';
@@ -133,11 +135,23 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   }, [refresh]);
 
   // The list keeps up with the other phone by itself, as the night screen
-  // does: every twenty seconds while it's on screen, and as soon as the app
+  // does: every minute while it's on screen, and as soon as the app
   // comes back to the front. A session started at the gate on another phone
   // appears without anybody having to know to ask for it, which is what the
   // "Check again" button used to be for.
   const onTheList = !chosen && !browsingPast;
+
+  // Another phone started a session today: refresh straight away rather than
+  // waiting for the poll (nudge.ts). Keyed by today, so it moves on at
+  // midnight with the list.
+  const today = clubDayKey(new Date());
+  useEffect(() => {
+    if (!onTheList) return;
+    return listenForNudges(createSupabaseBrowserClient(), dayChannel(today), () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void refresh(true);
+    });
+  }, [onTheList, today, refresh]);
+
   useEffect(() => {
     if (!onTheList) return;
 

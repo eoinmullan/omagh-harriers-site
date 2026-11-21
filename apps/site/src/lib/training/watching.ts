@@ -5,14 +5,20 @@
 // left is that neither screen knows what the other has done until somebody
 // reloads, so both are quietly describing a night that has moved on.
 //
-// This is a poll, not a live subscription. Realtime would be the tidier answer
-// and is the thing to reach for if a session ever gets busy enough to need it,
-// but it is a second moving part to configure and keep inside RLS, and two
-// phones twenty seconds out of step is not a problem anybody at a track would
-// notice. Said plainly here so the choice is a choice.
+// Two things keep a screen current. The fast one is a nudge (nudge.ts): when
+// the other phone's writes land, it says "something changed" on a Realtime
+// Broadcast channel, with no data, and this phone refreshes as soon as the
+// rule below allows. That is about a second behind. The slow one is this
+// poll, which catches whatever a nudge didn't: a missed message, a change made
+// on the admin site, and coming back to the app.
+//
+// The nudge is deliberately not a subscription to table changes. That would
+// mean a migration to publish the tables and merging rows into a screen that
+// may be holding this phone's own unsent writes. An empty message asks for
+// neither: the refresh that already exists does the rest.
 
-/** Often enough that the other phone is never a surprise, rarely enough to be free. */
-export const WATCH_INTERVAL_MS = 20_000;
+/** The safety net under the nudges: often enough to catch what they miss. */
+export const WATCH_INTERVAL_MS = 60_000;
 
 export interface Conditions {
   online: boolean;

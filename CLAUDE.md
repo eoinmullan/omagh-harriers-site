@@ -275,10 +275,24 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   storage lands after the view has already loaded, so the database has moved
   and the view cannot know. Reloading after every tap would be a round trip per
   tick, and the optimistic state is already right in that case
-- **The other phone is polled, not subscribed to** — every twenty seconds and
-  on regaining focus, and only when this phone owes nothing, has no sheet open
-  and is on screen. `lib/training/watching.ts` holds that rule and the reason
-  for choosing a poll over Realtime
+- **The other phone nudges; it doesn't send data.** When this phone's writes
+  land, it sends an empty "changed" message on a Supabase Realtime
+  **Broadcast** channel, one per session (`session-<id>`) and one per day for
+  the session list (`sessions-<day>`). The phone that hears it refreshes
+  through the existing rule in `lib/training/watching.ts`: only when it owes
+  nothing, has no sheet open and is on screen, so a nudge that arrives mid-tap
+  waits for this phone's own writes. About a second behind, with nothing to
+  merge (`lib/training/nudge.ts`, `components/registrar/nudges.ts`)
+- **Broadcast, not table changes, on purpose.** Broadcast needs no migration
+  and no table in Realtime's publication, and carries no rows for RLS to
+  check. The channels aren't private: anybody holding the public key and a
+  channel name could send a nudge, but it carries nothing and only makes a
+  phone refresh, and session ids are random UUIDs. Only the registrar app
+  sends them, over HTTP (`httpSend`), so the admin site's changes come by the
+  poll
+- **The poll is the safety net under the nudges**: every minute, and on
+  coming back to the app. It catches a missed nudge, a change made on the
+  admin site, and anything sent while a phone had no signal
 - **The session list refreshes itself the same way**, so a session the other
   phone has just started appears without anybody pressing anything. It
   refreshes quietly: the list stays until a new one arrives, and a failed
@@ -616,7 +630,7 @@ its role or identity call as `(select public.can_run_a_session())` or
 `(select auth.uid())`. Postgres then evaluates it once per query as an
 InitPlan, not once for every row it checks. Unwrapped, the registrar's
 balances read re-parsed the JWT claims for every ledger row, on every
-20-second refresh. Migration `0022`. Copy the wrapped form into any new
+refresh. Migration `0022`. Copy the wrapped form into any new
 policy.
 
 **Every function pins its search path** (`SET search_path = public, pg_temp`).

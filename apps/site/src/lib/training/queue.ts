@@ -43,6 +43,11 @@ export interface UndoSignIn {
   kind: 'undo_sign_in';
   attendanceId: string;
   /**
+   * The session it belongs to, so the other phone can be told (nudge.ts).
+   * Optional because a queue saved before this existed has entries without it.
+   */
+  sessionId?: string;
+  /**
    * Who is being unticked, for the sentence shown if Postgres refuses it.
    * Optional because a queue saved before this existed has entries without it.
    */

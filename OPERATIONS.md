@@ -45,6 +45,7 @@ There is no `supabase/config.toml`, so none of this is in the repo.
 | **Google** | Authentication → Sign In / Providers → Google | **On**. Confirmed. The client ID and secret come from the Google Cloud console. |
 | **Microsoft (Azure)** | Authentication → Sign In / Providers → Azure | **On**. Confirmed. The client ID and secret come from the Azure portal. The secret expires; see below. |
 | **Token lifetime** | Authentication → Sessions / JWT | **To confirm.** The app assumes the default, one hour, refreshed automatically. |
+| **Realtime** | Project Settings → Realtime | **On**, the default. The registrar app sends an empty "something changed" message on a Broadcast channel when its writes land, so the other phone at the gate refreshes within about a second. No table needs adding to the Realtime publication. If Realtime is off, nothing breaks: phones fall back to their once-a-minute refresh. |
 
 **The Free plan pauses a project after a week without activity**, and doesn't
 include the backups a paid plan does. That's accepted for now (OR5): while

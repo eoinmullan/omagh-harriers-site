@@ -18,6 +18,8 @@ import { describeLostWrite, type Names } from '../../lib/training/lost-write';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
 import { moneyCaveat, syncStatus } from '../../lib/training/queue';
 import { safeToRefresh, WATCH_INTERVAL_MS } from '../../lib/training/watching';
+import { sessionChannel } from '../../lib/training/nudge';
+import { listenForNudges } from './nudges';
 import { describeSnapshotAge, loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
 import type { Outbox } from './useWriteQueue';
 import {
@@ -310,7 +312,7 @@ export function AttendanceView({
 
   // What the other phone can have changed, and nothing else. The member list,
   // the squads and the guest list do not move during a session, so re-fetching
-  // 314 names every twenty seconds would be paying for nothing.
+  // 314 names on every catch-up would be paying for nothing.
   const catchUpOnTheOtherPhone = useCallback(async () => {
     const supabase = createSupabaseBrowserClient();
 
@@ -369,9 +371,24 @@ export function AttendanceView({
       });
     } catch {
       // A failed catch-up is not worth saying anything about: the screen is
-      // still the registrar's own view, and the next one is twenty seconds away.
+      // still the registrar's own view, and the next nudge or poll will try again.
     }
   }, [session.id]);
+
+  // The other phone says something changed in this session (nudge.ts). That
+  // only marks the screen as owing a catch-up; the effect below decides when,
+  // by the same rule as the poll, so a nudge that arrives mid-tap waits for
+  // this phone's own writes to land.
+  const owesCatchUp = useRef(false);
+  const [nudges, setNudges] = useState(0);
+  useEffect(
+    () =>
+      listenForNudges(createSupabaseBrowserClient(), sessionChannel(session.id), () => {
+        owesCatchUp.current = true;
+        setNudges((count) => count + 1);
+      }),
+    [session.id],
+  );
 
   useEffect(() => {
     if (state.phase !== 'ready' || showingSnapshotFrom !== null) return;
@@ -383,8 +400,14 @@ export function AttendanceView({
         busy: cashFor !== undefined,
         visible: typeof document === 'undefined' || document.visibilityState === 'visible',
       };
-      if (safeToRefresh(conditions)) void catchUpOnTheOtherPhone();
+      if (!safeToRefresh(conditions)) return;
+      owesCatchUp.current = false;
+      void catchUpOnTheOtherPhone();
     };
+
+    // Runs again whenever anything in the rule changes, so a nudge that had to
+    // wait is honoured the moment it's safe.
+    if (owesCatchUp.current) look();
 
     const ticking = setInterval(look, WATCH_INTERVAL_MS);
     // Coming back to the app is the moment most likely to be out of date.
@@ -400,6 +423,7 @@ export function AttendanceView({
     outbox.pending,
     cashFor,
     catchUpOnTheOtherPhone,
+    nudges,
   ]);
 
   // A queue restored from storage lands after this screen has already loaded,
@@ -489,7 +513,7 @@ export function AttendanceView({
 
     outbox.add(
       wasHere
-        ? { kind: 'undo_sign_in', attendanceId, memberId: member.id }
+        ? { kind: 'undo_sign_in', attendanceId, memberId: member.id, sessionId: session.id }
         : {
             kind: 'sign_in',
             memberId: member.id,

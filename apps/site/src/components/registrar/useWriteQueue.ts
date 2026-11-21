@@ -10,6 +10,8 @@ import {
 } from '../../lib/training/queue';
 import { loadQueue, saveQueue } from '../../lib/training/queue-store';
 import { send } from '../../lib/training/queue-sender';
+import { channelsToNudge } from '../../lib/training/nudge';
+import { sendNudges } from './nudges';
 
 // The outbox, driven.
 //
@@ -86,8 +88,11 @@ export function useWriteQueue(): Outbox {
     if (sending.current) return;
     sending.current = true;
 
+    const supabase = createSupabaseBrowserClient();
+    // What landed in this run, so the other phone can be told once at the end.
+    const landed: Write[] = [];
+
     try {
-      const supabase = createSupabaseBrowserClient();
 
       // One at a time, oldest first, so a tick never lands after its own
       // untick and a session is always written before the attendance that
@@ -99,6 +104,7 @@ export function useWriteQueue(): Outbox {
         if (!failure) {
           queue.current = settle(queue.current, item.id);
           persist();
+          landed.push(item.write);
           continue;
         }
 
@@ -120,6 +126,9 @@ export function useWriteQueue(): Outbox {
       }
     } finally {
       sending.current = false;
+      // Also when the run stopped on a dropped signal: what did land is
+      // still worth the other phone knowing about.
+      if (landed.length > 0) void sendNudges(supabase, channelsToNudge(landed));
     }
   }, [persist]);
 

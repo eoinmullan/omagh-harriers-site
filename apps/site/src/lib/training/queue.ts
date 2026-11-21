@@ -220,21 +220,52 @@ export function isWorthRetrying(failure: { status?: number; code?: string; messa
 }
 
 /**
- * What the night's figures are worth right now.
+ * What the night's figures are worth while the phone is offline.
  *
  * A registrar working offline sees what their own phone has taken, not the
  * session's, and the screen has to say so rather than show a confident wrong
- * number. The caveat belongs under the figure, not in its label, so the common
- * case reads plainly and the exception announces itself.
+ * number. That gets a line of its own under the header, because the sync
+ * status's one word can't say it. Online there is nothing to add: writes
+ * still sending are the sync status's job, and a line that came and went with
+ * every tap moved the whole list.
  */
 export function moneyCaveat(state: { pending: number; online: boolean }): string | undefined {
+  if (state.online) return undefined;
+
+  return state.pending > 0
+    ? `Offline — ${countOf(state.pending)} waiting to send, and another phone's may be missing.`
+    : "Offline — another phone's takings may be missing.";
+}
+
+export type SyncKind = 'saved' | 'saving' | 'offline';
+
+export interface SyncStatus {
+  kind: SyncKind;
+  /** The one word shown beside the icon. */
+  word: string;
+  /** The whole sentence, for a screen reader. */
+  spoken: string;
+}
+
+/**
+ * The save indicator in the header, the pattern of Google Docs and Notion:
+ * one small status in a fixed place, whose icon and word change while the
+ * space it takes doesn't. Writes go out on nearly every tap, so anything that
+ * appeared and disappeared with them would move the list under the
+ * registrar's finger.
+ */
+export function syncStatus(state: { pending: number; online: boolean }): SyncStatus {
   if (!state.online) {
-    return state.pending > 0
-      ? `Offline — ${countOf(state.pending)} waiting to send, and another phone's may be missing.`
-      : "Offline — another phone's takings may be missing.";
+    return {
+      kind: 'offline',
+      word: 'Offline',
+      spoken: state.pending > 0 ? `Offline, ${countOf(state.pending)} waiting to send` : 'Offline',
+    };
   }
 
-  return state.pending > 0 ? `${countOf(state.pending)} still sending.` : undefined;
+  return state.pending > 0
+    ? { kind: 'saving', word: 'Saving', spoken: `${countOf(state.pending)} still sending` }
+    : { kind: 'saved', word: 'Saved', spoken: 'All changes saved' };
 }
 
 function countOf(pending: number): string {

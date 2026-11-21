@@ -4,6 +4,7 @@ import {
   failureFrom,
   isWorthRetrying,
   moneyCaveat,
+  syncStatus,
   nextToSend,
   settle,
   type Queued,
@@ -240,16 +241,8 @@ describe('failureFrom', () => {
 });
 
 describe('moneyCaveat', () => {
-  it('says nothing when everything has landed', () => {
-    expect(moneyCaveat({ pending: 0, online: true })).toBeUndefined();
-  });
-
-  it('admits the figure is still settling', () => {
-    expect(moneyCaveat({ pending: 2, online: true })).toBe('2 changes still sending.');
-  });
-
-  it('counts one change as one', () => {
-    expect(moneyCaveat({ pending: 1, online: true })).toBe('1 change still sending.');
+  it('says nothing online, where the sync status shows what is still sending', () => {
+    expect(moneyCaveat({ pending: 2, online: true })).toBeUndefined();
   });
 
   it('warns offline that another phone may be missing from the figure', () => {
@@ -262,6 +255,37 @@ describe('moneyCaveat', () => {
     expect(moneyCaveat({ pending: 3, online: false })).toBe(
       "Offline — 3 changes waiting to send, and another phone's may be missing.",
     );
+  });
+});
+
+describe('syncStatus', () => {
+  it('is saved when everything has landed', () => {
+    expect(syncStatus({ pending: 0, online: true })).toEqual({
+      kind: 'saved',
+      word: 'Saved',
+      spoken: 'All changes saved',
+    });
+  });
+
+  it('is saving while writes are waiting, and counts them for a screen reader', () => {
+    expect(syncStatus({ pending: 2, online: true })).toEqual({
+      kind: 'saving',
+      word: 'Saving',
+      spoken: '2 changes still sending',
+    });
+  });
+
+  it('counts one change as one', () => {
+    expect(syncStatus({ pending: 1, online: true }).spoken).toBe('1 change still sending');
+  });
+
+  it('is offline without a signal, whatever is waiting', () => {
+    expect(syncStatus({ pending: 3, online: false })).toEqual({
+      kind: 'offline',
+      word: 'Offline',
+      spoken: 'Offline, 3 changes waiting to send',
+    });
+    expect(syncStatus({ pending: 0, online: false }).spoken).toBe('Offline');
   });
 });
 

@@ -249,9 +249,15 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   underneath for whoever investigates. Every refusal stays on screen until
   it's dismissed. A new tap doesn't clear one, because a lost cash entry
   must not be pushed off the screen by the next tick
-- **Money collected says when it is only this phone's view** — pending count
-  while sending, and an amber line when offline. Under the figure, not in its
-  label, so the common case reads plainly
+- **A save indicator in the header says whether writes have landed**:
+  *Saved*, *Saving* or *Offline*, with an icon, in a slot of fixed width next
+  to the session time (`components/registrar/SyncStatus.tsx`, `syncStatus` in
+  `queue.ts`). It's the Google Docs pattern. Writes go out on nearly every
+  tap, and the line that used to say "2 changes still sending" came and went
+  with them and moved the whole list. A screen reader hears the full sentence
+- **Offline, Money collected still gets an amber line** under the header,
+  because the indicator's one word can't say that another phone's takings may
+  be missing. That changes rarely, not on every tap
 - **One outbox for the phone, not one per screen.** Mounted at the island root,
   so a tick owed for Monday's session keeps being retried while the registrar
   is on the picker or in another session. A queued write names its own author;

@@ -16,7 +16,7 @@ import {
 } from '../../lib/training/usuals';
 import { describeLostWrite, type Names } from '../../lib/training/lost-write';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
-import { moneyCaveat } from '../../lib/training/queue';
+import { moneyCaveat, syncStatus } from '../../lib/training/queue';
 import { safeToRefresh, WATCH_INTERVAL_MS } from '../../lib/training/watching';
 import { describeSnapshotAge, loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
 import type { Outbox } from './useWriteQueue';
@@ -32,6 +32,7 @@ import { AddGuest } from './AddGuest';
 import { CashSheet } from './CashSheet';
 import { GuestRow } from './GuestRow';
 import { RunnerRow } from './RunnerRow';
+import { SyncStatus } from './SyncStatus';
 import { BigButton, Note, Problem, Screen } from './ui';
 
 // The night itself: who is expected, who is here, and what each tick costs.
@@ -669,14 +670,17 @@ export function AttendanceView({
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col">
       <header className="sticky top-0 z-20 border-b border-neutral-800 bg-black">
-        <div className="flex items-baseline justify-between px-4 pt-3 pb-2">
-          <h1 className="truncate text-xl font-bold">{session.groupName}</h1>
-          <p className="shrink-0 pl-3 text-sm text-neutral-400">
-            {/* A night reopened from Past sessions says which night it was. */}
-            {clubDayKey(session.startsAt) === clubDayKey(new Date())
-              ? formatClubTime(session.startsAt)
-              : `${formatClubDate(session.startsAt)}, ${formatClubTime(session.startsAt)}`}
-          </p>
+        <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+          <h1 className="min-w-0 truncate text-xl font-bold">{session.groupName}</h1>
+          <div className="flex shrink-0 items-center gap-3">
+            <SyncStatus status={syncStatus({ pending: outbox.pending, online: outbox.online })} />
+            <p className="text-sm text-neutral-400">
+              {/* A night reopened from Past sessions says which night it was. */}
+              {clubDayKey(session.startsAt) === clubDayKey(new Date())
+                ? formatClubTime(session.startsAt)
+                : `${formatClubDate(session.startsAt)}, ${formatClubTime(session.startsAt)}`}
+            </p>
+          </div>
         </div>
 
         {/* One choice of five. The night's two figures are views like the
@@ -757,11 +761,10 @@ export function AttendanceView({
           </p>
         )}
 
+        {/* Offline only. Writes still sending online are the sync status's
+            job, in its fixed place in the header. */}
         {caveat && (
-          <p
-            className={`mb-3 text-sm ${outbox.online ? 'text-neutral-400' : 'text-amber'}`}
-            role="status"
-          >
+          <p className="mb-3 text-sm text-amber" role="status">
             {caveat}
           </p>
         )}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { formatClubNight, formatClubTime } from '../../lib/training/club-time';
 import { clubDayKey } from '../../lib/training/club-time';
 import {
@@ -19,6 +19,7 @@ import { AttendanceView } from './AttendanceView';
 import { StartSession } from './StartSession';
 import type { Outbox } from './useWriteQueue';
 import { InstallHint } from './InstallHint';
+import { onALayer } from './useHistoryLayer';
 import { BigButton, Note, Problem, Screen } from './ui';
 
 // The first screen after sign-in: which session is being run tonight.
@@ -41,13 +42,22 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   // Looking back over the last fortnight to put a night right.
   const [browsingPast, setBrowsingPast] = useState(false);
 
+  // Every session this phone has opened, so a history entry naming one can
+  // open it again: forward after back, or the app reloading mid-session.
+  const known = useRef(new Map<string, SelectableSession>());
+  useEffect(() => {
+    if (chosen) known.current.set(chosen.id, chosen);
+  }, [chosen]);
+
   // An open session is a history entry of its own, so the phone's back gesture
-  // returns to this list, as it would in any app, instead of leaving.
+  // returns to this list, as it would in any app, instead of leaving, and
+  // forward goes back into it. Forward used to move the history on while the
+  // screen stayed on the list, so the next back press did nothing visible.
   useEffect(() => {
     function onPopState(event: PopStateEvent) {
       setBrowsingPast(Boolean(event.state?.registrarPast));
-      if (event.state?.registrarSession) return;
-      setChosen(undefined);
+      const id: string | undefined = event.state?.registrarSession;
+      setChosen(id ? known.current.get(id) : undefined);
     }
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -141,6 +151,23 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   // "Check again" button used to be for.
   const onTheList = !chosen && !browsingPast;
 
+  // After a reload the history still says where the registrar was. Today's
+  // session is reopened; anything else lands on the list, with the entry
+  // reset so that no back press is spent stepping off it.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current || load.state !== 'loaded') return;
+    restored.current = true;
+    const state = window.history.state;
+    const id: string | undefined = state?.registrarSession;
+    const session = id ? [...load.tonight.available, ...startedHere].find((candidate) => candidate.id === id) : undefined;
+    if (session) setChosen(session);
+    else if (state?.registrarPast) setBrowsingPast(true);
+    else if (state && (state.registrarSession || state.registrarSheet || state.registrarPicking)) {
+      window.history.replaceState(null, '');
+    }
+  }, [load, startedHere]);
+
   // Another phone started a session today: refresh straight away rather than
   // waiting for the poll (nudge.ts). Keyed by today, so it moves on at
   // midnight with the list.
@@ -191,8 +218,9 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   }
 
   function backToList() {
-    // Done and the back gesture are the same move. Going back through history
-    // keeps the two in step; without an entry to go back to, just close it.
+    // The header's back and the back gesture are the same move. Going back
+    // through history keeps the two in step; without an entry to go back to,
+    // just close it.
     if (window.history.state?.registrarSession) {
       window.history.back();
       return;
@@ -297,7 +325,11 @@ function AsHistoryEntry({ entry, children }: { entry: HistoryEntry; children: Re
   useEffect(() => {
     const current: HistoryEntry | null = window.history.state;
     if (current?.registrarSession === registrarSession && current?.registrarPast === registrarPast) return;
-    window.history.pushState({ registrarSession, registrarPast }, '');
+    // Opened from the squad picker: the session takes over the picker's
+    // entry, so back from it goes to today's list rather than to a picker
+    // that has already closed.
+    const write = onALayer('registrarPicking') ? 'replaceState' : 'pushState';
+    window.history[write]({ registrarSession, registrarPast }, '');
   }, [registrarSession, registrarPast]);
   return <>{children}</>;
 }

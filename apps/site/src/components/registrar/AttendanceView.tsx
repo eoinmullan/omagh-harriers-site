@@ -37,6 +37,7 @@ import { GuestRow } from './GuestRow';
 import { RunnerRow } from './RunnerRow';
 import { PaidHouseholdRow } from './PaidHouseholdRow';
 import { SyncStatus } from './SyncStatus';
+import { useHistoryLayer } from './useHistoryLayer';
 import { BigButton, Note, Problem, Screen } from './ui';
 
 // The night itself: who is expected, who is here, and what each tick costs.
@@ -107,6 +108,9 @@ export function AttendanceView({
   const [view, setView] = useState<NightView>('usuals');
   const [term, setTerm] = useState('');
   const [cashFor, setCashFor] = useState<RosterMember | undefined>();
+  // The cash sheet is a layer the back gesture closes, rather than leaving the
+  // session from underneath it.
+  const closeSheet = useHistoryLayer('registrarSheet', cashFor !== undefined, () => setCashFor(undefined));
   const [guestProblem, setGuestProblem] = useState<string | null>(null);
   const [showingSnapshotFrom, setShowingSnapshotFrom] = useState<number | null>(null);
 
@@ -559,7 +563,7 @@ export function AttendanceView({
       clientId: crypto.randomUUID(),
     });
 
-    setCashFor(undefined);
+    closeSheet();
     if (!row) return;
 
     setProblem(null);
@@ -940,7 +944,7 @@ export function AttendanceView({
               .map((candidate) => `${candidate.firstName} ${candidate.surname}`)}
             currentPence={cashTonight(data!.cash, cashFor.principalId)}
             onSave={(target) => void saveCash(cashFor, target)}
-            onClose={() => setCashFor(undefined)}
+            onClose={closeSheet}
           />
         )}
       </div>

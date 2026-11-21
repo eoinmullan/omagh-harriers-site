@@ -127,6 +127,16 @@ neutrals for everything else.
 - **The way back is a ‹ at the top left of the header**, always in reach. An
   iPhone home-screen app has no back button, and a Done at the foot of the
   list was under 313 names on Everyone
+- **Back and forward behave as in a native app.** Each screen past today's
+  list is a history entry (`AsHistoryEntry` in `SessionPicker.tsx`), so back
+  steps out and **forward goes back in**: the picker remembers every session
+  it has opened. The cash sheet and the squad picker are **layers**
+  (`useHistoryLayer`): back closes them rather than leaving the screen
+  beneath, and closing them any other way steps over their own entry, so no
+  back press is ever spent doing nothing. A session opened from the squad
+  picker takes over the picker's entry. After a reload the app reopens the
+  session its history entry names, if it's today's. The five views are not
+  history, for the same reason tabs in a native app aren't
 - **The header's figures are all about tonight**: Usuals, tonight's guests,
   signed in, paid. Everyone shows a search glyph rather than the size of the
   club

@@ -3,6 +3,7 @@ import { formatClubTime } from '../../lib/training/club-time';
 import type { SelectableSession } from '../../lib/training/tonight';
 import { alreadyOnTonight, type SessionGroup } from '../../lib/training/track-session';
 import { BigButton, Note } from './ui';
+import { useHistoryLayer } from './useHistoryLayer';
 
 // Starting a session at the track.
 //
@@ -22,6 +23,10 @@ export function StartSession({
   onOpenExisting: (session: SelectableSession) => void;
 }) {
   const [picking, setPicking] = useState(false);
+  // The squad list is a layer the back gesture closes. Choosing from it opens a
+  // session, which takes over the layer's history entry (onALayer in
+  // SessionPicker), so back from that session goes straight to today's list.
+  const closePicker = useHistoryLayer('registrarPicking', picking, () => setPicking(false));
 
   if (groups.length === 0) {
     return (
@@ -68,10 +73,7 @@ export function StartSession({
               {alreadyOn && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onStart(group);
-                    setPicking(false);
-                  }}
+                  onClick={() => onStart(group)}
                   className="mt-1 px-4 py-2 text-sm text-neutral-400 underline"
                 >
                   Start another {group.name}
@@ -81,7 +83,7 @@ export function StartSession({
           );
         })}
       </ul>
-      <BigButton tone="quiet" onClick={() => setPicking(false)}>
+      <BigButton tone="quiet" onClick={closePicker}>
         Cancel
       </BigButton>
     </div>

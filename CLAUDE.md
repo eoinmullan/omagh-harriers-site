@@ -115,6 +115,10 @@ neutrals for everything else.
   checkbox, a 72px cash cell
 - **The cash cell has two lines**: the figure in amber, then a small upper-case
   *added* (member) or *paid* (guest), so it explains itself without a legend
+- **Every sibling's row shows the household's cash as "£10 added"**, on
+  purpose. Cash belongs to the household and records no member, so the app
+  can't say which sibling handed it over. "For both" was tried and read as if
+  it covered a non-running parent. Registrars are told what it means instead
 - **Round amounts drop their pence.** `credits/cash-label.ts` — "£10", not
   "£10.00", which is how money is spoken at a gate. Balances keep their pence,
   because a balance is a statement figure rather than a handful of notes

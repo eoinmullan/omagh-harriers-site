@@ -2,7 +2,7 @@ import { useId } from 'react';
 import { cashLabel } from '../../lib/credits/cash-label';
 import { formatBalance } from '../../lib/credits/money';
 import type { Household } from '../../lib/training/night';
-import { balanceTone, toneWords, type RosterMember } from '../../lib/training/usuals';
+import { balanceTone, householdNameToShow, toneWords, type RosterMember } from '../../lib/training/usuals';
 
 // One runner, and the whole of their state is on the row being looked at.
 //
@@ -85,7 +85,8 @@ export function RunnerRow({
           {household && (
             <span id={balanceId} className={`block truncate text-sm ${tones[tone]}`}>
               {formatBalance(household.balancePence)}
-              {spokenTone && <span className="sr-only"> {spokenTone}</span>} · {household.name}
+              {spokenTone && <span className="sr-only"> {spokenTone}</span>}
+              {householdNameToShow(member, household.name) && ` · ${household.name}`}
             </span>
           )}
         </span>

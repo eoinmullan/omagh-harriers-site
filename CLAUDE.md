@@ -119,6 +119,20 @@ neutrals for everything else.
   purpose. Cash belongs to the household and records no member, so the app
   can't say which sibling handed it over. "For both" was tried and read as if
   it covered a non-running parent. Registrars are told what it means instead
+- **Except on Paid, which lists households, not runners**: one row per
+  household that paid, saying who from it is signed in, plus a row per guest
+  who paid. Paid is the view the tin is checked against, so its rows add up to
+  its header; listing every member repeated each household's figure, and a
+  £60 night added up to £115 (`householdsThatPaid` in `usuals.ts`)
+- **The way back is a ‹ at the top left of the header**, always in reach. An
+  iPhone home-screen app has no back button, and a Done at the foot of the
+  list was under 313 names on Everyone
+- **The header's figures are all about tonight**: Usuals, tonight's guests,
+  signed in, paid. Everyone shows a search glyph rather than the size of the
+  club
+- **A runner's line leaves the household's name off when the runner is the
+  household's contact** (`householdNameToShow`), rather than saying their own
+  name twice
 - **Round amounts drop their pence.** `credits/cash-label.ts` — "£10", not
   "£10.00", which is how money is spoken at a gate. Balances keep their pence,
   because a balance is a statement figure rather than a handful of notes
@@ -194,9 +208,12 @@ session in advance; this does not copy that.
 - **The control sits under tonight's list, never in place of it.** A registrar
   who cannot see what is already running starts a second Endurance beside the
   one the other phone opened, and the evening ends up in two halves
-- **A near-duplicate warns and names what is already on, with a tap to open it —
-  it does not refuse.** The schema deliberately lets a group train twice in a
-  day, and the person holding the phone is the one who can see the track
+- **A squad that's already on today says so in the squad list, and opens that
+  session** ("On at 08:42 — open it"), because the usual reason to look for it
+  there is that the other phone started it. It doesn't refuse a second one:
+  "Start another Middle Distance" is a smaller link underneath. The schema
+  deliberately lets a group train twice in a day, and the person holding the
+  phone is the one who can see the track
 
 **Guests are a third list, not a third filter.** `lib/training/guests.ts` holds
 the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.

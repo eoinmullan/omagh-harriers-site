@@ -1,4 +1,4 @@
-import { matchesName } from './names';
+import { matchesName, normaliseForSearch } from './names';
 
 // Who the registrar actually sees, and in what order.
 //
@@ -93,6 +93,60 @@ export function rosterToShow(options: {
   };
 
   return options.members.filter(belongs[options.view]).sort(bySurname);
+}
+
+export interface PaidHousehold {
+  principalId: string;
+  name: string;
+  cashPence: number;
+  /** Its members signed in tonight, by surname, which may be nobody. */
+  here: RosterMember[];
+  /** Any one of its members, for opening the household's cash sheet. */
+  anyMember: RosterMember;
+}
+
+/**
+ * The Paid view: one row per household that handed money over tonight.
+ *
+ * It used to list every member of each such household, with the household's
+ * figure repeated on every row, so on a night when seven households paid £60
+ * the column added up to £115. This view is the one a registrar checks the tin
+ * against, so its rows have to add up to its header.
+ */
+export function householdsThatPaid(options: {
+  members: RosterMember[];
+  present: ReadonlySet<string>;
+  /** Tonight's cash by household, which `cashTonight` works out. */
+  cashFor: (principalId: string) => number;
+  nameOf: (principalId: string) => string;
+}): PaidHousehold[] {
+  const byHousehold = new Map<string, RosterMember[]>();
+  for (const member of options.members) {
+    byHousehold.set(member.principalId, [...(byHousehold.get(member.principalId) ?? []), member]);
+  }
+
+  return [...byHousehold.entries()]
+    .map(([principalId, members]) => ({ principalId, members, cashPence: options.cashFor(principalId) }))
+    .filter((household) => household.cashPence !== 0)
+    .map(({ principalId, members, cashPence }) => ({
+      principalId,
+      name: options.nameOf(principalId),
+      cashPence,
+      here: members.filter((member) => options.present.has(member.id)).sort(bySurname),
+      anyMember: members[0]!,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
+}
+
+/**
+ * The household's name for a runner's balance line, or nothing when the
+ * runner is the household's own contact. "ADAMS, Phil / −£2.00 · Phil Adams"
+ * said his name twice. Compared loosely, the way the search compares names,
+ * so "phil adams" and "Phil Adams" are the same person.
+ */
+export function householdNameToShow(member: RosterMember, householdName: string): string | undefined {
+  const same = normaliseForSearch(`${member.firstName} ${member.surname}`) === normaliseForSearch(householdName);
+  return same ? undefined : householdName;
 }
 
 // What the balance line says, and the only thing it ever says.

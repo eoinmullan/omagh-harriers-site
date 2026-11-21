@@ -30,12 +30,18 @@ export function BigButton({
   children: ReactNode;
   onClick?: () => void;
   href?: string;
-  tone?: 'primary' | 'quiet';
+  /**
+   * `outline` is for an action that sits beside things to pick, such as the
+   * session list's "Create a new session": transparent, so the sessions are
+   * the only filled cards on the screen.
+   */
+  tone?: 'primary' | 'quiet' | 'outline';
   disabled?: boolean;
 }) {
   const tones = {
     primary: 'bg-neutral-100 text-black active:bg-neutral-300',
     quiet: 'border border-neutral-800 bg-neutral-900 text-neutral-100 active:bg-neutral-800',
+    outline: 'border border-neutral-700 bg-transparent text-neutral-200 active:bg-neutral-900',
   };
   const shared = `flex min-h-14 w-full items-center justify-center rounded-xl px-5 text-lg font-semibold transition-colors disabled:opacity-50 ${tones[tone]}`;
 

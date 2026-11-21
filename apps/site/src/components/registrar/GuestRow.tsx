@@ -50,9 +50,7 @@ export function GuestRow({
             {', '}
             <span className="font-normal">{guest.firstName}</span>
           </span>
-          <span className="block truncate text-sm text-neutral-400">
-            Guest — holds no credit
-          </span>
+          <span className="block truncate text-sm text-neutral-400">Guest</span>
         </span>
       </button>
 

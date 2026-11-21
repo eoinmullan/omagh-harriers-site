@@ -5,7 +5,7 @@ size (375 × 812), with the live data: the session list, creating a session,
 past sessions, the five views of a night, the cash sheet, guests, and the
 screens a registrar sees only when something's wrong. Nothing was saved.
 
-Ranked by how much each matters at the gate. Nothing has been changed.
+Ranked by how much each matters at the gate. **All seven were made on 21 November 2026.**
 
 ---
 

@@ -22,7 +22,6 @@ export function StartSession({
   onOpenExisting: (session: SelectableSession) => void;
 }) {
   const [picking, setPicking] = useState(false);
-  const [checking, setChecking] = useState<SessionGroup | undefined>();
 
   if (groups.length === 0) {
     return (
@@ -33,85 +32,54 @@ export function StartSession({
     );
   }
 
-  // The warning, with what is already running named rather than described.
-  if (checking) {
-    const clashes = alreadyOnTonight(tonight, checking.id);
-
-    return (
-      <div className="flex flex-col gap-3 rounded-xl border border-amber/40 bg-neutral-900/50 p-4">
-        <Note>
-          <p className="font-semibold text-neutral-100">
-            {checking.name} already has a session tonight.
-          </p>
-          <p className="mt-1">
-            Somebody may have started it on another phone. Opening theirs keeps the night in one
-            place; starting another splits the headcount and the money between the two.
-          </p>
-        </Note>
-
-        <ul className="flex flex-col gap-2">
-          {clashes.map((session) => (
-            <li key={session.id}>
-              <button
-                type="button"
-                onClick={() => onOpenExisting(session)}
-                className="min-h-16 w-full rounded-xl border border-emerald-500/60 bg-emerald-500/10 px-5 text-left active:bg-emerald-500/20"
-              >
-                <span className="block text-lg font-semibold text-white">
-                  Open {session.groupName}
-                </span>
-                <span className="block text-base text-neutral-400">
-                  started {formatClubTime(session.startsAt)}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <BigButton
-          tone="quiet"
-          onClick={() => {
-            onStart(checking);
-            setChecking(undefined);
-            setPicking(false);
-          }}
-        >
-          Start another anyway
-        </BigButton>
-        <BigButton tone="quiet" onClick={() => setChecking(undefined)}>
-          Back
-        </BigButton>
-      </div>
-    );
-  }
-
   if (!picking) {
     return (
-      <BigButton tone="quiet" onClick={() => setPicking(true)}>
+      <BigButton tone="outline" onClick={() => setPicking(true)}>
         Create a new session
       </BigButton>
     );
   }
 
+  // A squad that's already on today says so on its own button and opens that
+  // session, because the usual reason to look for it here is that the other
+  // phone started it. It used to lead to a paragraph and an "Open" button for
+  // a session that was already the first card on the screen. A second session
+  // for the same squad is still possible, one deliberate tap further down.
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
       <p className="text-base font-semibold text-neutral-200">Which squad is training?</p>
       <ul className="flex flex-col gap-2">
-        {groups.map((group) => (
-          <li key={group.id}>
-            <button
-              type="button"
-              onClick={() =>
-                alreadyOnTonight(tonight, group.id).length > 0
-                  ? setChecking(group)
-                  : onStart(group)
-              }
-              className="min-h-14 w-full rounded-xl border border-neutral-800 bg-black px-4 text-left text-lg text-neutral-100 active:bg-neutral-800"
-            >
-              {group.name}
-            </button>
-          </li>
-        ))}
+        {groups.map((group) => {
+          const alreadyOn = alreadyOnTonight(tonight, group.id)[0];
+          return (
+            <li key={group.id}>
+              <button
+                type="button"
+                onClick={() => (alreadyOn ? onOpenExisting(alreadyOn) : onStart(group))}
+                className="min-h-14 w-full rounded-xl border border-neutral-800 bg-black px-4 py-2 text-left active:bg-neutral-800"
+              >
+                <span className="block text-lg text-neutral-100">{group.name}</span>
+                {alreadyOn && (
+                  <span className="block text-sm text-amber">
+                    On at {formatClubTime(alreadyOn.startsAt)} — open it
+                  </span>
+                )}
+              </button>
+              {alreadyOn && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onStart(group);
+                    setPicking(false);
+                  }}
+                  className="mt-1 px-4 py-2 text-sm text-neutral-400 underline"
+                >
+                  Start another {group.name}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
       <BigButton tone="quiet" onClick={() => setPicking(false)}>
         Cancel

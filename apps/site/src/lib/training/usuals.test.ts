@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { balanceTone, bySurname, rosterToShow, toneWords, usualsFor, type RosterMember } from './usuals';
+import { balanceTone, bySurname, rosterToShow, toneWords, usualsFor, type RosterMember,
+  householdNameToShow,
+  householdsThatPaid,
+} from './usuals';
 
 function member(overrides: Partial<RosterMember> & { id: string }): RosterMember {
   return {
@@ -167,5 +170,70 @@ describe('toneWords', () => {
   it('puts the warning colour into words for a screen reader', () => {
     expect(toneWords('low')).toBe("won't cover tonight");
     expect(toneWords('overdrawn')).toBe('overdrawn');
+  });
+});
+
+describe('householdsThatPaid', () => {
+  const kellys = [
+    { id: 'noah', firstName: 'Noah', surname: 'Kelly', principalId: 'kelly' },
+    { id: 'nori', firstName: 'Nori', surname: 'Kelly', principalId: 'kelly' },
+    { id: 'tanya', firstName: 'Tanya', surname: 'Kelly', principalId: 'kelly' },
+  ];
+  const conway = { id: 'james', firstName: 'James', surname: 'Conway', principalId: 'conway' };
+  const corrigan = { id: 'aodhan', firstName: 'Aodhan', surname: 'Corrigan', principalId: 'corrigan' };
+  const cash: Record<string, number> = { kelly: 1000, corrigan: 500 };
+  const names: Record<string, string> = { kelly: 'Tanya Kelly', corrigan: 'Una Corrigan', conway: 'Caroline Conway' };
+
+  function paid(present: string[]) {
+    return householdsThatPaid({
+      members: [...kellys, conway, corrigan],
+      present: new Set(present),
+      cashFor: (id) => cash[id] ?? 0,
+      nameOf: (id) => names[id] ?? '',
+    });
+  }
+
+  it('is one row per household that paid, so the rows add up to what was taken', () => {
+    const rows = paid(['noah']);
+
+    expect(rows.map((row) => [row.name, row.cashPence])).toEqual([
+      ['Tanya Kelly', 1000],
+      ['Una Corrigan', 500],
+    ]);
+    expect(rows.reduce((total, row) => total + row.cashPence, 0)).toBe(1500);
+  });
+
+  it('names only the members signed in tonight', () => {
+    const [kelly] = paid(['noah']);
+
+    expect(kelly.here.map((member) => member.firstName)).toEqual(['Noah']);
+  });
+
+  it('keeps a household that paid with nobody from it signed in', () => {
+    const corrigans = paid([]).find((row) => row.principalId === 'corrigan');
+
+    expect(corrigans?.here).toEqual([]);
+  });
+
+  it('leaves out a household whose money was all handed back', () => {
+    cash.conway = 0;
+
+    expect(paid([]).some((row) => row.principalId === 'conway')).toBe(false);
+  });
+});
+
+describe('householdNameToShow', () => {
+  const phil = { id: 'phil', firstName: 'Phil', surname: 'Adams', principalId: 'adams' };
+
+  it("names the household when it isn't the runner", () => {
+    expect(householdNameToShow({ ...phil, firstName: 'Jos' }, 'Phil Adams')).toBe('Phil Adams');
+  });
+
+  it('leaves it off when the runner is the household contact', () => {
+    expect(householdNameToShow(phil, 'Phil Adams')).toBeUndefined();
+  });
+
+  it('treats a different case as the same person', () => {
+    expect(householdNameToShow(phil, 'phil adams')).toBeUndefined();
   });
 });

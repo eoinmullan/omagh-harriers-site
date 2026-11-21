@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { formatClubDate, formatClubTime } from '../../lib/training/club-time';
+import { formatClubNight, formatClubTime } from '../../lib/training/club-time';
 import { clubDayKey } from '../../lib/training/club-time';
 import {
   clubDayWindow,
@@ -124,7 +124,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
           ? { state: 'loaded', tonight: tonightsSessions(stored.data, now) }
           : {
               state: 'failed',
-              problem: 'No signal, and tonight has not been loaded on this phone yet.',
+              problem: "No signal, and today's sessions haven't been loaded on this phone yet.",
             },
       );
     }
@@ -202,15 +202,15 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
 
   if (load.state === 'loading') {
     return (
-      <Screen title="Tonight">
-        <p className="text-lg text-neutral-400">Looking for tonight's sessions…</p>
+      <Screen title="Today">
+        <p className="text-lg text-neutral-400">Looking for today's sessions…</p>
       </Screen>
     );
   }
 
   if (load.state === 'failed') {
     return (
-      <Screen title="Tonight">
+      <Screen title="Today">
         <Problem>Couldn't load tonight's sessions. {load.problem}</Problem>
         <BigButton onClick={() => void refresh()}>Try again</BigButton>
       </Screen>
@@ -247,7 +247,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   }
 
   return (
-    <Screen title="Tonight">
+    <Screen title="Today">
       {available.length > 0 ? (
         <>
           <p className="text-lg text-neutral-300">Which session are you taking?</p>
@@ -261,7 +261,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
         </>
       ) : (
         <p className="text-lg text-neutral-300">
-Nothing is scheduled for tonight. Start one below and sign runners in.
+Nothing is on today. Start a session below and sign runners in.
         </p>
       )}
 
@@ -279,7 +279,7 @@ Nothing is scheduled for tonight. Start one below and sign runners in.
       />
 
 
-      <BigButton tone="quiet" onClick={() => setBrowsingPast(true)}>
+      <BigButton tone="outline" onClick={() => setBrowsingPast(true)}>
         Past sessions
       </BigButton>
 
@@ -359,7 +359,7 @@ function PastSessions({
           <Note>No sessions in the last fortnight.</Note>
         ))}
       <BigButton tone="quiet" onClick={onBack}>
-        Back to tonight
+        Back to today
       </BigButton>
     </Screen>
   );
@@ -382,7 +382,7 @@ function SessionChoice({
     >
       <span className="block text-xl font-semibold text-white">{session.groupName}</span>
       <span className="mt-0.5 block text-base text-neutral-400">
-        {showDate ? `${formatClubDate(session.startsAt)}, ${formatClubTime(session.startsAt)}` : formatClubTime(session.startsAt)}
+        {showDate ? `${formatClubNight(session.startsAt)}, ${formatClubTime(session.startsAt)}` : formatClubTime(session.startsAt)}
       </span>
       {session.note && (
         <span className="mt-1 block text-base text-amber">{session.note}</span>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cashLabel } from '../../lib/credits/cash-label';
 import { clubDayKey, formatClubDate, formatClubTime } from '../../lib/training/club-time';
 import {
@@ -9,6 +9,7 @@ import {
   type CashRow,
 } from '../../lib/training/cash';
 import {
+  householdsThatPaid,
   rosterToShow,
   usualsFor,
   type RosterMember,
@@ -34,6 +35,7 @@ import { AddGuest } from './AddGuest';
 import { CashSheet } from './CashSheet';
 import { GuestRow } from './GuestRow';
 import { RunnerRow } from './RunnerRow';
+import { PaidHouseholdRow } from './PaidHouseholdRow';
 import { SyncStatus } from './SyncStatus';
 import { BigButton, Note, Problem, Screen } from './ui';
 
@@ -266,7 +268,7 @@ export function AttendanceView({
     } catch {
       // Supabase throws rather than returns when the request never
       // leaves the phone, and an uncaught throw here leaves the screen on
-      // "Getting tonight's list…" for ever — which is precisely the
+      // "Getting the list…" for ever — which is precisely the
       // moment this cache exists for.
       const stored = await loadSnapshot<Loaded>(snapshotKey(session.id));
       console.log(stored ? 'found' : 'MISSING', snapshotKey(session.id));
@@ -302,7 +304,7 @@ export function AttendanceView({
   // reach Supabase — a leisure centre's captive portal is online by that
   // measure. Reloading on the steady state turns a failing network into a loop:
   // show the snapshot, reload, fail, show the snapshot, for ever, with the
-  // screen stuck on "Getting tonight's list…" the whole time.
+  // screen stuck on "Getting the list…" the whole time.
   const wasOffline = useRef(false);
   useEffect(() => {
     const cameBack = wasOffline.current && outbox.online;
@@ -456,6 +458,20 @@ export function AttendanceView({
   );
 
   const present = useMemo(() => new Set(data ? data.here.keys() : []), [data]);
+
+  // The Paid view, by household, so its rows add up to the header's figure.
+  const paidByHousehold = useMemo(
+    () =>
+      data
+        ? householdsThatPaid({
+            members: data.members,
+            present,
+            cashFor: (principalId) => cashTonight(data.cash, principalId),
+            nameOf: (principalId) => data.households.get(principalId)?.name ?? 'A household',
+          })
+        : [],
+    [data, present],
+  );
 
   const paidHouseholds = useMemo(
     () => (data ? householdsWhoPaid(data.cash) : new Set<string>()),
@@ -669,7 +685,7 @@ export function AttendanceView({
   if (state.phase === 'loading') {
     return (
       <Screen title={session.groupName}>
-        <p className="text-lg text-neutral-400">Getting tonight's list…</p>
+        <p className="text-lg text-neutral-400">Getting the list…</p>
       </Screen>
     );
   }
@@ -686,6 +702,8 @@ export function AttendanceView({
   const headcount = countHere(data!) + data!.guestsHere.size;
   const collected = moneyCollected(data!.cash, data!.guestPayments);
   const guestRows = guestsToShow(data!.guests, term);
+  const paidGuests =
+    session.pricePence > 0 ? guestsToShow(data!.guests, '').filter((guest) => data!.guestsHere.has(guest.id)) : [];
   const caveat = moneyCaveat({
     pending: outbox.pending,
     online: outbox.online,
@@ -695,7 +713,20 @@ export function AttendanceView({
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col">
       <header className="sticky top-0 z-20 border-b border-neutral-800 bg-black">
         <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
-          <h1 className="min-w-0 truncate text-xl font-bold">{session.groupName}</h1>
+          {/* The way back, always in reach. An app on an iPhone's home screen
+              has no back button, and a Done at the foot of the list was under
+              313 names on Everyone. */}
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to the session list"
+              className="-ml-3 flex size-11 shrink-0 items-center justify-center rounded-full text-3xl leading-none text-neutral-300 active:bg-neutral-800"
+            >
+              <span aria-hidden="true">‹</span>
+            </button>
+          )}
+          <h1 className="min-w-0 flex-1 truncate text-xl font-bold">{session.groupName}</h1>
           <div className="flex shrink-0 items-center gap-3">
             <SyncStatus status={syncStatus({ pending: outbox.pending, online: outbox.online })} />
             <p className="text-sm text-neutral-400">
@@ -714,9 +745,13 @@ export function AttendanceView({
         <div role="radiogroup" aria-label="Show" className="grid grid-cols-6 gap-1 p-2">
           {(
             [
+              // Each figure is about tonight. Everyone's would be the size of
+              // the club, which says nothing at the gate, so it shows what the
+              // view is for instead; Guests counts tonight's, not every guest
+              // on file.
               ['usuals', 'Usuals', String(usuals.size)],
-              ['everyone', 'Everyone', String(data!.members.length)],
-              ['guests', 'Guests', String(data!.guests.length)],
+              ['everyone', 'Everyone', <SearchIcon />],
+              ['guests', 'Guests', String(data!.guestsHere.size)],
             ] as const
           ).map(([option, label, count]) => (
             <ViewChoice
@@ -842,7 +877,33 @@ export function AttendanceView({
               problem={guestProblem}
             />
           </div>
-        ) : rows.length > 0 ? (
+        ) : view === 'paid' && (paidByHousehold.length > 0 || paidGuests.length > 0) ? (
+          <ul className="-mx-4 pb-6">
+            {paidByHousehold.map((household) => (
+              <PaidHouseholdRow
+                key={household.principalId}
+                household={household}
+                onCash={() => setCashFor(household.anyMember)}
+              />
+            ))}
+            {/* A guest's money is on their own sign-in, so each is a row of
+                their own, and the rows still add up to the header. */}
+            {paidGuests.map((guest) => (
+              <li key={guest.id} className="flex items-stretch border-b border-neutral-800">
+                <div className="flex min-h-[76px] min-w-0 flex-1 flex-col justify-center px-4 py-3">
+                  <span className="block truncate text-lg leading-tight">
+                    <span className="font-bold tracking-wide uppercase">{guest.surname}</span>, {guest.firstName}
+                  </span>
+                  <span className="block text-sm text-neutral-400">Guest</span>
+                </div>
+                <div className="flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-neutral-800 leading-none">
+                  <span className="text-base font-bold text-amber">{cashLabel(session.pricePence)}</span>
+                  <span className="mt-1 block text-[11px] tracking-wider text-neutral-400 uppercase">paid</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : view !== 'paid' && rows.length > 0 ? (
           <ul className="-mx-4 pb-6">
             {rows.map((member) => (
               <RunnerRow
@@ -866,7 +927,7 @@ export function AttendanceView({
                   ? 'Nobody has handed anything over yet.'
                   : term
                     ? `Nobody matches "${term}". Guests are not in this list yet.`
-                    : 'Nobody is on tonight’s list. Try Everyone, or assign the squad on the website.'}
+                    : 'Nobody is on this session’s list yet. Try Everyone, or assign the squad on the website.'}
             </Note>
           </div>
         )}
@@ -884,13 +945,6 @@ export function AttendanceView({
         )}
       </div>
 
-      {onBack && (
-        <div className="mt-auto px-4 pt-4 pb-6">
-          <BigButton tone="quiet" onClick={onBack}>
-            Done
-          </BigButton>
-        </div>
-      )}
     </div>
   );
 }
@@ -912,7 +966,7 @@ function ViewChoice({
   onChoose,
 }: {
   label: string;
-  figure: string;
+  figure: ReactNode;
   chosen: boolean;
   large?: boolean;
   accent?: boolean;
@@ -940,6 +994,26 @@ function ViewChoice({
         {label}
       </span>
     </button>
+  );
+}
+
+/** Everyone's figure: the view is for finding anybody, so it says so. */
+function SearchIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+      className="mx-auto my-[3px]"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-4-4" />
+    </svg>
   );
 }
 

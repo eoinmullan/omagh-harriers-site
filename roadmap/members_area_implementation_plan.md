@@ -480,7 +480,7 @@ regardless — but the guard was not doing the job it was written to do.
 
 ### Member-facing
 
-- [ ] Training history in the members' area — which sessions each member of the household attended and when. The original goal for this area was a member checking their credit *and* when they trained; Phase 4 shipped the credit half, and the RLS planned above already allows the other, but no page was ever listed for it
+- [x] Training history in the members' area — which sessions each member of the household attended and when. `/members/training`, linked from the members' area under the credit card: a section per member, the 20 most recent sessions each, read on the member's own session under RLS. The original goal for this area was a member checking their credit *and* when they trained; Phase 4 shipped the credit half, and the RLS planned above already allows the other, but no page was ever listed for it
 
 ### The Usuals — who the registrar actually sees
 

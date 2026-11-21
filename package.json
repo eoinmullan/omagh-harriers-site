@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter @omagh/site dev",
     "build": "pnpm -r build",
+    "build:deploy": "pnpm -r typecheck && pnpm -r test && pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "preview": "pnpm --filter @omagh/site preview",

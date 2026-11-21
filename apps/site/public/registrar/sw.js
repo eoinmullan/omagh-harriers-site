@@ -98,7 +98,7 @@ self.addEventListener('fetch', (event) => {
 function offlineFallback() {
   return new Response(
     '<!doctype html><meta charset="utf-8"><title>Offline</title>' +
-      '<body style="background:#0b1120;color:#f8fafc;font:1rem system-ui;padding:2rem">' +
+      '<body style="background:#000000;color:#f8fafc;font:1rem system-ui;padding:2rem">' +
       '<h1>No signal, and nothing saved yet</h1>' +
       '<p>Open this once with a connection and it will work without one afterwards.</p>',
     { headers: { 'Content-Type': 'text/html; charset=utf-8' } },

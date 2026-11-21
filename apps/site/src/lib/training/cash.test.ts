@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  describeCashChange,
   appendDigit,
   cashTonight,
   dropDigit,
@@ -214,5 +215,31 @@ describe('dropDigit', () => {
 
   it('undoes an append', () => {
     expect(dropDigit(appendDigit(250, '7'))).toBe(250);
+  });
+});
+
+describe('describeCashChange', () => {
+  it('records the first money handed over', () => {
+    expect(describeCashChange(0, 1000)).toBe('Record £10');
+  });
+
+  it('describes a correction upwards as a change to the total, not more money taken', () => {
+    expect(describeCashChange(500, 1000)).toBe('Change £5 to £10');
+  });
+
+  it('describes a correction downwards the same way, not as money given back', () => {
+    expect(describeCashChange(1000, 500)).toBe('Change £10 to £5');
+  });
+
+  it('removes what was recorded when the total goes to nothing', () => {
+    expect(describeCashChange(500, 0)).toBe('Remove the £5');
+  });
+
+  it('keeps the pence on an amount that is not round', () => {
+    expect(describeCashChange(500, 750)).toBe('Change £5 to £7.50');
+  });
+
+  it('says so when nothing would change', () => {
+    expect(describeCashChange(500, 500)).toBe('No change');
   });
 });

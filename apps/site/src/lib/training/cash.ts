@@ -1,3 +1,4 @@
+import { cashLabel } from '../credits/cash-label';
 import type { CreditTransactionInsert, CreditTransactionType } from '../supabase/types';
 
 // Money handed over at the track.
@@ -118,4 +119,22 @@ export function appendDigit(pence: number, digit: string): number {
 /** The backspace: the last digit falls off the right. */
 export function dropDigit(pence: number): number {
   return Math.floor(pence / 10);
+}
+
+/**
+ * What the cash sheet's save button says.
+ *
+ * The sheet edits the total a household has handed over tonight, so the
+ * button describes the change to that total. It used to describe the
+ * difference as something done at the gate, "Take £5" or "Give back £5", which
+ * is wrong whenever the change is a correction: a £5 typed as the £10 that was
+ * actually handed over isn't another £5 taken. The sheet can't tell a
+ * correction from more money changing hands, so it says what will be recorded
+ * and leaves what happened to the registrar, who saw it.
+ */
+export function describeCashChange(currentPence: number, targetPence: number): string {
+  if (targetPence === currentPence) return 'No change';
+  if (currentPence === 0) return `Record ${cashLabel(targetPence)}`;
+  if (targetPence === 0) return `Remove the ${cashLabel(currentPence)}`;
+  return `Change ${cashLabel(currentPence)} to ${cashLabel(targetPence)}`;
 }

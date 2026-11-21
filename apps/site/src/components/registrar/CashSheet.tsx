@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cashLabel } from '../../lib/credits/cash-label';
 import { formatPounds } from '../../lib/credits/money';
-import { appendDigit, dropDigit, QUICK_AMOUNTS_PENCE } from '../../lib/training/cash';
+import { appendDigit, describeCashChange, dropDigit, QUICK_AMOUNTS_PENCE } from '../../lib/training/cash';
 
 // What happens when a cash cell is tapped.
 //
@@ -96,8 +96,8 @@ export function CashSheet({
         </p>
         <p className="mt-1 text-center text-sm text-neutral-400">
           {currentPence > 0
-            ? `Handed over tonight: ${cashLabel(currentPence)}`
-            : 'Nothing handed over yet tonight'}
+            ? `Recorded so far tonight: ${cashLabel(currentPence)}`
+            : 'Nothing recorded yet tonight'}
         </p>
 
         {/* The usual amounts are the big buttons: nearly everything handed over
@@ -174,19 +174,10 @@ export function CashSheet({
             onClick={() => onSave(pence)}
             className="min-h-14 flex-2 rounded-xl bg-neutral-100 text-lg font-semibold text-black active:bg-neutral-300 disabled:opacity-40"
           >
-            {describeSave(currentPence, pence)}
+            {describeCashChange(currentPence, pence)}
           </button>
         </div>
       </div>
     </div>
   );
-}
-
-// The button says what it is about to do, so nothing has to be carried in the
-// registrar's head between tapping an amount and tapping save.
-function describeSave(currentPence: number, targetPence: number): string {
-  if (targetPence === currentPence) return 'No change';
-  if (targetPence === 0) return `Give back ${cashLabel(currentPence)}`;
-  if (targetPence > currentPence) return `Take ${cashLabel(targetPence - currentPence)}`;
-  return `Give back ${cashLabel(currentPence - targetPence)}`;
 }

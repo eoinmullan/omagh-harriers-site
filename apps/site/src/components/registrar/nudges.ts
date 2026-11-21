@@ -12,13 +12,19 @@ import { NUDGE_EVENT } from '../../lib/training/nudge';
 export async function sendNudges(supabase: SupabaseBrowserClient, channels: string[]): Promise<void> {
   await Promise.all(
     channels.map(async (name) => {
+      // supabase.channel() hands back the channel this phone is already
+      // listening on when there is one by that name. Removing it after sending
+      // used to unsubscribe the phone from its own session, so a phone stopped
+      // hearing the other one the first time it sent a nudge itself. Only a
+      // channel opened here just to send is tidied away.
+      const alreadyListening = supabase.getChannels().some((open) => open.topic === `realtime:${name}`);
       const channel = supabase.channel(name);
       try {
         await channel.httpSend(NUDGE_EVENT, {});
       } catch {
         // Missed. The poll covers it.
       } finally {
-        void supabase.removeChannel(channel);
+        if (!alreadyListening) void supabase.removeChannel(channel);
       }
     }),
   );

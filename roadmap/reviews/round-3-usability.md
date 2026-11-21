@@ -7,6 +7,10 @@ From the user's own usability test, run against the live site on 20 November
 The guiding note: **use established UI patterns rather than inventing new
 ones.** Each fix below says which pattern it uses.
 
+## Summary
+
+**Every item is done**, except the app icon, which is on hold, on the branch `usability-round`. Nothing is merged or deployed, and no migrations were added. The tests (483) and `astro check` pass. Every screen was checked in the browser without writing any data. Decisions and questions are at the end.
+
 ## Progress
 
 Ticked as each one lands, in the order they're tackled.
@@ -65,11 +69,16 @@ Ticked as each one lands, in the order they're tackled.
 - **Done and browser back** are the same move. After either, the single session on tonight no longer opens itself, so the home screen stays reachable.
 - **The manifest `short_name`** is now "Harriers Sign-in" too. Android may truncate it under the icon.
 
+- **Five views** are one radio group in two rows: Usuals, Everyone, Guests on top, then Signed in and Paid with their figures. One is always chosen and nothing combines. The search box appears on Everyone only. "Here" and "money collected" are now "Signed in" and "Paid". The rule is `NightView` and `rosterToShow` in `training/usuals.ts`.
+- **Cash sheet:** £2, £5, £10 and £20 are large amber buttons in two columns, filled when chosen. The keypad sits below them, smaller, under "Other amount". This is the usual tip or donation pattern.
+- **Past sessions** covers the last 14 days, newest first, without called-off sessions (`pastSessionsWindow` in `training/tonight.ts`). A past session opens the same screen as tonight's, with its date in the header. It needs a signal and isn't cached offline, since a next-day fix happens with signal. No migration was needed, because nothing in RLS limits writes by date.
+- **Back and Done** step through the screens: a session goes back to the list it was opened from, Past sessions goes back to Tonight.
+- **New-session dialog** needed `m-auto`, because Tailwind's reset removes a dialog's centring. Caught in the browser this morning.
+
 ## Questions for the morning
 
-- **Not checked in the browser.** The sign-in in the browser pane had lapsed, so none of tonight's screens were seen. Everything passes `astro check` and the tests (478). The history query was run read-only against the database and works. Please sign in again so they can be checked.
-- **Still to do:** the five-way view, cash sheet presets, and Past sessions on the home screen.
-
-## Questions for the morning
-
-(Filled in as the work goes.)
+- **Past sessions reach 14 days back.** Is that the right window, or should a registrar reach further?
+- **Logging a past night writes now-dated ledger rows against an old session.** That's correct for the ledger, which is append-only and records when the entry was made. A statement will show the entry under today's date, though, naming the session. Is that acceptable?
+- **The installed app's name** is "Harriers Sign-in" for both the long and short names. Android may cut it to "Harriers Si…" under the icon. A shorter `short_name`, such as "Sign-in", avoids that.
+- **Seen in the browser:** the admin dialog, the households filters, training times, member history, and the registrar home, Past sessions, five views, cash sheet and back navigation. To avoid writing test data, nothing was ticked or saved, and no session was created.
+- **Dev server:** its served dep hash (`871913e0`) doesn't match the cache on disk (`5a04923f`). The island still rendered, only slowly. If it goes blank, restart the dev server.

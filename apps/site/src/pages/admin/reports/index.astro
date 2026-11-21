@@ -1,0 +1,47 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+// Three reports, each answering a question the committee asks. The figures for
+// a single session, and every household's balance, already live on the
+// Sessions and Households screens, so they aren't repeated here.
+
+const reports = [
+  {
+    href: '/admin/reports/attendance',
+    title: 'Attendance by week',
+    summary: 'Sessions run and people at them, week by week and squad by squad.',
+  },
+  {
+    href: '/admin/reports/money',
+    title: 'Money',
+    summary: 'Cash taken, handed back and recorded over a range of days, and who recorded it.',
+  },
+  {
+    href: '/admin/reports/day',
+    title: 'Day report',
+    summary: 'Every session on one date together: how did Monday go?',
+  },
+];
+---
+
+<AdminLayout section="reports" title="Reports">
+  <h1 class="text-3xl font-bold mb-2">Reports</h1>
+  <p class="text-gray-500 mb-8">
+    Each report can be downloaded as a CSV. One session's figures are on its page under
+    <a href="/admin/sessions" class="underline">Sessions</a>, and balances are on
+    <a href="/admin/households" class="underline">Households</a>.
+  </p>
+
+  <ul class="space-y-3">
+    {
+      reports.map((report) => (
+        <li>
+          <a href={report.href} class="block border border-gray-200 rounded-lg px-5 py-4 hover:border-gray-400 transition-colors">
+            <span class="block font-semibold">{report.title} &rarr;</span>
+            <span class="block text-sm text-gray-500 mt-0.5">{report.summary}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</AdminLayout>

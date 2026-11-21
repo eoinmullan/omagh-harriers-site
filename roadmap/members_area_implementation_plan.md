@@ -689,17 +689,17 @@ round trip per opening of the app, in the only case that needs it.
 
 A read-only reporting area inside `/admin` for committee operational needs. No new tables — these are queries and views over `members`, `credit_transactions`, `training_sessions`, `groups`, `guests`, and `attendance`.
 
-- [ ] Create `src/pages/admin/reports.astro` — index page linking to the reports below
-- [ ] Attendance by session — pick a session, see who attended and who didn't
-- [ ] Attendance by group — headcounts and trends per squad, which is the question the group field makes answerable
-- [ ] Attendance by member — pick a member + date range, see all sessions attended
-- [ ] Member balances — current snapshot, with a sub-list of members in arrears (negative balance)
-- [ ] Top-up summary — totals over a date range, split by method (cash only until card payment is unparked)
-- [ ] Session summary — sessions per week, headcounts, trends over time
-- [ ] **Session report** — one session on a page: who attended, what was charged, what cash was taken, and who recorded each entry
-- [ ] **Day report** — every session on a given date rolled together, which is how a committee member actually asks the question ("how did Monday go?")
-- [ ] CSV export on each report
-- [ ] Gate `/admin/reports` to `role IN ('admin', 'superuser')` in middleware (already covered by `/admin/*` rule)
+- [x] Create `src/pages/admin/reports.astro` — index page linking to the reports below. `/admin/reports`, a **Reports** tab in the admin area. Three reports were built; the rest were already answered by existing screens, as marked below
+- [~] Attendance by session — **who attended is `/admin/sessions/[id]`**. Who didn't (absent Usuals) isn't built, because nobody has asked for it yet
+- [x] Attendance by group — headcounts and trends per squad. `/admin/reports/attendance`: week by week, a column per squad
+- [~] Attendance by member — **the member's admin page lists their 20 most recent sessions**, and a household sees the same at `/members/training`. No date range, because nobody has asked for it yet
+- [x] Member balances — **already `/admin/households`**: a sortable balance column, the Overdrawn and In credit filters, and the club float
+- [x] Top-up summary — `/admin/reports/money`: cash at training, guest payments, money handed back, and cash an admin recorded, by kind and by who recorded it. The cash rule is `session-cash.ts`'s
+- [x] Session summary — the same report as attendance by group, whose All squads column is sessions and headcount per week
+- [x] **Session report** — **already `/admin/sessions/[id]`**, which shows all four
+- [x] **Day report** — every session on a given date rolled together, which is how a committee member actually asks the question ("how did Monday go?")
+- [x] CSV export on each report — on the three new ones, as `?format=csv` on the same URL
+- [x] Gate `/admin/reports` to `role IN ('admin', 'superuser')` in middleware (already covered by `/admin/*` rule)
 
 ---
 

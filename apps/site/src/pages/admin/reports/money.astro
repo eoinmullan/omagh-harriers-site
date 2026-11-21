@@ -1,0 +1,189 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ReportRangeForm from '../../../components/admin/ReportRangeForm.astro';
+import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { everyRow } from '../../../lib/supabase/every-row';
+import { formatBalance } from '../../../lib/credits/money';
+import { clubDayKey, formatClubDate } from '../../../lib/training/club-time';
+import { ledgerMoneyKind, summariseMoney, type MoneyEntry } from '../../../lib/reports/money';
+import { reportRange, startOfMonth } from '../../../lib/reports/range';
+import { csvResponse, poundsCell, toCsv } from '../../../lib/reports/csv';
+import type { CreditTransactionType } from '../../../lib/supabase/types';
+
+// This month so far, unless a range is asked for.
+const asked = { from: Astro.url.searchParams.get('from'), to: Astro.url.searchParams.get('to') };
+const thisMonth = startOfMonth(clubDayKey(new Date()));
+const request = reportRange({ from: asked.from ?? thisMonth, to: asked.to, defaultDays: 1 });
+
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+const MONEY_TYPES: CreditTransactionType[] = ['top_up_cash', 'refund'];
+
+type Line = MoneyEntry & { on: string; household: string; session: string };
+let lines: Line[] = [];
+
+if ('range' in request) {
+  const { fromInstant, untilInstant } = request.range;
+
+  const [atSessions, awayFromTraining, guests] = await Promise.all([
+    // Taken at a session, dated by the session.
+    everyRow((from, to) =>
+      adminClient
+        .from('credit_transactions')
+        .select('id, type, amount_pence, household:principals!principal_id(display_name), recorder:principals!created_by(display_name), session:session_id!inner(starts_at, group:group_id(name))')
+        .in('type', MONEY_TYPES)
+        .gte('session.starts_at', fromInstant)
+        .lt('session.starts_at', untilInstant)
+        .order('id')
+        .range(from, to),
+    ),
+    // Recorded by an admin away from training, dated when it was recorded.
+    everyRow((from, to) =>
+      adminClient
+        .from('credit_transactions')
+        .select('id, type, amount_pence, created_at, household:principals!principal_id(display_name), recorder:principals!created_by(display_name)')
+        .in('type', MONEY_TYPES)
+        .is('session_id', null)
+        .gte('created_at', fromInstant)
+        .lt('created_at', untilInstant)
+        .order('id')
+        .range(from, to),
+    ),
+    // What guests paid on the night, which lives on their attendance row.
+    everyRow((from, to) =>
+      adminClient
+        .from('attendance')
+        .select('id, amount_paid_pence, guest:guest_id(first_name, surname), recorder:recorded_by(display_name), session:session_id!inner(starts_at, group:group_id(name))')
+        .not('guest_id', 'is', null)
+        .not('amount_paid_pence', 'is', null)
+        .gte('session.starts_at', fromInstant)
+        .lt('session.starts_at', untilInstant)
+        .order('id')
+        .range(from, to),
+    ),
+  ]);
+
+  type Named = { display_name: string } | null;
+  type AtSessionRow = {
+    id: string;
+    type: CreditTransactionType;
+    amount_pence: number;
+    household: Named;
+    recorder: Named;
+    session: { starts_at: string; group: { name: string } | null };
+  };
+  type AwayRow = { id: string; type: CreditTransactionType; amount_pence: number; created_at: string; household: Named; recorder: Named };
+  type GuestRow = {
+    id: string;
+    amount_paid_pence: number | null;
+    guest: { first_name: string; surname: string } | null;
+    recorder: Named;
+    session: { starts_at: string; group: { name: string } | null };
+  };
+
+  const sessionLabel = (session: AtSessionRow['session']) => session.group?.name ?? 'Session';
+
+  lines = [
+    ...(atSessions satisfies AtSessionRow[]).flatMap((row) => {
+      const kind = ledgerMoneyKind(row.type, true);
+      return kind
+        ? [{ kind, amountPence: row.amount_pence, recordedBy: row.recorder?.display_name ?? null, on: row.session.starts_at, household: row.household?.display_name ?? '', session: sessionLabel(row.session) }]
+        : [];
+    }),
+    ...(awayFromTraining satisfies AwayRow[]).flatMap((row) => {
+      const kind = ledgerMoneyKind(row.type, false);
+      return kind
+        ? [{ kind, amountPence: row.amount_pence, recordedBy: row.recorder?.display_name ?? null, on: row.created_at, household: row.household?.display_name ?? '', session: '' }]
+        : [];
+    }),
+    ...(guests satisfies GuestRow[]).map((row) => ({
+      kind: 'guest payments' as const,
+      amountPence: row.amount_paid_pence ?? 0,
+      recordedBy: row.recorder?.display_name ?? null,
+      on: row.session.starts_at,
+      household: row.guest ? `${row.guest.first_name} ${row.guest.surname} (guest)` : 'Guest',
+      session: sessionLabel(row.session),
+    })),
+  ].sort((a, b) => a.on.localeCompare(b.on));
+}
+
+if ('range' in request && Astro.url.searchParams.get('format') === 'csv') {
+  const { fromDay, toDay } = request.range;
+  return csvResponse(
+    `money-${fromDay}-to-${toDay}.csv`,
+    toCsv(
+      ['Date', 'Kind', 'Session', 'Household or guest', 'Amount', 'Recorded by'],
+      lines.map((line) => [clubDayKey(line.on), line.kind, line.session, line.household, poundsCell(line.amountPence), line.recordedBy]),
+    ),
+  );
+}
+
+const summary = summariseMoney(lines);
+const dates = 'range' in request
+  ? { from: request.range.fromDay, to: request.range.toDay }
+  : { from: asked.from ?? '', to: asked.to ?? '' };
+const csvHref = `?from=${dates.from}&to=${dates.to}&format=csv`;
+
+function sentenceCase(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+---
+
+<AdminLayout
+  section="reports"
+  title="Money"
+  breadcrumb={[{ label: 'Reports', href: '/admin/reports' }, { label: 'Money' }]}
+>
+  <h1 class="text-3xl font-bold mb-2">Money</h1>
+  <p class="text-gray-500 mb-6">
+    Cash taken and handed back. Money taken at a session counts on the session's date, even if it
+    was entered later. Money an admin recorded away from training counts on the day it was recorded.
+    A session's £2 charge comes out of credit already paid, so it isn't counted again here.
+  </p>
+
+  <ReportRangeForm dates={dates} csvHref={csvHref} problem={'problem' in request ? request.problem : undefined} />
+
+  {
+    'range' in request && (lines.length === 0 ? (
+      <p class="text-sm text-gray-500">
+        No money was recorded between {formatClubDate(`${request.range.fromDay}T12:00:00Z`)} and {formatClubDate(`${request.range.toDay}T12:00:00Z`)}.
+      </p>
+    ) : (
+      <div class="grid gap-8 md:grid-cols-2">
+        <section>
+          <h2 class="text-lg font-semibold mb-3">By kind</h2>
+          <table class="w-full text-sm">
+            <tbody>
+              {summary.byKind.map((line) => (
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4">
+                    {sentenceCase(line.kind)}
+                    <span class="text-gray-500"> · {line.entries} {line.entries === 1 ? 'entry' : 'entries'}</span>
+                  </td>
+                  <td class="py-2 text-right tabular-nums">{formatBalance(line.totalPence)}</td>
+                </tr>
+              ))}
+              <tr>
+                <td class="py-2 pr-4 font-semibold">Net</td>
+                <td class="py-2 text-right tabular-nums font-semibold">{formatBalance(summary.totalPence)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2 class="text-lg font-semibold mb-3">By who recorded it</h2>
+          <table class="w-full text-sm">
+            <tbody>
+              {summary.byRecorder.map((line) => (
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4">{line.recordedBy}</td>
+                  <td class="py-2 text-right tabular-nums">{formatBalance(line.totalPence)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </div>
+    ))
+  }
+</AdminLayout>

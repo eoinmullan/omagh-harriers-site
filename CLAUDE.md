@@ -753,6 +753,32 @@ back either a row to write or one sentence to show the admin.
   A `datetime-local` of `19:00` on a July evening is 18:00 UTC; storing it as 19:00Z
   would put every screen an hour out of step with the people on the track
 
+## Reports
+
+`/admin/reports` holds three reports: attendance by week, money over a date
+range, and a day report. Each is a GET form, so a report is a URL that can be
+bookmarked or sent, and `?format=csv` on the same URL downloads it. One
+session's figures and every household's balance were already on the Sessions
+and Households screens, so the reports don't repeat them.
+
+The rules are in `lib/reports/` and unit tested, like everything else.
+
+- **A range is whole days on Omagh's calendar** (`range.ts`). A week starts on
+  Monday
+- **Money uses `session-cash.ts`'s rule**: cash top-ups, less refunds, plus
+  what guests paid. Money taken at a session is dated by the session, so a
+  night put right from Past sessions lands on the night. Money an admin
+  recorded away from training is dated when it was recorded
+- **A long range is filtered through the join**
+  (`session:session_id!inner(starts_at)` with `.gte('session.starts_at', …)`),
+  not an `.in()` list of session ids, which would outgrow the URL
+- **A CSV text cell starting with `=`, `+`, `-` or `@` gets an apostrophe**,
+  so a typed name can't run as a spreadsheet formula. Amounts go through
+  `poundsCell`, which keeps them as numbers
+- **`astro check` reports the CSV imports as unused**, for the same reason it
+  flags `redirectAfterPost`: the CSV is returned from inside the frontmatter.
+  Don't remove them
+
 ## Roles
 
 **The trust model: registrars and admins are trusted volunteers.** A registrar

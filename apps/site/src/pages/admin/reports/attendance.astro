@@ -1,0 +1,163 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ReportRangeForm from '../../../components/admin/ReportRangeForm.astro';
+import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { everyRow } from '../../../lib/supabase/every-row';
+import { clubDayKey, formatClubDate, formatClubTime } from '../../../lib/training/club-time';
+import { countHeads, type SessionAttendanceRow } from '../../../lib/training/session-cash';
+import { headsIn, weeklyAttendance, type ReportedSession } from '../../../lib/reports/attendance';
+import { reportRange } from '../../../lib/reports/range';
+import { csvResponse, toCsv } from '../../../lib/reports/csv';
+
+const TWELVE_WEEKS = 84;
+
+const request = reportRange({
+  from: Astro.url.searchParams.get('from'),
+  to: Astro.url.searchParams.get('to'),
+  defaultDays: TWELVE_WEEKS,
+});
+
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+
+let sessions: (ReportedSession & { id: string })[] = [];
+
+if ('range' in request) {
+  const { fromInstant, untilInstant } = request.range;
+
+  // The attendance is filtered on its session's date through the join, so a
+  // long range never becomes a long list of session ids in the URL.
+  const [sessionRows, attendanceRows] = await Promise.all([
+    everyRow((from, to) =>
+      adminClient
+        .from('training_sessions')
+        .select('id, starts_at, is_cancelled, group:group_id(name)')
+        .gte('starts_at', fromInstant)
+        .lt('starts_at', untilInstant)
+        .order('id')
+        .range(from, to),
+    ),
+    everyRow((from, to) =>
+      adminClient
+        .from('attendance')
+        .select('id, session_id, member_id, guest_id, amount_paid_pence, recorded_by, session:session_id!inner(starts_at)')
+        .gte('session.starts_at', fromInstant)
+        .lt('session.starts_at', untilInstant)
+        .order('id')
+        .range(from, to),
+    ),
+  ]);
+
+  const attendanceBySession = new Map<string, SessionAttendanceRow[]>();
+  for (const row of attendanceRows) {
+    attendanceBySession.set(row.session_id, [
+      ...(attendanceBySession.get(row.session_id) ?? []),
+      { memberId: row.member_id, guestId: row.guest_id, amountPaidPence: row.amount_paid_pence, recordedBy: row.recorded_by },
+    ]);
+  }
+
+  type SessionRow = { id: string; starts_at: string; is_cancelled: boolean; group: { name: string } | null };
+
+  sessions = (sessionRows satisfies SessionRow[])
+    .map((row) => ({
+      id: row.id,
+      startsAt: row.starts_at,
+      squad: row.group?.name ?? 'No squad',
+      isCancelled: row.is_cancelled,
+      heads: countHeads(attendanceBySession.get(row.id) ?? []),
+    }))
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+}
+
+if ('range' in request && Astro.url.searchParams.get('format') === 'csv') {
+  const { fromDay, toDay } = request.range;
+  const rows = sessions
+    .filter((session) => !session.isCancelled)
+    .map((session) => [
+      clubDayKey(session.startsAt),
+      formatClubTime(session.startsAt),
+      session.squad,
+      session.heads.members,
+      session.heads.guests,
+      session.heads.total,
+    ]);
+  return csvResponse(
+    `attendance-${fromDay}-to-${toDay}.csv`,
+    toCsv(['Date', 'Time', 'Squad', 'Members', 'Guests', 'Total'], rows),
+  );
+}
+
+const report = weeklyAttendance(sessions);
+const dates = 'range' in request ? { from: request.range.fromDay, to: request.range.toDay } : {
+  from: Astro.url.searchParams.get('from') ?? '',
+  to: Astro.url.searchParams.get('to') ?? '',
+};
+const csvHref = `?from=${dates.from}&to=${dates.to}&format=csv`;
+
+function weekLabel(monday: string): string {
+  return `w/c ${formatClubDate(`${monday}T12:00:00Z`)}`;
+}
+---
+
+<AdminLayout
+  section="reports"
+  title="Attendance by week"
+  breadcrumb={[{ label: 'Reports', href: '/admin/reports' }, { label: 'Attendance by week' }]}
+>
+  <h1 class="text-3xl font-bold mb-2">Attendance by week</h1>
+  <p class="text-gray-500 mb-6">
+    Each cell is the people signed in, members and guests together, with the number of sessions
+    under it. Called-off sessions are left out.
+  </p>
+
+  <ReportRangeForm dates={dates} csvHref={csvHref} problem={'problem' in request ? request.problem : undefined} />
+
+  {
+    'range' in request && (report.weeks.length === 0 ? (
+      <p class="text-sm text-gray-500">No sessions ran in these dates.</p>
+    ) : (
+      <>
+        <p class="text-sm text-gray-600 mb-4">
+          {report.total.sessions} {report.total.sessions === 1 ? 'session' : 'sessions'}, {headsIn(report.total)} sign-ins
+          ({report.total.members} {report.total.members === 1 ? 'member' : 'members'}, {report.total.guests} {report.total.guests === 1 ? 'guest' : 'guests'}).
+        </p>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 text-left text-gray-500">
+                <th class="py-2 pr-4 font-medium">Week</th>
+                {report.squads.map((squad) => <th class="py-2 pr-4 font-medium text-right">{squad}</th>)}
+                <th class="py-2 font-medium text-right">All squads</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.weeks.map((week) => (
+                <tr class="border-b border-gray-100">
+                  <td class="py-2 pr-4 whitespace-nowrap">{weekLabel(week.weekStarting)}</td>
+                  {report.squads.map((squad) => {
+                    const cell = week.bySquad.get(squad);
+                    return (
+                      <td class="py-2 pr-4 text-right tabular-nums">
+                        {cell ? (
+                          <>
+                            <span class="block font-medium">{headsIn(cell)}</span>
+                            <span class="block text-xs text-gray-500">{cell.sessions} {cell.sessions === 1 ? 'session' : 'sessions'}</span>
+                          </>
+                        ) : (
+                          <span class="text-gray-400">—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td class="py-2 text-right tabular-nums">
+                    <span class="block font-semibold">{headsIn(week.total)}</span>
+                    <span class="block text-xs text-gray-500">{week.total.sessions} {week.total.sessions === 1 ? 'session' : 'sessions'}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    ))
+  }
+</AdminLayout>

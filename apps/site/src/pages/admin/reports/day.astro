@@ -1,0 +1,216 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ReportRangeForm from '../../../components/admin/ReportRangeForm.astro';
+import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
+import { everyRow } from '../../../lib/supabase/every-row';
+import { formatBalance } from '../../../lib/credits/money';
+import { formatClubDate, formatClubTime } from '../../../lib/training/club-time';
+import {
+  countHeads,
+  summariseSessionCash,
+  type SessionAttendanceRow,
+  type SessionLedgerRow,
+} from '../../../lib/training/session-cash';
+import { rollUpDay } from '../../../lib/reports/day';
+import { addDays, singleDay } from '../../../lib/reports/range';
+import { csvResponse, poundsCell, toCsv } from '../../../lib/reports/csv';
+import type { CreditTransactionType } from '../../../lib/supabase/types';
+
+const request = singleDay({ day: Astro.url.searchParams.get('day') });
+const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+
+type DayRow = {
+  id: string;
+  startsAt: string;
+  squad: string;
+  note: string | null;
+  isCancelled: boolean;
+  heads: ReturnType<typeof countHeads>;
+  cash: ReturnType<typeof summariseSessionCash>;
+};
+let sessions: DayRow[] = [];
+
+if ('range' in request) {
+  const { fromInstant, untilInstant } = request.range;
+
+  const sessionRows = await everyRow((from, to) =>
+    adminClient
+      .from('training_sessions')
+      .select('id, starts_at, note, is_cancelled, group:group_id(name)')
+      .gte('starts_at', fromInstant)
+      .lt('starts_at', untilInstant)
+      .order('id')
+      .range(from, to),
+  );
+  const ids = sessionRows.map((row) => row.id);
+
+  // A day holds a handful of sessions, so the `.in()` list stays short. The
+  // money rule is session-cash.ts, the same one each session's own page uses.
+  const [attendanceRows, ledgerRows] = ids.length
+    ? await Promise.all([
+        everyRow((from, to) =>
+          adminClient
+            .from('attendance')
+            .select('id, session_id, member_id, guest_id, amount_paid_pence, recorder:recorded_by(display_name)')
+            .in('session_id', ids)
+            .order('id')
+            .range(from, to),
+        ),
+        everyRow((from, to) =>
+          adminClient
+            .from('credit_transactions')
+            .select('id, session_id, type, amount_pence, recorder:principals!created_by(display_name)')
+            .in('session_id', ids)
+            .order('id')
+            .range(from, to),
+        ),
+      ])
+    : [[], []];
+
+  type Named = { display_name: string } | null;
+  type AttendanceRow = { id: string; session_id: string; member_id: string | null; guest_id: string | null; amount_paid_pence: number | null; recorder: Named };
+  type LedgerRow = { id: string; session_id: string | null; type: CreditTransactionType; amount_pence: number; recorder: Named };
+  type SessionRow = { id: string; starts_at: string; note: string | null; is_cancelled: boolean; group: { name: string } | null };
+
+  const attendance = new Map<string, SessionAttendanceRow[]>();
+  for (const row of attendanceRows satisfies AttendanceRow[]) {
+    attendance.set(row.session_id, [
+      ...(attendance.get(row.session_id) ?? []),
+      { memberId: row.member_id, guestId: row.guest_id, amountPaidPence: row.amount_paid_pence, recordedBy: row.recorder?.display_name ?? null },
+    ]);
+  }
+
+  const ledger = new Map<string, SessionLedgerRow[]>();
+  for (const row of ledgerRows satisfies LedgerRow[]) {
+    if (!row.session_id) continue;
+    ledger.set(row.session_id, [
+      ...(ledger.get(row.session_id) ?? []),
+      { type: row.type, amountPence: row.amount_pence, recordedBy: row.recorder?.display_name ?? null },
+    ]);
+  }
+
+  sessions = (sessionRows satisfies SessionRow[])
+    .map((row) => ({
+      id: row.id,
+      startsAt: row.starts_at,
+      squad: row.group?.name ?? 'No squad',
+      note: row.note,
+      isCancelled: row.is_cancelled,
+      heads: countHeads(attendance.get(row.id) ?? []),
+      cash: summariseSessionCash({ ledger: ledger.get(row.id) ?? [], attendance: attendance.get(row.id) ?? [] }),
+    }))
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+}
+
+const ran = sessions.filter((session) => !session.isCancelled);
+const totals = rollUpDay(ran);
+
+if ('range' in request && Astro.url.searchParams.get('format') === 'csv') {
+  return csvResponse(
+    `day-${request.range.fromDay}.csv`,
+    toCsv(
+      ['Time', 'Squad', 'Called off', 'Members', 'Guests', 'Total', 'Money collected'],
+      sessions.map((session) => [
+        formatClubTime(session.startsAt),
+        session.squad,
+        session.isCancelled ? 'Yes' : 'No',
+        session.heads.members,
+        session.heads.guests,
+        session.heads.total,
+        poundsCell(session.cash.totalPence),
+      ]),
+    ),
+  );
+}
+
+const day = 'range' in request ? request.range.fromDay : Astro.url.searchParams.get('day') ?? '';
+const csvHref = `?day=${day}&format=csv`;
+const heading = 'range' in request ? formatClubDate(`${day}T12:00:00Z`) : 'Day report';
+---
+
+<AdminLayout
+  section="reports"
+  title="Day report"
+  breadcrumb={[{ label: 'Reports', href: '/admin/reports' }, { label: 'Day report' }]}
+>
+  <div class="flex flex-wrap items-baseline justify-between gap-3 mb-6">
+    <h1 class="text-3xl font-bold">{heading}</h1>
+    {
+      'range' in request && (
+        <p class="text-sm flex gap-4">
+          <a href={`?day=${addDays(day, -1)}`} class="underline hover:text-gray-600">&larr; Day before</a>
+          <a href={`?day=${addDays(day, 1)}`} class="underline hover:text-gray-600">Day after &rarr;</a>
+        </p>
+      )
+    }
+  </div>
+
+  <ReportRangeForm dates={{ day }} csvHref={csvHref} problem={'problem' in request ? request.problem : undefined} />
+
+  {
+    'range' in request && (sessions.length === 0 ? (
+      <p class="text-sm text-gray-500">No sessions on this day.</p>
+    ) : (
+      <>
+        <div class="grid grid-cols-2 gap-3 mb-8 max-w-md">
+          <div class="bg-gray-50 rounded-lg px-4 py-3">
+            <p class="text-sm text-gray-500">Signed in</p>
+            <p class="text-2xl font-bold">{totals.heads.total}</p>
+            <p class="text-xs text-gray-500">{totals.heads.members} {totals.heads.members === 1 ? 'member' : 'members'} · {totals.heads.guests} {totals.heads.guests === 1 ? 'guest' : 'guests'}</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg px-4 py-3">
+            <p class="text-sm text-gray-500">Money collected</p>
+            <p class="text-2xl font-bold">{formatBalance(totals.cash.totalPence)}</p>
+            <p class="text-xs text-gray-500">{ran.length} {ran.length === 1 ? 'session' : 'sessions'}</p>
+          </div>
+        </div>
+
+        <table class="w-full text-sm mb-8">
+          <thead>
+            <tr class="border-b border-gray-200 text-left text-gray-500">
+              <th class="py-2 pr-4 font-medium">Session</th>
+              <th class="py-2 pr-4 font-medium text-right">Signed in</th>
+              <th class="py-2 font-medium text-right">Money collected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessions.map((session) => (
+              <tr class="border-b border-gray-100">
+                <td class="py-2 pr-4">
+                  <a href={`/admin/sessions/${session.id}`} class:list={['hover:underline', session.isCancelled && 'line-through text-gray-400']}>
+                    <span class="font-medium">{session.squad}</span> · {formatClubTime(session.startsAt)}
+                  </a>
+                  {session.isCancelled && <span class="text-xs text-gray-500 ml-1">called off</span>}
+                  {session.note && <span class="block text-xs text-gray-500">{session.note}</span>}
+                </td>
+                <td class="py-2 pr-4 text-right tabular-nums">
+                  {session.heads.total}
+                  {session.heads.guests > 0 && <span class="text-gray-500"> ({session.heads.guests} {session.heads.guests === 1 ? 'guest' : 'guests'})</span>}
+                </td>
+                <td class="py-2 text-right tabular-nums">{formatBalance(session.cash.totalPence)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {
+          totals.cash.byRecorder.length > 1 && (
+            <section class="max-w-md">
+              <h2 class="text-lg font-semibold mb-3">By who recorded it</h2>
+              <table class="w-full text-sm">
+                <tbody>
+                  {totals.cash.byRecorder.map((line) => (
+                    <tr class="border-b border-gray-100">
+                      <td class="py-2 pr-4">{line.recordedBy}</td>
+                      <td class="py-2 text-right tabular-nums">{formatBalance(line.totalPence)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )
+        }
+      </>
+    ))
+  }
+</AdminLayout>

@@ -1,0 +1,44 @@
+---
+// The date controls every report shares: a range, or a single day, and the
+// same figures as a CSV file. A GET form, so a report is a URL that can be
+// bookmarked or sent to another committee member.
+
+interface Props {
+  /** Both ends of a range, or one day for a report about a single date. */
+  dates: { from: string; to: string } | { day: string };
+  csvHref?: string;
+  problem?: string;
+}
+
+const { dates, csvHref, problem } = Astro.props;
+---
+
+<form method="GET" class="flex flex-wrap items-end gap-3 mb-6">
+  {
+    'day' in dates ? (
+      <label class="text-sm">
+        <span class="block text-gray-600 mb-1">Day</span>
+        <input type="date" name="day" value={dates.day} required class="border border-gray-300 rounded px-2 py-1.5" />
+      </label>
+    ) : (
+      <>
+        <label class="text-sm">
+          <span class="block text-gray-600 mb-1">From</span>
+          <input type="date" name="from" value={dates.from} required class="border border-gray-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="text-sm">
+          <span class="block text-gray-600 mb-1">To</span>
+          <input type="date" name="to" value={dates.to} required class="border border-gray-300 rounded px-2 py-1.5" />
+        </label>
+      </>
+    )
+  }
+  <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors">
+    Show
+  </button>
+  {csvHref && !problem && (
+    <a href={csvHref} class="text-sm underline hover:text-gray-600 py-2">Download CSV</a>
+  )}
+</form>
+
+{problem && <p class="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 mb-6">{problem}</p>}

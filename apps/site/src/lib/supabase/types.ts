@@ -475,6 +475,19 @@ export type Database = {
         Args: { p_attendance_id: string };
         Returns: undefined;
       };
+      // Migration 0023. A guest's tick and untick, by row like a member's.
+      sign_in_guest: {
+        Args: {
+          p_guest_id: string;
+          p_session_id: string;
+          p_attendance_id?: string;
+        };
+        Returns: string;
+      };
+      undo_guest_sign_in: {
+        Args: { p_attendance_id: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

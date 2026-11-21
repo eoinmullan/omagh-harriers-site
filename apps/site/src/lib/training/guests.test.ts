@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { guestsToShow, likelyAlready, planGuestSignIn, planNewGuest, type Guest } from './guests';
+import { guestsToShow, likelyAlready, planNewGuest, type Guest } from './guests';
 
 const kelly: Guest = { id: 'g1', firstName: 'Jack', surname: 'Kelly' };
 const okane: Guest = { id: 'g2', firstName: 'Orla', surname: "O'Kane" };
@@ -22,37 +22,6 @@ describe('guestsToShow', () => {
 
   it('shows everyone when nothing is typed', () => {
     expect(guestsToShow(everyone, '  ')).toHaveLength(3);
-  });
-});
-
-describe('planGuestSignIn', () => {
-  const request = {
-    guestId: 'g1',
-    sessionId: 's1',
-    recordedBy: 'registrar-1',
-    pricePence: 200,
-  };
-
-  it('puts the money on the attendance row, where a guest has no pot', () => {
-    const row = planGuestSignIn(request);
-
-    expect(row.amount_paid_pence).toBe(200);
-    expect(row.guest_id).toBe('g1');
-    expect(row.member_id).toBeNull();
-  });
-
-  it('records nothing rather than zero for a free session', () => {
-    const row = planGuestSignIn({ ...request, pricePence: 0 });
-
-    expect(row.amount_paid_pence).toBeNull();
-  });
-
-  it('keys off the guest and the session, so a retry writes once', () => {
-    expect(planGuestSignIn(request).idempotency_key).toBe('attendance:guest:g1:s1');
-  });
-
-  it('names who took it', () => {
-    expect(planGuestSignIn(request).recorded_by).toBe('registrar-1');
   });
 });
 

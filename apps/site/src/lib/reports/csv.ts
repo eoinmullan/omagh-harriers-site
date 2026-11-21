@@ -1,9 +1,11 @@
 // A report as a CSV file for a spreadsheet.
 //
 // A cell is quoted when it holds a comma, a quote or a line break. A text cell
-// that starts with =, +, - or @ is prefixed with an apostrophe, because a
-// spreadsheet would otherwise run it as a formula, and a name or a note typed
-// into the app is not something to execute. Numbers are written as numbers, so
+// that starts with =, +, -, @, a tab or a carriage return is prefixed with an
+// apostrophe, because a spreadsheet would otherwise run it as a formula, and a
+// name or a note typed into the app is not something to execute. Some programs
+// strip a leading tab or carriage return before deciding, which is why those
+// two are on the list (OWASP's CSV injection guidance). Numbers are written as numbers, so
 // a negative amount stays a number.
 
 export type CsvCell = string | number | null | { pence: number };
@@ -31,6 +33,6 @@ function cell(value: CsvCell): string {
   if (value === null) return '';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'object') return (value.pence / 100).toFixed(2);
-  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }

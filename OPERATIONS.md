@@ -76,6 +76,16 @@ them the same way.
 
 ---
 
+## Applying a migration
+
+Migrations in `supabase/migrations/` are applied to the live project by hand,
+in order, before the code that needs them is pushed. A push deploys straight
+away, and code that calls a function the database doesn't have yet has its
+writes refused. `0023` is one of these: the registrar app's guest ticks call
+`sign_in_guest` and `undo_guest_sign_in`.
+
+---
+
 ## Test data, and clearing it before go-live
 
 Two SQL scripts in `supabase/scripts/`, run in the Supabase **SQL Editor**.

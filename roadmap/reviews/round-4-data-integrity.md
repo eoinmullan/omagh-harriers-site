@@ -18,6 +18,8 @@ than to the ledger.
 
 **Severity: medium-low. Pre-existing, but round 2 is what showed it to be wrong.**
 
+**Fixed, 21 November 2026, by migration `0023`**: `sign_in_guest` and `undo_guest_sign_in`, with the id minted on the phone. Tested against a local copy of the schema: the replayed untick leaves the re-tick and its £2 in place.
+
 `guest_undo` in `queue-sender.ts` deletes by guest and session:
 
 ```ts
@@ -66,6 +68,8 @@ The rule belongs in `guests.ts` and an RPC, unit tested like `0019`'s.
 ## Found in passing: the offline shell can be replaced by a captive portal page
 
 **Severity: medium for the registrar at a track. Resilience, not the ledger.**
+
+**Fixed, 21 November 2026**: both branches cache only `response.ok && !response.redirected`, worker `registrar-v4`.
 
 The service worker's navigation branch caches whatever comes back as the
 offline shell:

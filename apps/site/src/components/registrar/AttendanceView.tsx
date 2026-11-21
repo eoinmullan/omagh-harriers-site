@@ -559,13 +559,14 @@ export function AttendanceView({
 
     const wasHere = data.guestsHere.has(guest.id);
     const paid = session.pricePence > 0 ? session.pricePence : null;
+    const attendanceId = wasHere ? data.guestsHere.get(guest.id) : crypto.randomUUID();
 
     setProblem(null);
     setState((current) => {
       if (current.phase !== 'ready') return current;
       const guestsHere = new Map(current.data.guestsHere);
       if (wasHere) guestsHere.delete(guest.id);
-      else guestsHere.set(guest.id, crypto.randomUUID());
+      else if (attendanceId) guestsHere.set(guest.id, attendanceId);
 
       const guestPayments = wasHere
         ? removeOne(current.data.guestPayments, paid)
@@ -579,11 +580,12 @@ export function AttendanceView({
 
     outbox.add(
       wasHere
-        ? { kind: 'guest_undo', guestId: guest.id, sessionId: session.id }
+        ? { kind: 'guest_undo', guestId: guest.id, sessionId: session.id, attendanceId }
         : {
             kind: 'guest_sign_in',
             guestId: guest.id,
             sessionId: session.id,
+            attendanceId,
             pricePence: session.pricePence,
             recordedBy: data.actorId,
           },

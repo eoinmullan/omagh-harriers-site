@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../supabase/types';
-import { planGuestSignIn } from './guests';
 import { failureFrom, type Failure, type Write } from './queue';
 
 // Turning a queued write into the call that lands it.
@@ -43,22 +42,28 @@ export async function send(
     }
 
     case 'guest_sign_in': {
-      const response = await supabase.from('attendance').upsert(
-        planGuestSignIn({
-          guestId: write.guestId,
-          sessionId: write.sessionId,
-          recordedBy: write.recordedBy,
-          pricePence: write.pricePence,
-        }),
-        { onConflict: 'idempotency_key', ignoreDuplicates: true },
-      );
+      // As a member's tick: the id travels with the write, and if the other
+      // phone got there first the database records what this id now means.
+      const response = await supabase.rpc('sign_in_guest', {
+        p_guest_id: write.guestId,
+        p_session_id: write.sessionId,
+        p_attendance_id: write.attendanceId,
+      });
       return failureFrom(response);
     }
 
     case 'guest_undo': {
-      // By guest and session rather than by row id: the row may have been
-      // written by the other phone at the gate, and this is the same fact
-      // either way.
+      if (write.attendanceId) {
+        // By row, never by guest and session: a retry that lands after the
+        // other phone ticked the guest back in must not delete that sign-in.
+        const response = await supabase.rpc('undo_guest_sign_in', {
+          p_attendance_id: write.attendanceId,
+        });
+        return failureFrom(response);
+      }
+
+      // Queued before 0023 by an older version of the app, with no row to
+      // name. Sent the old way so the untick isn't lost.
       const response = await supabase
         .from('attendance')
         .delete()

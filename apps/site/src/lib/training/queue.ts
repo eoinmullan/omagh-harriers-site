@@ -53,6 +53,12 @@ export interface GuestSignIn {
   kind: 'guest_sign_in';
   guestId: string;
   sessionId: string;
+  /**
+   * Minted at tick time, as a member's is, so the untick can name this row and
+   * never the guest's next one (migration 0023). Optional because a queue
+   * saved before this existed has entries without it.
+   */
+  attendanceId?: string;
   pricePence: number;
   /**
    * Who took the money, settled when the finger came off the screen.
@@ -70,6 +76,8 @@ export interface GuestUndo {
   kind: 'guest_undo';
   guestId: string;
   sessionId: string;
+  /** The row being unticked. Optional for the same reason as on the tick. */
+  attendanceId?: string;
 }
 
 export interface Cash {
@@ -117,8 +125,9 @@ function whatItCancels(write: Write): ((pending: Write) => boolean) | undefined 
   if (write.kind === 'guest_undo') {
     return (pending) =>
       pending.kind === 'guest_sign_in' &&
-      pending.guestId === write.guestId &&
-      pending.sessionId === write.sessionId;
+      (write.attendanceId && pending.attendanceId
+        ? pending.attendanceId === write.attendanceId
+        : pending.guestId === write.guestId && pending.sessionId === write.sessionId);
   }
 
   // Cash is never cancelled. Each entry is a difference from the figure that

@@ -81,6 +81,16 @@ describe('enqueue', () => {
     expect(queue).toHaveLength(2);
   });
 
+  it('cancels only the guest tick with the same row id, so a re-tick is never swallowed', () => {
+    const firstTick: Write = { ...guestIn, kind: 'guest_sign_in', attendanceId: 'row-1' };
+    const reTick: Write = { ...guestIn, kind: 'guest_sign_in', attendanceId: 'row-2' };
+    const untickFirst: Write = { ...guestOut, kind: 'guest_undo', attendanceId: 'row-1' };
+
+    const queue = enqueue(enqueue(enqueue([], queued(firstTick)), queued(reTick)), queued(untickFirst));
+
+    expect(queue.map((item) => item.write)).toEqual([reTick]);
+  });
+
   it('does not cancel a guest from another session', () => {
     const elsewhere: Write = { ...guestIn, kind: 'guest_sign_in', sessionId: 's2' };
     const queue = enqueue(enqueue([], queued(elsewhere)), queued(guestOut));

@@ -21,6 +21,8 @@ One low finding.
 
 **Severity: low.**
 
+**Fixed, 21 November 2026**: the pattern includes a tab and a carriage return, with a test for each.
+
 `lib/reports/csv.ts` prefixes an apostrophe to a text cell starting with `=`,
 `+`, `-` or `@`, so a name typed into the app can't run as a spreadsheet
 formula when an admin opens the export. OWASP's list also includes a leading

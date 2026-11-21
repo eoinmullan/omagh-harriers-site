@@ -23,7 +23,7 @@
  * header to widen it.
  */
 
-const VERSION = 'registrar-v3';
+const VERSION = 'registrar-v4';
 const SHELL = '/registrar/';
 
 // Hashed build assets. The hash is the version, so a cached one is never stale
@@ -67,8 +67,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          void caches.open(VERSION).then((cache) => cache.put(SHELL, copy));
+          if (isTheRealThing(response)) {
+            const copy = response.clone();
+            void caches.open(VERSION).then((cache) => cache.put(SHELL, copy));
+          }
           return response;
         })
         .catch(() => caches.match(SHELL).then((cached) => cached ?? offlineFallback())),
@@ -98,12 +100,21 @@ self.addEventListener('fetch', (event) => {
 
 function fetchAndKeep(request) {
   return fetch(request).then((response) => {
-    if (response.ok) {
+    if (isTheRealThing(response)) {
       const copy = response.clone();
       void caches.open(VERSION).then((cache) => cache.put(request, copy));
     }
     return response;
   });
+}
+
+// Only a page this site actually served is worth keeping for offline. Leisure-
+// centre wifi often answers every request with a redirect to its own sign-in
+// page; that page is shown, because it's what the network said, but it must
+// not replace the saved app, or the next time there's no signal the registrar
+// opens the wifi page instead. An error page from a bad deploy is the same.
+function isTheRealThing(response) {
+  return response.ok && !response.redirected;
 }
 
 function offlineFallback() {

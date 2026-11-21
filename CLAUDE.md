@@ -591,9 +591,16 @@ policy.
 The seven older functions that didn't were fixed in `0021`. Copy that into
 anything new, along with `IS NOT TRUE`.
 
-**A guest never goes through these.** Their cash lives on the attendance row, so
-ticking and unticking a guest is a single-table write through PostgREST.
-`undo_member_sign_in` refuses one with a sentence saying so.
+**A guest has functions of their own, for the same reason as the alias.**
+`sign_in_guest` and `undo_guest_sign_in` (migration `0023`). Their cash lives
+on the attendance row, so a tick is one table, but the untick used to delete
+by (guest, session), and a replayed untick then deleted the guest's re-tick
+and the £2 on it. Now the phone mints the row id, the tick records an alias
+when the other phone got there first, and the untick deletes by id or alias.
+What the guest paid comes from the session's price on the server. Each
+member function refuses a guest's row and each guest function refuses a
+member's, with a sentence saying which to use. A guest untick queued by an
+older app with no id is still sent the old way, so it isn't lost.
 
 **A free session is attendance and nothing else** (`price_pence = 0`, allowed
 since `0012`). `credit_transactions` is `CHECK (amount_pence <> 0)`, so a zero

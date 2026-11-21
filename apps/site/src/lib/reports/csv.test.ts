@@ -16,6 +16,10 @@ describe('toCsv', () => {
     expect(toCsv(['Name'], [['=HYPERLINK("x")']])).toBe('Name\r\n"\'=HYPERLINK(""x"")"\r\n');
   });
 
+  it('also guards a formula hidden behind a leading tab or carriage return', () => {
+    expect(toCsv(['Name'], [['\t=1+1'], ['\r=1+1']])).toBe('Name\r\n\'\t=1+1\r\n"\'\r=1+1"\r\n');
+  });
+
   it('writes pounds with their pence and keeps a negative amount a number', () => {
     expect(toCsv(['Amount'], [[poundsCell(250)], [poundsCell(-1000)]])).toBe('Amount\r\n2.50\r\n-10.00\r\n');
   });

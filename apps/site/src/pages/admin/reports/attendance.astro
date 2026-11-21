@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import ReportRangeForm from '../../../components/admin/ReportRangeForm.astro';
+import ReportSwitch from '../../../components/admin/ReportSwitch.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { everyRow } from '../../../lib/supabase/every-row';
 import { clubDayKey, formatClubDate, formatClubTime } from '../../../lib/training/club-time';
@@ -101,8 +102,8 @@ function weekLabel(monday: string): string {
 <AdminLayout
   section="reports"
   title="Attendance by week"
-  breadcrumb={[{ label: 'Reports', href: '/admin/reports' }, { label: 'Attendance by week' }]}
 >
+  <ReportSwitch current="attendance" />
   <h1 class="text-3xl font-bold mb-2">Attendance by week</h1>
   <p class="text-gray-500 mb-6">
     Each cell is the people signed in, members and guests together, with the number of sessions

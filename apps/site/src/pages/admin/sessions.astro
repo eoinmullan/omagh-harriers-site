@@ -6,8 +6,9 @@ import { newFormId, submittedFormId } from '../../lib/http/form-id';
 import { everyRow } from '../../lib/supabase/every-row';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
 import { formatPounds } from '../../lib/credits/money';
-import { clubDayKey, formatClubDateTime } from '../../lib/training/club-time';
+import { clubDayKey, formatClubDateTime, formatClubTime } from '../../lib/training/club-time';
 import {
+  byClubDay,
   DEFAULT_SESSION_START_TIME,
   pastWindow,
   planNewSession,
@@ -21,6 +22,7 @@ import { orThrow } from '../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../lib/auth/signed-in';
 import {
   countHeads,
+  rollUpSessions,
   summariseSessionCash,
   type SessionAttendanceRow,
   type SessionLedgerRow,
@@ -411,37 +413,59 @@ const pastWithFigures = past.map((session) => {
                   <th class="pb-3" />
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                {pastWithFigures.map((session) => (
-                  <tr class={session.is_cancelled ? 'opacity-50' : ''}>
-                    <td class="py-3">
-                      <p class:list={['font-medium', session.is_cancelled && 'line-through']}>
-                        {session.group?.name}
-                      </p>
-                      <p class="text-xs text-gray-500">{formatClubDateTime(session.startsAt)}</p>
-                      {session.note && <p class="text-xs text-gray-600">{session.note}</p>}
-                    </td>
-                    <td class="py-3 text-right">
-                      {session.heads.total}
-                      {session.heads.guests > 0 && (
-                        <span class="text-xs text-gray-500">
-                          {' '}
-                          ({session.heads.guests} guest{session.heads.guests === 1 ? '' : 's'})
-                        </span>
-                      )}
-                    </td>
-                    <td class="py-3 text-right">{formatPounds(session.cash.totalPence)}</td>
-                    <td class="py-3 text-right">
-                      <a
-                        href={`/admin/sessions/${session.id}`}
-                        class="text-xs underline hover:text-gray-600"
-                      >
-                        Open →
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              {/* A day at a time, since a day is how the committee asks about a
+                  night. A day that ran more than one session gets a total,
+                  added up by the same rule as each session's own figures. */}
+              {byClubDay(pastWithFigures).map(({ day, sessions: onTheDay }) => {
+                const ran = onTheDay.filter((session) => !session.is_cancelled);
+                const dayTotal = ran.length > 1 ? rollUpSessions(ran) : undefined;
+                return (
+                  <tbody class="divide-y divide-gray-100 border-b border-gray-200">
+                    <tr>
+                      <th colspan="4" scope="rowgroup" class="pt-5 pb-1 text-left text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                        {formatClubDate(`${day}T12:00:00Z`)}
+                      </th>
+                    </tr>
+                    {onTheDay.map((session) => (
+                      <tr class={session.is_cancelled ? 'opacity-50' : ''}>
+                        <td class="py-3">
+                          <p class:list={['font-medium', session.is_cancelled && 'line-through']}>
+                            {session.group?.name}
+                          </p>
+                          <p class="text-xs text-gray-500">{formatClubTime(session.startsAt)}</p>
+                          {session.note && <p class="text-xs text-gray-600">{session.note}</p>}
+                        </td>
+                        <td class="py-3 text-right">
+                          {session.heads.total}
+                          {session.heads.guests > 0 && (
+                            <span class="text-xs text-gray-500">
+                              {' '}
+                              ({session.heads.guests} guest{session.heads.guests === 1 ? '' : 's'})
+                            </span>
+                          )}
+                        </td>
+                        <td class="py-3 text-right">{formatPounds(session.cash.totalPence)}</td>
+                        <td class="py-3 text-right">
+                          <a
+                            href={`/admin/sessions/${session.id}`}
+                            class="text-xs underline hover:text-gray-600"
+                          >
+                            Open →
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                    {dayTotal && (
+                      <tr class="bg-gray-50">
+                        <td class="py-2 pl-2 text-sm font-semibold">Day total</td>
+                        <td class="py-2 text-right font-semibold">{dayTotal.heads.total}</td>
+                        <td class="py-2 text-right font-semibold">{formatPounds(dayTotal.cash.totalPence)}</td>
+                        <td />
+                      </tr>
+                    )}
+                  </tbody>
+                );
+              })}
             </table>
           </div>
         ) : (

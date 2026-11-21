@@ -4,13 +4,17 @@ import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import {
   describeRegular,
-  isEmpty,
-  planGroupMembership,
   REGULARS_WINDOW_WEEKS,
   regularsToPromote,
   type Regular,
 } from '../../../lib/training/groups';
 import { orThrow } from '../../../lib/supabase/or-throw';
+
+// Who trains with a squad. The page shows the squad's own members, then who
+// has been coming without being one, then a search for anybody else in the
+// club. Each change is one member at a time. It used to be a single form with
+// a tick box for every member of the club, three hundred rows to scroll past
+// to see a squad of fifteen.
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/squads');
@@ -31,79 +35,40 @@ async function loadMembers() {
   return data ?? [];
 }
 
-async function loadMemberIdsInGroup(groupId: string): Promise<string[]> {
-  const data = orThrow(await adminClient
-    .from('member_groups')
-    .select('member_id')
-    .eq('group_id', groupId));
-  return (data ?? []).map((row) => row.member_id);
-}
-
 let error: string | null = null;
 let success: string | null = null;
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
-  const members = await loadMembers();
+  const action = formData.get('action');
+  const member = (await loadMembers()).find((candidate) => candidate.id === formData.get('member_id'));
 
-  if (formData.get('action') === 'promote') {
-    // One regular made a member of the squad, from the list of who has been
-    // turning up. The key is (member, squad), so promoting twice is harmless.
-    const member = members.find((candidate) => candidate.id === formData.get('member_id'));
-    if (!member) {
-      error = 'That member is no longer active.';
-    } else {
-      const { error: insertError } = await adminClient
-        .from('member_groups')
-        .upsert({ member_id: member.id, group_id: id }, { onConflict: 'member_id,group_id', ignoreDuplicates: true });
-      if (insertError) error = insertError.message;
-      else success = `${member.first_name} ${member.surname} is now a member of this squad.`;
-    }
+  if (!member) {
+    error = 'That member is no longer active.';
+  } else if (action === 'add') {
+    // The key is (member, squad), so adding twice is harmless.
+    const { error: insertError } = await adminClient
+      .from('member_groups')
+      .upsert({ member_id: member.id, group_id: id }, { onConflict: 'member_id,group_id', ignoreDuplicates: true });
+    if (insertError) error = insertError.message;
+    else success = `${member.first_name} ${member.surname} is now a member of this squad.`;
+  } else if (action === 'remove') {
+    const { error: deleteError } = await adminClient
+      .from('member_groups')
+      .delete()
+      .eq('group_id', id)
+      .eq('member_id', member.id);
+    if (deleteError) error = deleteError.message;
+    else success = `${member.first_name} ${member.surname} is no longer a member of this squad.`;
   } else {
-  const change = planGroupMembership({
-    groupId: id,
-    current: await loadMemberIdsInGroup(id),
-    selected: formData.getAll('member_id').map(String),
-    eligible: members.map((member) => member.id),
-  });
-
-  if (isEmpty(change)) {
-    success = 'Nothing was changed.';
-  } else {
-    const failures: string[] = [];
-
-    if (change.add.length > 0) {
-      const { error: insertError } = await adminClient.from('member_groups').insert(change.add);
-      if (insertError) failures.push(insertError.message);
-    }
-
-    if (change.remove.length > 0) {
-      const { error: deleteError } = await adminClient
-        .from('member_groups')
-        .delete()
-        .eq('group_id', id)
-        .in('member_id', change.remove);
-      if (deleteError) failures.push(deleteError.message);
-    }
-
-    if (failures.length > 0) {
-      console.error('[admin/groups] membership write failed:', failures);
-      error = failures.join(' ');
-    } else {
-      success = `${describeChange(change.add.length, 'added')}, ${describeChange(change.remove.length, 'removed')}.`;
-    }
-  }
+    error = 'Unknown action.';
   }
 }
 
 // Succeeded: send the browser back here as a GET, so a reload can't
-// submit the form again. A failure renders below, keeping what was typed.
+// submit the form again.
 if (success) return redirectAfterPost(Astro, success);
 success = takeFlash(Astro.cookies);
-
-function describeChange(count: number, verb: string): string {
-  return count === 1 ? `1 member ${verb}` : `${count} members ${verb}`;
-}
 
 const group = orThrow(await adminClient
   .from('groups')
@@ -114,7 +79,24 @@ const group = orThrow(await adminClient
 if (!group) return Astro.redirect('/admin/squads');
 
 const members = await loadMembers();
-const inGroup = new Set(await loadMemberIdsInGroup(id));
+
+const memberships = orThrow(await adminClient
+  .from('member_groups')
+  .select('member_id, group_id, group:group_id(name)'));
+
+type MembershipRow = { member_id: string; group_id: string; group: { name: string } | null };
+
+const inGroup = new Set<string>();
+// Which other squads each member already trains with — the context that makes
+// a junior in the sprint squad obvious at a glance.
+const otherGroupNames = new Map<string, string[]>();
+for (const row of (memberships ?? []) satisfies MembershipRow[]) {
+  if (row.group_id === id) {
+    inGroup.add(row.member_id);
+  } else if (row.group) {
+    otherGroupNames.set(row.member_id, [...(otherGroupNames.get(row.member_id) ?? []), row.group.name]);
+  }
+}
 
 // Who has trained with this squad lately. The window is the view's, the same
 // one that puts them on the registrar's Usuals, so the two can't disagree.
@@ -132,209 +114,195 @@ const regulars = new Map<string, Regular>(
       { memberId: row.member_id, sessionsAttended: row.sessions_attended, lastAttendedAt: row.last_attended_at },
     ]),
 );
+
+const squadMembers = members.filter((member) => inGroup.has(member.id));
 const toPromote = regularsToPromote([...regulars.values()], inGroup);
+const promoting = new Set(toPromote.map((regular) => regular.memberId));
+// Anybody else in the club, for the search. Recent regulars are already
+// offered above, so they aren't repeated.
+const everyoneElse = members.filter((member) => !inGroup.has(member.id) && !promoting.has(member.id));
 const memberById = new Map(members.map((member) => [member.id, member]));
 
-// Which other squads each member already trains with — the context that makes
-// a junior in the sprint squad obvious at a glance.
-const allMemberships = orThrow(await adminClient
-  .from('member_groups')
-  .select('member_id, group:group_id(name)'));
-
-type MembershipRow = { member_id: string; group: { name: string } | null };
-
-const otherGroupNames = new Map<string, string[]>();
-for (const row of (allMemberships ?? []) satisfies MembershipRow[]) {
-  if (!row.group || row.group.name === group.name) continue;
-  otherGroupNames.set(row.member_id, [
-    ...(otherGroupNames.get(row.member_id) ?? []),
-    row.group.name,
-  ]);
+function others(memberId: string): string | undefined {
+  return otherGroupNames.get(memberId)?.sort().join(' · ');
 }
 ---
 
 <AdminLayout section="squads" title={group.name} breadcrumb={[{ label: 'Squads', href: '/admin/squads' }, { label: group.name }]}>
+  {
+    error && (
+      <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{error}</div>
+    )
+  }
+  {
+    success && (
+      <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">{success}</div>
+    )
+  }
 
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold">{group.name}</h1>
+    <p class="text-gray-500 mt-1">
+      The registrar's Usuals list for this squad is its members, plus anybody who has trained with
+      it in the last {REGULARS_WINDOW_WEEKS} weeks.
+    </p>
     {
-      error && (
-        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
-          {error}
-        </div>
+      !group.is_active && (
+        <p class="text-sm text-gray-500 mt-2">
+          This squad is retired. Its membership can still be corrected, but no new session can be
+          created for it.
+        </p>
       )
     }
+  </div>
+
+  <section class="mb-10">
+    <h2 class="text-lg font-semibold mb-3">Members ({squadMembers.length})</h2>
     {
-      success && (
-        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
-          {success}
-        </div>
+      squadMembers.length > 0 ? (
+        <ul class="divide-y divide-gray-100 border-y border-gray-100">
+          {squadMembers.map((member) => (
+            <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
+              <div>
+                <p class="font-medium">{member.surname}, {member.first_name}</p>
+                {(regulars.get(member.id) || others(member.id)) && (
+                  <p class="text-sm text-gray-500">
+                    {[regulars.get(member.id) && describeRegular(regulars.get(member.id)!), others(member.id) && `Also ${others(member.id)}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
+              </div>
+              <form method="POST">
+                <input type="hidden" name="action" value="remove" />
+                <input type="hidden" name="member_id" value={member.id} />
+                <button
+                  type="submit"
+                  class="border border-gray-300 text-gray-600 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Remove
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="text-sm text-gray-500">Nobody yet. Add members below.</p>
       )
     }
+  </section>
 
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold">{group.name}</h1>
-      <p class="text-gray-500 mt-1">
-        {inGroup.size} of {members.length} members train with this squad.
-        {toPromote.length === 1 && ' 1 more has been coming without being a member.'}
-        {toPromote.length > 1 && ` ${toPromote.length} more have been coming without being members.`}
-      </p>
-      {
-        !group.is_active && (
-          <p class="text-sm text-gray-500 mt-2">
-            This squad is retired. Its membership can still be corrected, but no
-            new session can be created for it.
-          </p>
-        )
-      }
-    </div>
+  {
+    toPromote.length > 0 && (
+      <section class="mb-10">
+        <h2 class="text-lg font-semibold">Trained here recently</h2>
+        <p class="text-sm text-gray-500 mt-1 mb-3">
+          Not members of this squad, but on the Usuals list because they've trained with it in the
+          last {REGULARS_WINDOW_WEEKS} weeks. They drop off {REGULARS_WINDOW_WEEKS} weeks after they
+          stop coming. Add them to keep them on it.
+        </p>
+        <ul class="divide-y divide-gray-100 border-y border-gray-100">
+          {toPromote.map((regular) => {
+            const member = memberById.get(regular.memberId)!;
+            return (
+              <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                <div>
+                  <p class="font-medium">{member.surname}, {member.first_name}</p>
+                  <p class="text-sm text-gray-500">{describeRegular(regular)}</p>
+                </div>
+                <form method="POST">
+                  <input type="hidden" name="action" value="add" />
+                  <input type="hidden" name="member_id" value={member.id} />
+                  <button
+                    type="submit"
+                    class="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                  >
+                    Add to squad
+                  </button>
+                </form>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    )
+  }
 
-    {
-      toPromote.length > 0 && (
-        <section class="mb-10">
-          <h2 class="text-lg font-semibold">Trained here recently</h2>
-          <p class="text-sm text-gray-500 mt-1 mb-3">
-            Not members of this squad, but they've trained with it in the last {REGULARS_WINDOW_WEEKS} weeks,
-            so the registrar sees them on the Usuals list. They drop off {REGULARS_WINDOW_WEEKS} weeks after
-            they stop coming. Add them to keep them on it.
-          </p>
-          <ul class="divide-y divide-gray-100 border-y border-gray-100">
-            {toPromote.map((regular) => {
-              const member = memberById.get(regular.memberId)!;
-              return (
-                <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                  <div>
-                    <p class="font-medium">{member.surname}, {member.first_name}</p>
-                    <p class="text-sm text-gray-500">{describeRegular(regular)}</p>
-                  </div>
-                  <form method="POST">
-                    <input type="hidden" name="action" value="promote" />
-                    <input type="hidden" name="member_id" value={member.id} />
-                    <button
-                      type="submit"
-                      class="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                    >
-                      Add to squad
-                    </button>
-                  </form>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )
-    }
-
-    <h2 class="text-lg font-semibold mb-1">Members of this squad</h2>
-    <p class="text-sm text-gray-500 mb-2">
-      Ticked members are always on the registrar's Usuals list.
+  <section>
+    <h2 class="text-lg font-semibold mb-3">Add someone else</h2>
+    <label for="member-search" class="sr-only">Find a member to add to this squad</label>
+    <input
+      id="member-search"
+      type="search"
+      placeholder="Type part of a name…"
+      autocomplete="off"
+      class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+    />
+    <p id="search-hint" class="text-sm text-gray-500 mt-2" aria-live="polite">
+      Type at least two letters.
     </p>
 
-    <form method="POST">
-      <div
-        class="flex flex-wrap items-center gap-3 mb-4 sticky top-0 bg-white py-3 border-b border-gray-200"
-      >
-        <label for="member-search" class="sr-only">Find members to add to this squad</label>
-        <input
-          id="member-search"
-          type="search"
-          placeholder="Type part of a name…"
-          autocomplete="off"
-          class="flex-1 min-w-48 border border-gray-300 rounded px-3 py-2 text-sm"
-        />
-        <p id="member-count" class="text-sm text-gray-500" aria-live="polite"></p>
-        <button
-          type="submit"
-          class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-          >Save</button
-        >
-      </div>
-
-      <ul id="member-list" class="divide-y divide-gray-100 border-b border-gray-200">
-        {
-          members.map((member) => (
-            <li
-              data-member-row
-              data-first-name={member.first_name}
-              data-surname={member.surname}
-            >
-              <label class="flex items-center gap-3 py-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="member_id"
-                  value={member.id}
-                  checked={inGroup.has(member.id)}
-                  class="h-5 w-5 rounded border-gray-300"
-                />
-                <span class="font-medium">
-                  {member.surname}, {member.first_name}
-                </span>
-                {otherGroupNames.get(member.id) && (
-                  <span class="text-xs text-gray-400">
-                    {otherGroupNames.get(member.id)!.sort().join(' · ')}
-                  </span>
-                )}
-                {regulars.get(member.id) && (
-                  <span class="text-xs text-gray-500 ml-auto text-right">
-                    {describeRegular(regulars.get(member.id)!)}
-                  </span>
-                )}
-              </label>
-            </li>
-          ))
-        }
-      </ul>
-
+    {/* Hidden until a name is typed, so the page doesn't open on the whole club. */}
+    <ul id="member-list" class="divide-y divide-gray-100 mt-2">
       {
-        members.length === 0 && (
-          <p class="text-gray-500 text-sm py-8">
-            No active members to assign. Run the Klubfunder sync first.
-          </p>
-        )
+        everyoneElse.map((member) => (
+          <li
+            data-member-row
+            data-first-name={member.first_name}
+            data-surname={member.surname}
+            hidden
+            class="flex flex-wrap items-center justify-between gap-3 py-2.5"
+          >
+            <div>
+              <p class="font-medium">{member.surname}, {member.first_name}</p>
+              {others(member.id) && <p class="text-sm text-gray-500">{others(member.id)}</p>}
+            </div>
+            <form method="POST">
+              <input type="hidden" name="action" value="add" />
+              <input type="hidden" name="member_id" value={member.id} />
+              <button
+                type="submit"
+                class="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+              >
+                Add
+              </button>
+            </form>
+          </li>
+        ))
       }
-
-      <div class="mt-6 flex items-center gap-4">
-        <button
-          type="submit"
-          class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-          >Save</button
-        >
-        <p class="text-xs text-gray-500">
-          The ticks are the whole truth about this squad. Filtering the list does
-          not change what is saved.
-        </p>
-      </div>
-    </form>
+    </ul>
+  </section>
 </AdminLayout>
 
 <script>
   import { matchesName } from '../../../lib/training/names';
 
   const search = document.getElementById('member-search') as HTMLInputElement | null;
-  const count = document.getElementById('member-count');
-  const rows = [
-    ...document.querySelectorAll<HTMLLIElement>('#member-list li[data-member-row]'),
-  ];
+  const hint = document.getElementById('search-hint');
+  const rows = [...document.querySelectorAll<HTMLLIElement>('#member-list li[data-member-row]')];
 
-  function nameOf(row: HTMLLIElement) {
-    return {
-      firstName: row.dataset.firstName ?? '',
-      surname: row.dataset.surname ?? '',
-    };
-  }
+  // Two letters before anything shows: one letter matches most of the club.
+  const MIN_LETTERS = 2;
+  const MAX_SHOWN = 20;
 
   function applyFilter() {
-    const term = search?.value ?? '';
-    let shown = 0;
+    const term = (search?.value ?? '').trim();
+    let matched = 0;
 
     for (const row of rows) {
-      const matches = matchesName(nameOf(row), term);
+      const matches =
+        term.length >= MIN_LETTERS &&
+        matched < MAX_SHOWN &&
+        matchesName({ firstName: row.dataset.firstName ?? '', surname: row.dataset.surname ?? '' }, term);
       row.hidden = !matches;
-      if (matches) shown += 1;
+      if (matches) matched += 1;
     }
 
-    if (count) {
-      count.textContent =
-        shown === rows.length ? `${rows.length} members` : `${shown} of ${rows.length}`;
-    }
+    if (!hint) return;
+    if (term.length < MIN_LETTERS) hint.textContent = 'Type at least two letters.';
+    else if (matched === 0) hint.textContent = 'Nobody else matches that name.';
+    else if (matched === MAX_SHOWN) hint.textContent = `The first ${MAX_SHOWN} matches. Type more of the name to narrow it.`;
+    else hint.textContent = '';
   }
 
   search?.addEventListener('input', applyFilter);

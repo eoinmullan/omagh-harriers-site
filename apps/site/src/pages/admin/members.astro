@@ -57,7 +57,7 @@ success = takeFlash(Astro.cookies);
 
 const members = orThrow(await adminClient
   .from('members')
-  .select('id, first_name, surname, date_of_birth, status, is_active, source, principal_id')
+  .select('id, first_name, surname, date_of_birth, status, is_active, principal_id')
   .order('surname'));
 
 const principals = orThrow(await adminClient
@@ -208,7 +208,6 @@ function formatDob(dob: string): string {
             <th class="pb-3 font-semibold">Date of birth</th>
             <th class="pb-3 font-semibold">Household</th>
             <th class="pb-3 font-semibold">Status</th>
-            <th class="pb-3 font-semibold">Source</th>
             <th class="pb-3"></th>
           </tr>
         </thead>
@@ -248,7 +247,6 @@ function formatDob(dob: string): string {
                       {m.status === 'paid' ? 'Active' : 'Lapsed'}
                     </span>
                   </td>
-                  <td class="py-3 text-gray-400 text-xs">{m.source}</td>
                   <td class="py-3 text-right">
                     <a
                       href={`/admin/members/${m.id}`}

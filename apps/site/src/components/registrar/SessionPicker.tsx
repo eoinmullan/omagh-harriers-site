@@ -10,6 +10,7 @@ import {
   type TonightsSessions,
 } from '../../lib/training/tonight';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
+import { WATCH_INTERVAL_MS } from '../../lib/training/watching';
 import { loadSnapshot, saveSnapshot } from '../../lib/training/snapshot';
 import { planTrackSession, type SessionGroup } from '../../lib/training/track-session';
 import { AttendanceView } from './AttendanceView';
@@ -51,8 +52,11 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   }, []);
 
 
-  const refresh = useCallback(async () => {
-    setLoad({ state: 'loading' });
+  // `quietly` is the background refresh: the list on screen stays until a new
+  // one arrives, and a failure leaves it alone rather than replacing it with a
+  // problem. The registrar asked for nothing, so nothing should flicker.
+  const refresh = useCallback(async (quietly = false) => {
+    if (!quietly) setLoad({ state: 'loading' });
 
     try {
       const now = new Date();
@@ -86,6 +90,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
         .order('starts_at');
 
       if (error) {
+        if (quietly) return;
         // The picker fails before the attendance view is ever reached, so caching
         // the night's data alone would never be seen. Keyed by Omagh's day, so
         // last Monday's session is never offered as tonight's.
@@ -106,6 +111,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
       void saveSnapshot(`tonight:${clubDayKey(now)}`, sessions);
       setLoad({ state: 'loaded', tonight: tonightsSessions(sessions, now) });
     } catch {
+      if (quietly) return;
       // A request that never left the phone throws rather than returning
       // an error, and this screen comes before the attendance view, so an
       // uncaught throw hangs the app before the cache is ever consulted.
@@ -125,6 +131,29 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // The list keeps up with the other phone by itself, as the night screen
+  // does: every twenty seconds while it's on screen, and as soon as the app
+  // comes back to the front. A session started at the gate on another phone
+  // appears without anybody having to know to ask for it, which is what the
+  // "Check again" button used to be for.
+  const onTheList = !chosen && !browsingPast;
+  useEffect(() => {
+    if (!onTheList) return;
+
+    const refreshIfShowing = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void refresh(true);
+    };
+
+    const timer = window.setInterval(refreshIfShowing, WATCH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refreshIfShowing);
+    window.addEventListener('focus', refreshIfShowing);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshIfShowing);
+      window.removeEventListener('focus', refreshIfShowing);
+    };
+  }, [onTheList, refresh]);
 
   function startSession(group: SessionGroup) {
     const row = planTrackSession({ group, createdBy: actorId, id: crypto.randomUUID() });
@@ -235,9 +264,6 @@ Nothing is scheduled for tonight. Start one below and sign runners in.
         onOpenExisting={setChosen}
       />
 
-      <BigButton tone="quiet" onClick={() => void refresh()}>
-        Check again
-      </BigButton>
 
       <BigButton tone="quiet" onClick={() => setBrowsingPast(true)}>
         Past sessions

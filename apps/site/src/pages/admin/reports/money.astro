@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import ReportRangeForm from '../../../components/admin/ReportRangeForm.astro';
+import ReportSwitch from '../../../components/admin/ReportSwitch.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { everyRow } from '../../../lib/supabase/every-row';
 import { formatBalance } from '../../../lib/credits/money';
@@ -131,8 +132,8 @@ function sentenceCase(text: string): string {
 <AdminLayout
   section="reports"
   title="Money"
-  breadcrumb={[{ label: 'Reports', href: '/admin/reports' }, { label: 'Money' }]}
 >
+  <ReportSwitch current="money" />
   <h1 class="text-3xl font-bold mb-2">Money</h1>
   <p class="text-gray-500 mb-6">
     Cash taken and handed back. Money taken at a session counts on the session's date, even if it

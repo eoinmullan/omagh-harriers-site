@@ -1,0 +1,32 @@
+---
+// Moving between the two reports. One session's figures are on its own page
+// under Sessions, and a day's are grouped there too, so neither is a report.
+
+interface Props {
+  current: 'attendance' | 'money';
+}
+
+const { current } = Astro.props;
+
+const reports = [
+  { key: 'attendance', label: 'Attendance by week', href: '/admin/reports/attendance' },
+  { key: 'money', label: 'Money', href: '/admin/reports/money' },
+] as const;
+---
+
+<nav aria-label="Reports" class="inline-flex rounded-lg border border-gray-300 p-0.5 mb-6 text-sm">
+  {
+    reports.map((report) => (
+      <a
+        href={report.href}
+        aria-current={current === report.key ? 'page' : undefined}
+        class:list={[
+          'rounded-md px-3 py-1.5',
+          current === report.key ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900',
+        ]}
+      >
+        {report.label}
+      </a>
+    ))
+  }
+</nav>

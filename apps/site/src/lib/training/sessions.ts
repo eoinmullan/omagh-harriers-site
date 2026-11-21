@@ -1,7 +1,7 @@
 import { DEFAULT_SESSION_PRICE_PENCE } from '../credits/ledger';
 import { formatPounds, parsePounds } from '../credits/money';
 import type { TrainingSessionInsert, TrainingSessionUpdate } from '../supabase/types';
-import { parseClubDateTime } from './club-time';
+import { clubDayKey, parseClubDateTime } from './club-time';
 
 // What may be written to `training_sessions`, decided here so the admin pages
 // decide nothing.
@@ -208,4 +208,21 @@ function midnightOf(value: string | null): Date | undefined {
 
 function utcMidnight(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+/**
+ * Sessions grouped by the Omagh day they started on, keeping the order they
+ * came in. A day is how the committee asks about a night ("how did Monday
+ * go?"), so the Sessions list reads as days, with a total for any day that ran
+ * more than one session.
+ */
+export function byClubDay<T extends { startsAt: string }>(sessions: T[]): { day: string; sessions: T[] }[] {
+  const days: { day: string; sessions: T[] }[] = [];
+  for (const session of sessions) {
+    const day = clubDayKey(session.startsAt);
+    const last = days[days.length - 1];
+    if (last?.day === day) last.sessions.push(session);
+    else days.push({ day, sessions: [session] });
+  }
+  return days;
 }

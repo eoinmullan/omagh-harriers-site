@@ -3,7 +3,6 @@ import {
   DEFAULT_SESSION_PRICE_PENCE,
   planAdjustment,
   planCashTopUp,
-  planSessionDebit,
   planTransfer,
   type Household,
   type LedgerWrite,
@@ -229,62 +228,6 @@ describe('planTransfer', () => {
     const write = transfer({ note: '' });
 
     expect(problemOf(write)).toContain('note');
-  });
-});
-
-describe('planSessionDebit', () => {
-  function debit(overrides: Partial<Parameters<typeof planSessionDebit>[0]> = {}) {
-    return planSessionDebit({
-      household: household(),
-      memberId: null,
-      amount: '2',
-      note: '',
-      recordedBy: ADMIN,
-      idempotencyKey: KEY,
-      ...overrides,
-    });
-  }
-
-  it('takes credit off the household as a session row', () => {
-    const rows = rowsOf(debit());
-
-    expect(rows).toEqual([
-      {
-        principal_id: 'household-a',
-        member_id: null,
-        amount_pence: -200,
-        type: 'session',
-        idempotency_key: KEY,
-        notes: null,
-        created_by: ADMIN,
-      },
-    ]);
-  });
-
-  it('attributes the session to a member when one is named', () => {
-    const rows = rowsOf(debit({ memberId: 'member-niamh' }));
-
-    expect(rows[0].member_id).toBe('member-niamh');
-  });
-
-  it('charges whatever the session actually cost, not only the default', () => {
-    const rows = rowsOf(debit({ amount: '3.50' }));
-
-    expect(rows[0].amount_pence).toBe(-350);
-  });
-
-  it('keeps a note describing the session', () => {
-    const rows = rowsOf(debit({ note: 'Monday track' }));
-
-    expect(rows[0].notes).toBe('Monday track');
-  });
-
-  it('refuses an amount it cannot read', () => {
-    expect(problemOf(debit({ amount: 'two quid' }))).toContain('session charge');
-  });
-
-  it('refuses a zero charge', () => {
-    expect(problemOf(debit({ amount: '0' }))).toContain('session charge');
   });
 });
 

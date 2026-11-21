@@ -1,4 +1,4 @@
-import type { GroupInsert, GroupUpdate, MemberGroupInsert } from '../supabase/types';
+import type { GroupInsert, GroupUpdate } from '../supabase/types';
 import { formatClubNight } from './club-time';
 import { normaliseForSearch } from './names';
 
@@ -54,45 +54,6 @@ export function planGroupRetirement(group: ExistingGroup): GroupChange {
 export function planGroupReturn(group: ExistingGroup): GroupChange {
   if (group.isActive) return { problem: `${group.name} is already running.` };
   return { update: { is_active: true } };
-}
-
-export interface MembershipChange {
-  add: MemberGroupInsert[];
-  remove: string[];
-}
-
-/**
- * The tick boxes are the whole truth about who is in the group, so the write
- * is the difference between what was ticked and what was there.
- *
- * `eligible` bounds it on both sides. A member the screen never offered
- * cannot be added, which stops a crafted post putting a stranger in a squad;
- * and a member the screen never offered cannot be dropped either, so a lapsed
- * member who is still in the group stays in it rather than vanishing the
- * first time somebody saves the page they are missing from.
- */
-export function planGroupMembership(request: {
-  groupId: string;
-  current: string[];
-  selected: string[];
-  eligible: string[];
-}): MembershipChange {
-  const eligible = new Set(request.eligible);
-  const selected = new Set(request.selected.filter((id) => eligible.has(id)));
-  const current = new Set(request.current);
-
-  return {
-    add: [...selected]
-      .filter((memberId) => !current.has(memberId))
-      .map((memberId) => ({ member_id: memberId, group_id: request.groupId })),
-    remove: [...current].filter(
-      (memberId) => eligible.has(memberId) && !selected.has(memberId),
-    ),
-  };
-}
-
-export function isEmpty(change: MembershipChange): boolean {
-  return change.add.length === 0 && change.remove.length === 0;
 }
 
 /**

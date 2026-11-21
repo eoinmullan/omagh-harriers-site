@@ -7,10 +7,8 @@ import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS } from '../../../lib
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
 import { describeEntry, isCredit } from '../../../lib/credits/transactions';
 import {
-  DEFAULT_SESSION_PRICE_PENCE,
   planAdjustment,
   planCashTopUp,
-  planSessionDebit,
   planTransfer,
   type LedgerWrite,
 } from '../../../lib/credits/ledger';
@@ -169,18 +167,6 @@ async function recordLedgerEntry(action: string, field: Field): Promise<Outcome>
       confirmation = 'Cash payment recorded.';
       break;
     }
-    case 'session': {
-      const memberId = field('member_id');
-      const member = (await loadMembers(household.id)).find(
-        (m) => m.id === memberId && m.is_active,
-      );
-      write =
-        memberId && !member
-          ? { problem: 'That member is not in this household.' }
-          : planSessionDebit({ ...request, memberId: member?.id ?? null });
-      confirmation = 'Session charge recorded.';
-      break;
-    }
     case 'adjust': {
       write = planAdjustment({ ...request, direction: field('direction') });
       confirmation = 'Adjustment recorded.';
@@ -217,13 +203,16 @@ async function recordLedgerEntry(action: string, field: Field): Promise<Outcome>
 }
 
 let outcome: Outcome | undefined;
+// So a failed identity change reopens the section it came from.
+let editingIdentity = false;
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const field: Field = (name) => ((formData.get(name) as string) ?? '').toString();
   const action = field('action');
 
-  outcome = IDENTITY_ACTIONS.includes(action)
+  editingIdentity = IDENTITY_ACTIONS.includes(action);
+  outcome = editingIdentity
     ? await changeIdentity(action, field)
     : await recordLedgerEntry(action, field);
 }
@@ -246,7 +235,6 @@ if (!principal) return Astro.redirect('/admin/households');
 
 const balancePence = await loadBalancePence(householdId);
 const members = await loadMembers(householdId);
-const whoCanTrain = members.filter((m) => m.is_active);
 
 const otherHouseholds = orThrow(await adminClient
   .from('principals')
@@ -399,8 +387,12 @@ const roleBadge: Record<string, string> = {
       }
     </div>
 
+    {/* Changed rarely, and only by a superuser, so it waits folded up rather
+        than standing between an admin and the household's credit. */}
     {isSuperuser && (
-      <>
+      <details class="mb-10 border border-gray-200 rounded-lg" open={editingIdentity && Boolean(error)}>
+        <summary class="px-5 py-3 font-medium cursor-pointer select-none">Edit household</summary>
+        <div class="px-5 pb-5 pt-2">
         <!-- Edit display name -->
         <section class="mb-8">
           <h2 class="text-lg font-semibold mb-3">Display name</h2>
@@ -451,7 +443,7 @@ const roleBadge: Record<string, string> = {
         </section>
 
         <!-- Deactivate / Reactivate -->
-        <section class="mb-10">
+        <section>
           <h2 class="text-lg font-semibold mb-3">Account status</h2>
           {
             principal.is_active ? (
@@ -478,7 +470,8 @@ const roleBadge: Record<string, string> = {
             )
           }
         </section>
-      </>
+        </div>
+      </details>
     )}
 
     <!-- Members -->
@@ -577,71 +570,11 @@ const roleBadge: Record<string, string> = {
       </form>
     </section>
 
-    <section class="mb-8">
-      <h3 class="text-lg font-semibold mb-3">Charge a training session</h3>
-      <form
-        method="POST"
-        class="grid grid-cols-1 sm:grid-cols-[1fr_8rem_1fr_auto] gap-4"
-      >
-        <input type="hidden" name="action" value="session" />
-        <input type="hidden" name="idempotency_key" value={`session:${idempotencyKey}`} />
-        <div>
-          <label class="block text-sm font-medium mb-1" for="session-member">
-            Who trained
-          </label>
-          <select
-            id="session-member"
-            name="member_id"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          >
-            <option value="">The household</option>
-            {
-              whoCanTrain.map((member) => (
-                <option value={member.id}>
-                  {member.surname}, {member.first_name}
-                </option>
-              ))
-            }
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1" for="session-amount">Charge</label>
-          <input
-            id="session-amount"
-            type="text"
-            name="amount"
-            inputmode="decimal"
-            value={formatPounds(DEFAULT_SESSION_PRICE_PENCE)}
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1" for="session-note">
-            Session <span class="text-gray-400 font-normal">(optional)</span>
-          </label>
-          <input
-            id="session-note"
-            type="text"
-            name="note"
-            placeholder="Monday track"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div class="flex items-end">
-          <button
-            type="submit"
-            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-            >Charge</button
-          >
-        </div>
-      </form>
-      <p class="text-xs text-gray-500 mt-2">
-        A night the registrar app missed is recorded here. Naming who trained makes
-        the member's own page read "training session for ..." instead of leaving
-        them guessing.
-      </p>
-    </section>
+    <!-- No "charge a session" form: a session is charged when a registrar
+         signs a runner in, and a missed night is put right from the
+         registrar app's Past sessions, which records the attendance too. A
+         charge made here would have no session behind it. Money outside that
+         is an adjustment. -->
 
     <details class="mb-8 border border-gray-200 rounded-lg">
       <summary class="px-5 py-3 font-medium cursor-pointer select-none">

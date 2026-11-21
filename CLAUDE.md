@@ -279,6 +279,10 @@ the rules; `components/registrar/{GuestRow,AddGuest}.tsx` draw them.
   on regaining focus, and only when this phone owes nothing, has no sheet open
   and is on screen. `lib/training/watching.ts` holds that rule and the reason
   for choosing a poll over Realtime
+- **The session list refreshes itself the same way**, so a session the other
+  phone has just started appears without anybody pressing anything. It
+  refreshes quietly: the list stays until a new one arrives, and a failed
+  refresh leaves it alone. There used to be a **Check again** button for this
 - **Adding a guest is the one write that cannot be queued**: the rest of the
   night needs the id Postgres gives back. Offline, the registrar is told to take
   the name on paper
@@ -712,9 +716,23 @@ admin asked "has Jack Kelly's mum paid?" found the money on one screen and the
 email to chase her on the other. A household has a name, the people in it, a
 role and a balance, and that is one thing somebody holds in their head.
 
-So `/admin/households/[id]` carries both halves — identity and role, then
-members, then **Training credit**: the balance, the four ledger forms and the
-statement, under an anchor so the balance in the header can point down at it.
+So `/admin/households/[id]` carries both halves — who the household is, then
+its members, then **Training credit**: the balance, the three ledger forms
+(cash, an adjustment, a transfer) and the statement, under an anchor so the
+balance in the header can point down at it. Changing the name, role or account
+status is folded into one **Edit household** section, superusers only,
+because it happens rarely and it stood between an admin and the credit.
+
+**There's no admin form to charge a session.** A session is charged when a
+registrar signs a runner in, and a missed night is put right from the
+registrar app's Past sessions, which records the attendance with it. An admin
+charge had no session behind it, so it had no squad on the statement and
+never counted as attendance. Money outside that fortnight is an adjustment.
+
+**The admin lists show the club, not the database.** Households and Members
+have no Source column, and a household's role shows only as a badge beside
+the name when it isn't "member", so the volunteers stand out. Both are on the
+detail pages.
 The balance is a column on the Households list, sortable by one click because
 who owes money is the question that column exists to answer, and the Club float
 and Overdrawn figures came across with it.
@@ -743,7 +761,9 @@ session ever meant reading every row ever written, about 44 sequential
 requests after three seasons.
 
 Four screens, and between them they make the Phase 5 schema usable: `/admin/squads`
-(add, rename, retire), `/admin/squads/[id]` (who trains with a squad),
+(add, rename, retire), `/admin/squads/[id]` (who trains with a squad: its
+members, each with Remove; who has been coming without being one, with Add to
+squad; and a search to add anybody else, one member at a time),
 `/admin/sessions` (list and create) and `/admin/sessions/[id]` (edit, cancel, and
 what the night came to).
 
@@ -790,11 +810,15 @@ back either a row to write or one sentence to show the admin.
 
 ## Reports
 
-`/admin/reports` holds three reports: attendance by week, money over a date
-range, and a day report. Each is a GET form, so a report is a URL that can be
-bookmarked or sent, and `?format=csv` on the same URL downloads it. One
-session's figures and every household's balance were already on the Sessions
-and Households screens, so the reports don't repeat them.
+**A proof of concept**, with no requirements behind it yet; it may grow or go.
+Two reports, attendance by week and money over a date range, with a switch
+between them, and the Reports tab opens on the first. Each is a GET form, so
+a report is a URL that can be bookmarked or sent, and `?format=csv` on the
+same URL downloads it. One session's figures, a day's and every household's
+balance are already on the Sessions and Households screens, so the reports
+don't repeat them. There was a day report; the Sessions list is grouped by day
+instead, with a total for a day that ran more than one session
+(`byClubDay` in `sessions.ts`, `rollUpSessions` in `session-cash.ts`).
 
 The rules are in `lib/reports/` and unit tested, like everything else.
 

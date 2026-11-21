@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   describeRegular,
   regularsToPromote,
-  isEmpty,
-  planGroupMembership,
   planGroupRename,
   planGroupRetirement,
   planGroupReturn,
@@ -116,69 +114,6 @@ describe('planGroupReturn', () => {
 
   it('refuses a group that is already running', () => {
     expect(problemOf(planGroupReturn(group()))).toBe('Endurance is already running.');
-  });
-});
-
-describe('planGroupMembership', () => {
-  const eligible = ['member-a', 'member-b', 'member-c'];
-
-  it('adds the newly ticked and removes the newly unticked', () => {
-    const change = planGroupMembership({
-      groupId: 'group-a',
-      current: ['member-a', 'member-b'],
-      selected: ['member-b', 'member-c'],
-      eligible,
-    });
-
-    expect(change).toEqual({
-      add: [{ member_id: 'member-c', group_id: 'group-a' }],
-      remove: ['member-a'],
-    });
-  });
-
-  it('writes nothing when the ticks are unchanged', () => {
-    const change = planGroupMembership({
-      groupId: 'group-a',
-      current: ['member-a'],
-      selected: ['member-a'],
-      eligible,
-    });
-
-    expect(isEmpty(change)).toBe(true);
-  });
-
-  it('empties the group when everything is unticked', () => {
-    const change = planGroupMembership({
-      groupId: 'group-a',
-      current: ['member-a', 'member-b'],
-      selected: [],
-      eligible,
-    });
-
-    expect(change.add).toEqual([]);
-    expect(change.remove).toEqual(['member-a', 'member-b']);
-  });
-
-  it('ignores a member the screen never offered', () => {
-    const change = planGroupMembership({
-      groupId: 'group-a',
-      current: [],
-      selected: ['member-a', 'someone-elses-member'],
-      eligible,
-    });
-
-    expect(change.add).toEqual([{ member_id: 'member-a', group_id: 'group-a' }]);
-  });
-
-  it('leaves a lapsed member the screen never showed where they are', () => {
-    const change = planGroupMembership({
-      groupId: 'group-a',
-      current: ['lapsed-member', 'member-a'],
-      selected: [],
-      eligible,
-    });
-
-    expect(change.remove).toEqual(['member-a']);
   });
 });
 

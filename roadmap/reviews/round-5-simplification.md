@@ -6,7 +6,7 @@ rarely a real choice, a step that could go, and wording that assumes too much.
 Nothing here is a bug. Each is a place where the app asks more of somebody
 than the job needs.
 
-Ranked by how much each removes. Nothing has been changed.
+Ranked by how much each removes. **All six were made on 21 November 2026.**
 
 ---
 

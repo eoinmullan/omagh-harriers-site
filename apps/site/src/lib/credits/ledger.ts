@@ -28,11 +28,6 @@ export interface AdjustmentRequest extends CashTopUpRequest {
   direction: string;
 }
 
-export interface SessionDebitRequest extends CashTopUpRequest {
-  // Resolved by the caller from the household's own members, so a crafted post
-  // cannot charge one household's session to another household's child.
-  memberId: string | null;
-}
 
 export interface TransferRequest {
   source: Household;
@@ -64,25 +59,6 @@ export function planCashTopUp(request: CashTopUpRequest): LedgerWrite {
 // The club has charged £2 a session for years. Changing it is a one-line edit
 // and a deploy, which beats a settings table nobody would open.
 export const DEFAULT_SESSION_PRICE_PENCE = 200;
-
-export function planSessionDebit(request: SessionDebitRequest): LedgerWrite {
-  const amountPence = parsePounds(request.amount);
-  if (!amountPence) return { problem: 'Enter the session charge, in pounds.' };
-
-  return {
-    rows: [
-      {
-        principal_id: request.household.id,
-        member_id: request.memberId,
-        amount_pence: -amountPence,
-        type: 'session',
-        idempotency_key: request.idempotencyKey,
-        notes: trimmedOrNull(request.note),
-        created_by: request.recordedBy,
-      },
-    ],
-  };
-}
 
 export function planAdjustment(request: AdjustmentRequest): LedgerWrite {
   const amountPence = parsePounds(request.amount);

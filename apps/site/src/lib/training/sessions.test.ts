@@ -14,6 +14,7 @@ import {
   type SessionChange,
   type SessionCreation,
   type SessionGroup,
+  byClubDay,
 } from './sessions';
 
 const ADMIN = 'admin-principal-id';
@@ -343,5 +344,26 @@ describe('startFromDayAndTime', () => {
     });
 
     expect(plan).toMatchObject({ insert: { starts_at: '2026-11-23T18:00:00.000Z' } });
+  });
+});
+
+describe('byClubDay', () => {
+  it('puts sessions on the same Omagh day together, keeping their order', () => {
+    const days = byClubDay([
+      { id: 'late', startsAt: '2026-11-21T19:00:00Z' },
+      { id: 'early', startsAt: '2026-11-21T09:00:00Z' },
+      { id: 'friday', startsAt: '2026-11-20T18:00:00Z' },
+    ]);
+
+    expect(days.map((day) => [day.day, day.sessions.map((s) => s.id)])).toEqual([
+      ['2026-11-21', ['late', 'early']],
+      ['2026-11-20', ['friday']],
+    ]);
+  });
+
+  it('counts a session just after midnight in Omagh as the next day', () => {
+    const [day] = byClubDay([{ id: 'small-hours', startsAt: '2026-07-06T23:30:00Z' }]);
+
+    expect(day.day).toBe('2026-07-07');
   });
 });

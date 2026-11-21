@@ -274,7 +274,7 @@ const hasAttendance = attendanceDetail.length > 0;
           <div>
             <p class="text-sm text-gray-500">Money collected</p>
             <p class="text-3xl font-bold">{formatBalance(cash.totalPence)}</p>
-            <p class="text-xs text-gray-500">at {formatPounds(session.pricePence)} a session</p>
+            <p class="text-xs text-gray-500">{session.pricePence === 0 ? 'a free session' : `at ${formatPounds(session.pricePence)} a session`}</p>
           </div>
         </div>
       </div>

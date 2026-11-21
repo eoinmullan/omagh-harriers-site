@@ -113,14 +113,24 @@ describe('planNewSession', () => {
 
   it('refuses a price that is not an amount', () => {
     expect(problemOf(planNewSession(newSessionRequest({ price: 'free' })))).toBe(
-      'Enter the price in pounds, or leave it blank for £2.00.',
+      'Enter the price in pounds, such as £2.00, or 0 for a free session.',
     );
   });
 
-  it('refuses a price of nothing, which no ledger row could carry', () => {
-    expect(problemOf(planNewSession(newSessionRequest({ price: '0' })))).toContain(
-      'Enter the price in pounds',
-    );
+  it('takes 0 as a free session, which records attendance and no charge', () => {
+    for (const price of ['0', '£0', '0.00', '£0.00']) {
+      expect(insertOf(planNewSession(newSessionRequest({ price }))).price_pence).toBe(0);
+    }
+  });
+
+  it('refuses a bare pound sign rather than reading it as free', () => {
+    for (const price of ['£', '.', '£.']) {
+      expect(problemOf(planNewSession(newSessionRequest({ price })))).toContain('Enter the price in pounds');
+    }
+  });
+
+  it('keeps the usual price when the pre-filled amount is left as it is', () => {
+    expect(insertOf(planNewSession(newSessionRequest({ price: '£2.00' }))).price_pence).toBe(DEFAULT_SESSION_PRICE_PENCE);
   });
 });
 

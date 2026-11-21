@@ -66,10 +66,11 @@ export function planNewSession(request: {
   const startsAt = parseClubDateTime(request.startsAt);
   if (!startsAt) return { problem: 'Give the date and time the session starts.' };
 
-  // Blank means the usual price. The session keeps its own copy from here on,
-  // so editing the constant never rewrites a session that has already run.
+  // The form arrives filled in with the usual price, and blank still means it.
+  // The session keeps its own copy from here on, so editing the constant never
+  // rewrites a session that has already run.
   const pricePence = resolvePrice(request.price, DEFAULT_SESSION_PRICE_PENCE);
-  if (!pricePence) return { problem: priceProblem(DEFAULT_SESSION_PRICE_PENCE) };
+  if (pricePence === undefined) return { problem: priceProblem() };
 
   return {
     insert: {
@@ -91,7 +92,7 @@ export function planSessionEdit(request: {
   attendanceCount: number;
 }): SessionChange {
   const pricePence = resolvePrice(request.price, request.session.pricePence);
-  if (!pricePence) return { problem: priceProblem(request.session.pricePence) };
+  if (pricePence === undefined) return { problem: priceProblem() };
 
   if (pricePence !== request.session.pricePence && request.attendanceCount > 0) {
     return { problem: priceIsSettledMessage(request.session.pricePence, request.attendanceCount) };
@@ -138,12 +139,22 @@ export function partitionByStart<T extends TimedSession>(
   };
 }
 
+// A free session is a price of nothing, allowed since migration 0012:
+// sign_in_member then records attendance and no charge, so there is no £0 row
+// for the ledger to refuse. parsePounds refuses zero, because every other
+// amount it reads (cash, an adjustment, a transfer) must be more than nothing,
+// so a typed zero is recognised here first.
+const FREE = /^£?0+(\.0{0,2})?$/;
+
 function resolvePrice(input: string, fallbackPence: number): number | undefined {
-  return input.trim() ? parsePounds(input) : fallbackPence;
+  const typed = input.replace(/\s/g, '');
+  if (!typed) return fallbackPence;
+  if (FREE.test(typed)) return 0;
+  return parsePounds(typed);
 }
 
-function priceProblem(fallbackPence: number): string {
-  return `Enter the price in pounds, or leave it blank for ${formatPounds(fallbackPence)}.`;
+function priceProblem(): string {
+  return `Enter the price in pounds, such as ${formatPounds(DEFAULT_SESSION_PRICE_PENCE)}, or 0 for a free session.`;
 }
 
 function priceIsSettledMessage(pricePence: number, attendanceCount: number): string {

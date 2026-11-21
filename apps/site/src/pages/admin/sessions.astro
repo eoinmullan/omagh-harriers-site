@@ -42,9 +42,16 @@ async function loadGroups(): Promise<SessionGroup[]> {
 
 let error: string | null = null;
 let success: string | null = null;
-// What the dialog shows: today at six for a fresh form, what was sent for one
-// that came back with a problem.
-const draft = { groupId: '', day: clubDayKey(new Date()), time: DEFAULT_SESSION_START_TIME, note: '', price: '' };
+// What the dialog shows: today at six at the usual price for a fresh form,
+// what was sent for one that came back with a problem. The price is a real
+// value rather than a placeholder, so what's on screen is what's saved.
+const draft = {
+  groupId: '',
+  day: clubDayKey(new Date()),
+  time: DEFAULT_SESSION_START_TIME,
+  note: '',
+  price: formatPounds(DEFAULT_SESSION_PRICE_PENCE),
+};
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
@@ -205,7 +212,6 @@ const pastWithFigures = past.map((session) => {
   };
 });
 
-const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
 ---
 
 <AdminLayout section="sessions" title="Sessions">
@@ -319,7 +325,6 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
                   type="text"
                   name="price"
                   inputmode="decimal"
-                  placeholder={usualPrice}
                   value={draft.price}
                   class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                 />
@@ -356,7 +361,7 @@ const usualPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
                     {session.group?.name}
                   </p>
                   <p class="text-sm text-gray-500">
-                    {formatClubDateTime(session.startsAt)} · {formatPounds(session.price_pence)}
+                    {formatClubDateTime(session.startsAt)} · {session.price_pence === 0 ? 'Free' : formatPounds(session.price_pence)}
                   </p>
                   {session.note && <p class="text-sm text-gray-600 mt-0.5">{session.note}</p>}
                 </div>

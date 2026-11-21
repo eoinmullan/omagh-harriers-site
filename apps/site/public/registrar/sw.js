@@ -23,7 +23,7 @@
  * header to widen it.
  */
 
-const VERSION = 'registrar-v1';
+const VERSION = 'registrar-v2';
 const SHELL = '/registrar/';
 
 // Hashed build assets. The hash is the version, so a cached one is never stale

@@ -9,7 +9,7 @@ ones.** Each fix below says which pattern it uses.
 
 ## Summary
 
-**Every item is done**, except the app icon, which is on hold, on the branch `usability-round`. Nothing is merged or deployed, and no migrations were added. The tests (483) and `astro check` pass. Every screen was checked in the browser without writing any data. Decisions and questions are at the end.
+**Every item is done**, on the branch `usability-round`, including the app icon, which landed on 21 November with three smaller follow-ups. Nothing is merged or deployed, and no migrations were added. The tests (488) and `astro check` pass. Every screen was checked in the browser without writing any data. Decisions and questions are at the end.
 
 ## Progress
 
@@ -53,7 +53,19 @@ Ticked as each one lands, in the order they're tackled.
 - [x] **"Start a session here" becomes "Create a new session".**
 - [x] **A "Past sessions" button on the home screen**, so a registrar can
   fix something the next day.
-- **App icon: on hold.** The user is getting one.
+- [x] **The app icon** is the gold runner with a checklist, from the user's
+  own artwork, with a 180px Apple touch icon and favicons of its own. The
+  splash and theme colour are black to match.
+
+### Added on 21 November
+
+- [x] **The members' area card reads "Registration app"**, with "Download
+  and add to your home screen." under it. The app's signed-out steps name the
+  card the same way.
+- [x] **The website favicon is the gold runner on black**, with an ICO
+  fallback and an Apple touch icon. The registrar app keeps its own icons.
+- [x] **No "Manage squads" link beside New session.** The admin tabs already
+  lead to Squads.
 
 ## Already resolved
 
@@ -74,6 +86,7 @@ Ticked as each one lands, in the order they're tackled.
 - **Past sessions** covers the last 14 days, newest first, without called-off sessions (`pastSessionsWindow` in `training/tonight.ts`). A past session opens the same screen as tonight's, with its date in the header. It needs a signal and isn't cached offline, since a next-day fix happens with signal. No migration was needed, because nothing in RLS limits writes by date.
 - **Back and Done** step through the screens: a session goes back to the list it was opened from, Past sessions goes back to Tonight.
 - **New-session dialog** needed `m-auto`, because Tailwind's reset removes a dialog's centring. Caught in the browser this morning.
+- **The service worker's cache is now `registrar-v2`.** The worker serves everything under `/registrar/` from its cache first, and the icons kept their file names. Without the bump, a phone that had already opened the app would keep the old icons and the old manifest. The new worker waits for the app to be closed before it takes over, as before.
 
 ## Questions for the morning
 

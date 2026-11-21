@@ -124,6 +124,8 @@ tests and `astro check`, not seen live.
 
 **Severity: medium. Check the Cloudflare Pages build command. Agreed; the build command is a dashboard change, recorded in `OPERATIONS.md`, and the rollback is written down there.**
 
+**Done, 21 November 2026.** The Pages build command is `pnpm build:deploy`, which runs `astro check`, the tests and then the build. The script is in `apps/site/package.json`, because the Pages root directory is `apps/site`. The first attempt put it in the workspace root and failed with "command not found", which kept the previous deployment live, as the gate should. The build command was `npm run build` before, which ran no checks.
+
 Cloudflare Pages builds and deploys `main` itself. GitHub Actions runs the
 typecheck, tests and build separately, and since Q2 it runs on every push.
 But neither waits for the other: a push whose tests fail still goes live if
@@ -218,7 +220,7 @@ a real one takes an hour to expire. Covered by three tests.
    an export.
 3. **OR2:** create a development project, then clean production's test data
    (`TRUNCATE`, then B5).
-4. **OR4:** gate the Pages build on the tests, and write down the rollback.
+4. **OR4:** gate the Pages build on the tests, and write down the rollback. **Done.**
 5. **OR3:** write the dashboard runbook, and make the registrar app say when
    roles aren't reaching it.
 6. **OR6, OR7:** at any point.

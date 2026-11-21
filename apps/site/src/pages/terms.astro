@@ -1,49 +1,130 @@
 ---
 export const prerender = true;
 import Layout from '../layouts/Layout.astro';
+import { formatPounds } from '../lib/credits/money';
+import { DEFAULT_SESSION_PRICE_PENCE } from '../lib/credits/ledger';
+
+// The terms a household contact accepts before using the members' area. The
+// training credit section describes the ledger as built: one balance per
+// household, a session charged when a runner is signed in, corrections made
+// as new entries. The decisions it rests on are listed for the committee in
+// roadmap/committee/privacy-and-terms.md.
+
+const sessionPrice = formatPounds(DEFAULT_SESSION_PRICE_PENCE);
+const contact = 'info@omaghharriers.com';
 ---
 
 <Layout title="Terms & Conditions — Omagh Harriers AC">
   <div class="max-w-2xl mx-auto px-4 py-16">
-    <h1 class="text-3xl font-bold mb-2">Terms & Conditions</h1>
-    <p class="text-sm text-gray-500 mb-8">Last updated: May 2026</p>
+    <h1 class="text-3xl font-bold mb-2">Terms and conditions</h1>
+    <p class="text-sm text-gray-500 mb-8">Last updated: November 2026</p>
 
     <div class="prose prose-sm max-w-none text-gray-700 space-y-6">
       <p>
-        These terms govern your use of the Omagh Harriers AC members' area. By
-        accessing the members' area you agree to these terms.
+        These terms cover the Omagh Harriers AC members' area and training credit. You accept them
+        when you first sign in. They sit alongside your membership of the club and the club's
+        constitution and policies, and they don't replace any of them. Our
+        <a href="/privacy" class="underline hover:text-gray-900">privacy notice</a> explains how we
+        handle your information.
       </p>
 
-      <h2 class="text-lg font-semibold text-gray-900">Access</h2>
+      <h2 class="text-lg font-semibold text-gray-900">Your account</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>
+          The members' area is for the contact of each member household. Your household is set up from
+          your Klubfunder membership, and you sign in with the email address the club has for it.
+        </li>
+        <li>
+          Your account is personal. Don't share your sign-in link or let anyone else use your account.
+          If you use a shared computer, sign out when you've finished.
+        </li>
+        <li>
+          If your membership lapses, your access to the members' area stops. It comes back if you
+          rejoin.
+        </li>
+      </ul>
+
+      <h2 class="text-lg font-semibold text-gray-900">Training credit</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>
+          Each household has one training credit balance, which any member of the household can use.
+        </li>
+        <li>
+          When a registrar signs a member in at a session, the session's price is taken from the
+          balance. A session currently costs {sessionPrice}. The price of a session is fixed when the
+          session is set up, and a change in price never affects sessions that have already run.
+        </li>
+        <li>
+          You can add credit by paying cash to a registrar at training or to a club administrator.
+          Each payment appears on your statement with the date and the name of whoever recorded it.
+        </li>
+        <li>
+          A balance can go below zero if a member trains without enough credit. Please top up at the
+          next session you attend.
+        </li>
+        <li>
+          If you'd like credit back as cash, ask a registrar at training or a club administrator. Only
+          an administrator can move credit to another household. If you leave the club with credit
+          remaining, contact us and we'll return it.
+        </li>
+        <li>
+          Please check your statement. If something is wrong, tell a registrar or email us. Mistakes
+          are corrected with a new entry rather than by changing the old one, so your statement always
+          shows what happened and how it was put right.
+        </li>
+      </ul>
+
+      <h2 class="text-lg font-semibold text-gray-900">Using the members' area</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>
+          Use it only to manage your own household's membership and training credit.
+        </li>
+        <li>
+          Don't try to see another household's information, or get round how the members' area works.
+        </li>
+        <li>
+          We aim to keep the members' area available but can't promise it always will be. If it isn't
+          working at a session, the registrar will use a paper sheet and record everything once it's
+          back.
+        </li>
+      </ul>
+
+      <h2 class="text-lg font-semibold text-gray-900">If you volunteer as a registrar or administrator</h2>
+      <p>The club trusts you with other families' information. In return:</p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>
+          use it only to run training sessions or the club, and don't share, copy or screenshot it for
+          anything else
+        </li>
+        <li>keep the phone or computer you use locked, and sign out of shared devices</li>
+        <li>record payments when you take them, and never use another volunteer's account</li>
+        <li>
+          keep printed sign-in sheets and downloaded reports secure, and destroy them once what's on
+          them has been recorded or is no longer needed
+        </li>
+        <li>
+          tell the committee straight away if a phone or computer with club information on it is lost
+          or stolen
+        </li>
+      </ul>
+      <p>The club may withdraw registrar or administrator access at any time.</p>
+
+      <h2 class="text-lg font-semibold text-gray-900">Changes to these terms</h2>
       <p>
-        Access is restricted to current paid members of Omagh Harriers AC. Your
-        account is personal and your sign-in link should not be shared with
-        anyone else.
+        We may update these terms. We'll change the date at the top, and if a change affects your
+        training credit or what you've agreed to, we'll tell household contacts by email or in the
+        members' area before it takes effect.
       </p>
 
-      <h2 class="text-lg font-semibold text-gray-900">Your data</h2>
+      <h2 class="text-lg font-semibold text-gray-900">Contact</h2>
       <p>
-        The members' area displays information held about your household. If any
-        information is incorrect please contact the club committee. See our{' '}
-        <a href="/privacy" class="underline hover:text-gray-900">privacy notice</a>{' '}
-        for details of how we handle your data.
+        Questions about these terms, your account or your training credit go to
+        <a href={`mailto:${contact}`} class="underline hover:text-gray-900">{contact}</a>.
       </p>
-
-      <h2 class="text-lg font-semibold text-gray-900">Acceptable use</h2>
-      <p>
-        You must not attempt to access another member's account or data, or use
-        the members' area for any purpose other than managing your household's
-        membership and training account.
-      </p>
-
-      <h2 class="text-lg font-semibold text-gray-900">Changes</h2>
-      <p>
-        These terms may be updated from time to time. Continued use of the
-        members' area after a change constitutes acceptance of the revised terms.
-      </p>
+      <p>These terms are governed by the law of Northern Ireland.</p>
 
       <p class="text-sm text-gray-400 italic">
-        Final wording to be approved by the club committee.
+        Draft for the club committee's approval.
       </p>
     </div>
   </div>

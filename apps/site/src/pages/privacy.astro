@@ -1,63 +1,202 @@
 ---
 export const prerender = true;
 import Layout from '../layouts/Layout.astro';
+
+// The club's privacy notice. Every statement here has to be true of the
+// system as built: who can read what is set by RLS and column grants (0018),
+// and the processors are the services in OPERATIONS.md. Change one, change
+// this. The decisions it rests on are listed for the committee in
+// roadmap/committee/privacy-and-terms.md.
+
+const contact = 'info@omaghharriers.com';
 ---
 
 <Layout title="Privacy Notice — Omagh Harriers AC">
   <div class="max-w-2xl mx-auto px-4 py-16">
-    <h1 class="text-3xl font-bold mb-2">Privacy Notice</h1>
-    <p class="text-sm text-gray-500 mb-8">Last updated: May 2026</p>
+    <h1 class="text-3xl font-bold mb-2">Privacy notice</h1>
+    <p class="text-sm text-gray-500 mb-8">Last updated: November 2026</p>
 
     <div class="prose prose-sm max-w-none text-gray-700 space-y-6">
       <p>
-        Omagh Harriers AC is the data controller for information held about
-        members. This notice explains what we hold, why, and how to request a
-        change or deletion.
+        Omagh Harriers AC (“the club”, “we”) is responsible for the personal information described
+        here, as its data controller under UK data protection law. This notice explains what we hold,
+        why, who can see it, how long we keep it, and what you can ask us to do with it.
+      </p>
+      <p>
+        Most of our members are children, so this notice is written for <strong>parents and
+        guardians</strong> as well as adult members. Where it says “you”, it means the member, or the
+        parent or guardian acting for them. It also covers guests who come to a session, and the
+        volunteers who run sessions.
       </p>
 
       <h2 class="text-lg font-semibold text-gray-900">What we hold</h2>
+      <p><strong>About each member</strong></p>
       <ul class="list-disc list-inside space-y-1">
-        <li>Name and date of birth of each member in your household</li>
-        <li>Contact email address for your household</li>
-        <li>Athletic association number (where provided by Athletics NI)</li>
-        <li>Membership status and training credit balance</li>
-        <li>Training session attendance history</li>
+        <li>Name, date of birth and gender</li>
+        <li>Athletics NI registration number, where you have one</li>
+        <li>Membership status, and which squads they train with</li>
+        <li>Which training sessions they attended, when, and who signed them in</li>
       </ul>
-
-      <h2 class="text-lg font-semibold text-gray-900">Why we hold it</h2>
+      <p><strong>About each household</strong></p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>The name and email address of the household's contact</li>
+        <li>How the contact signs in to the members' area (an email link, Google or Microsoft)</li>
+        <li>
+          The household's training credit: money paid in, sessions charged, money handed back,
+          corrections and transfers, with the date of each and who recorded it
+        </li>
+      </ul>
+      <p><strong>About guests</strong></p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>Name, the sessions they came to, and what they paid on the night</li>
+      </ul>
+      <p><strong>About volunteers</strong></p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>
+          The name of the registrar or administrator who recorded each sign-in, payment or correction,
+          so that a night's takings can be checked
+        </li>
+      </ul>
       <p>
-        This information is used to manage club membership, verify Athletic NI
-        registration, process training payments, and record attendance.
+        We don't hold medical information, bank or card details, or photographs in the members' area.
       </p>
 
       <h2 class="text-lg font-semibold text-gray-900">Where it comes from</h2>
       <p>
-        Membership data is imported from Klubfunder, the Athletics NI membership
-        platform. Contact emails are provided by members during the sign-up
-        process.
+        Membership details, including names, dates of birth, gender, Athletics NI numbers and the
+        household contact's email, come from <strong>Klubfunder</strong>, the platform you use to join
+        the club and Athletics NI. We copy them from Klubfunder and keep them up to date from it.
+        Attendance and training credit are recorded by the club's volunteers at training. A guest's
+        name is given by the guest at the session.
+      </p>
+
+      <h2 class="text-lg font-semibold text-gray-900">Why we hold it, and on what basis</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>
+          <strong>Running your membership</strong>, including the members' area and training credit:
+          this is necessary for the membership you have with the club.
+        </li>
+        <li>
+          <strong>Recording who was at each session</strong>, members and guests: this is in the
+          club's legitimate interests, so that we know who was in our care at a session, can charge
+          for it correctly, and can contact the right household if something happens.
+        </li>
+        <li>
+          <strong>Keeping financial records</strong>: the club has to keep accounts, and a household
+          needs to be able to check its own statement.
+        </li>
+      </ul>
+      <p>
+        We don't rely on your consent for any of this, and we don't use your information for
+        marketing.
       </p>
 
       <h2 class="text-lg font-semibold text-gray-900">Who can see it</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>
+          <strong>Your household's contact</strong> sees your household's members, training credit and
+          attendance, and nobody else's.
+        </li>
+        <li>
+          <strong>Registrars</strong>, the volunteers who sign runners in at training, see every
+          member's name, which household they belong to, that household's training credit balance,
+          and who attended each session. They don't see dates of birth, gender, Athletics NI numbers
+          or email addresses. The registrar app keeps a copy of a night's list on the registrar's
+          phone, so that it works where there's no signal.
+        </li>
+        <li>
+          <strong>Club administrators</strong>, a small number of committee members, see everything
+          described in this notice, so that they can manage membership and accounts. They can download
+          attendance and payment reports.
+        </li>
+      </ul>
       <p>
-        Your data is visible to the principal contact for your household and to
-        club administrators. It is not shared with third parties except where
-        required by Athletic NI for competition registration.
+        If a phone fails at training, a printed sign-in sheet with members' names and credit balances
+        may be used for the night. Volunteers are asked to keep printed sheets and downloaded reports
+        secure and to destroy them once they're no longer needed.
       </p>
 
-      <h2 class="text-lg font-semibold text-gray-900">
-        Corrections and deletion requests
-      </h2>
+      <h2 class="text-lg font-semibold text-gray-900">Who else handles it</h2>
       <p>
-        To correct or delete your data, please contact the club committee at{' '}
-        <a
-          href="mailto:info@omaghharriers.com"
-          class="underline hover:text-gray-900">info@omaghharriers.com</a
-        >. Deletion of your account will result in loss of access to the members
-        area and training credit history.
+        We don't sell or share your information. We share it with Athletics NI only where it's needed
+        to register you for competition. These services handle it on our behalf, under contract, and
+        only to provide their service:
+      </p>
+      <ul class="list-disc list-inside space-y-1">
+        <li><strong>Supabase</strong>, which stores the members' area database, in Ireland</li>
+        <li><strong>Cloudflare</strong>, which hosts this website and runs the security check on the sign-in page</li>
+        <li><strong>Resend</strong>, which sends sign-in emails</li>
+        <li>
+          <strong>Google</strong> and <strong>Microsoft</strong>, only if you choose to sign in with
+          them
+        </li>
+      </ul>
+      <p>
+        Klubfunder holds your membership record under its own privacy notice, as the platform you
+        joined through.
+      </p>
+
+      <h2 class="text-lg font-semibold text-gray-900">How long we keep it</h2>
+      <ul class="list-disc list-inside space-y-1">
+        <li>
+          <strong>Members and households</strong>: for as long as you're a member, and for two years
+          after your membership lapses, in case you rejoin. After that we remove your name, date of
+          birth, gender, Athletics NI number and email address.
+        </li>
+        <li>
+          <strong>Training credit records</strong>: for six years, as the club's financial records.
+          Once your details have been removed, these records no longer identify you.
+        </li>
+        <li>
+          <strong>Attendance</strong>: kept with your membership record, and stops identifying you when
+          your details are removed.
+        </li>
+        <li>
+          <strong>Guests</strong>: removed, with their attendance, a year after the last session they
+          came to.
+        </li>
+      </ul>
+
+      <h2 class="text-lg font-semibold text-gray-900">Your rights</h2>
+      <p>You can ask us to:</p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>give you a copy of the information we hold about you or your child</li>
+        <li>correct anything that's wrong</li>
+        <li>
+          delete your information. We'll remove your personal details. Financial records we must keep
+          are kept without them, so they no longer identify you
+        </li>
+        <li>restrict how we use your information, or object to how we use it</li>
+      </ul>
+      <p>
+        Most details come from Klubfunder, so the quickest way to correct a name, date of birth or
+        email is usually to update it there. For anything else, email
+        <a href={`mailto:${contact}`} class="underline hover:text-gray-900">{contact}</a>. We'll
+        reply within one month.
+      </p>
+      <p>
+        If you're unhappy with how we've handled your information, you can complain to the
+        Information Commissioner's Office at
+        <a href="https://ico.org.uk/make-a-complaint/" class="underline hover:text-gray-900">ico.org.uk</a>
+        or on 0303 123 1113. We'd appreciate the chance to put it right first.
+      </p>
+
+      <h2 class="text-lg font-semibold text-gray-900">Cookies</h2>
+      <p>
+        The members' area uses only the cookies it needs to work: one that keeps you signed in, one
+        that remembers your email address for a few minutes while you sign in, and, for
+        administrators, one that shows a confirmation after saving a form. The security check on the
+        sign-in page is provided by Cloudflare. We don't use advertising or analytics cookies.
+      </p>
+
+      <h2 class="text-lg font-semibold text-gray-900">Changes to this notice</h2>
+      <p>
+        When we change this notice we'll update the date at the top. If a change affects what we hold
+        or who can see it, we'll tell household contacts by email or in the members' area.
       </p>
 
       <p class="text-sm text-gray-400 italic">
-        Final wording to be approved by the club committee.
+        Draft for the club committee's approval.
       </p>
     </div>
   </div>

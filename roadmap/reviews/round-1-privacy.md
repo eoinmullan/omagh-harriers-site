@@ -320,6 +320,63 @@ Things to check:
 - **Day and session reports name who recorded each entry**, which is personal
   data about volunteers as well as members.
 
+## The Phase 6 pass
+
+Reviewed at `593f2ab`, 21 November 2026, against the checklist above. The
+reporting area is three reports, each with a CSV export: attendance by week,
+money over a date range, and a day report. The other reports the plan listed
+were already screens (one session, household balances, a member's history),
+and a household now sees its own training history at `/members/training`.
+
+### P7. The money export is a list of families' payments, and nobody knows who took a copy
+
+**Severity: low to medium. Partly a committee decision.**
+
+The money CSV has a line per payment: the date, the household's name, the
+amount and who recorded it. Guest payments carry the guest's name. That is a
+record of which families paid what, in a file that will be emailed and kept in
+shared drives. Nothing records that it was exported, or by whom.
+
+The other two exports name no member at all: attendance counts heads per squad,
+and the day report lists sessions and totals.
+
+**Options:**
+
+- Log each export (who, which report, which dates) in a small table. Cheap,
+  and it answers "who has a copy?" after the fact.
+- Or leave the money CSV as it is and say in the notice (C2) that treasurers
+  export payment records, and where those files are kept (C8).
+
+### P8. Reports name volunteers
+
+**Severity: low.**
+
+The money and day reports group money by who recorded it, which is personal
+data about registrars and admins. It is the figure that matters when two phones
+were open and the tin doesn't match, so it should stay. The notice (C2) should
+say that volunteers' names are recorded against the entries they make.
+
+### C9. Who should see the arrears list?
+
+The Households screen's **Overdrawn** filter is a list of families who owe the
+club money, and every admin can see it. The checklist asked who should. If the
+answer is the treasurer and the chair rather than every admin, that is a new
+role or a superuser-only filter, and a committee decision first.
+
+### What the pass checked and found sound
+
+- **No report reads a date of birth, gender, email or Athletics NI number.**
+  Each selects only what it shows.
+- **Attendance and day reports name no member.** They count heads.
+- **A household's training history is its own.** `/members/training` reads on
+  the member's session under RLS and filters to the household's members.
+- **The CSV responses are `Cache-Control: no-store`**, and the file names carry
+  dates only.
+- **Guest names reach the money export only.** P5, that guests are never told
+  they're recorded, is still open, and the export widens it a little.
+
+---
+
 ## What stood up
 
 - **The database is in the EU (West EU, Ireland)**, so there's no transfer

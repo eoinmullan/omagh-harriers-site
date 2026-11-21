@@ -759,14 +759,14 @@ different threat models.
   - [x] Admin service-role paths — every page using `createSupabaseAdminClientFromLocals`, which bypasses RLS entirely
   - [x] The registrar island on the anon key — what a volunteer's phone can read and write, and what a tampered token claim would get
   - [x] **The Klubfunder CLI** — a threat model of its own. It creates and bans auth users and re-points children between households from a CSV somebody downloaded. 995 lines, the largest module in the project, and the easiest one to leave out of a review of "the app"
-- [ ] **Privacy and data protection.** The club holds children's names and dates
+- [x] **Privacy and data protection.** The club holds children's names and dates
   of birth, parent emails and payment records, and a registrar can read the whole
   club. `privacy.astro` mentions "date of birth" once and "delete" once: there is
   no retention story, no lawful basis stated, and nothing about what happens to a
   lapsed junior's record. Findings here may be committee work rather than code,
   so they want lead time
   - [x] Everything that exists before Phase 6 ([findings](reviews/round-1-privacy.md)) — six code findings and eight for the committee
-  - [ ] The reporting area and its CSV exports, once Phase 6 is built — the larger half, and the reason this box stays open
+  - [x] The reporting area and its CSV exports, once Phase 6 is built — the larger half, and the reason this box stays open. Done 21 November: P7, P8 and C9 in the [findings](reviews/round-1-privacy.md#the-phase-6-pass)
 
 ### Round 2 — the code as written
 
@@ -783,8 +783,8 @@ different threat models.
 
 ### Round 4 — delta
 
-- [ ] **Data integrity**, scoped to what rounds 2 and 3 changed
-- [ ] **Security**, scoped to what rounds 2 and 3 changed
+- [x] **Data integrity**, scoped to what rounds 2 and 3 changed ([findings](reviews/round-4-data-integrity.md)): D4-1, a replayed guest untick can delete the guest's next sign-in
+- [x] **Security**, scoped to what rounds 2 and 3 changed ([findings](reviews/round-4-security.md)): S4-1, low
 
 ---
 

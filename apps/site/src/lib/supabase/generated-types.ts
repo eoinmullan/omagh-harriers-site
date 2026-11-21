@@ -474,7 +474,9 @@ export type Database = {
       squad_regulars: {
         Row: {
           group_id: string | null
+          last_attended_at: string | null
           member_id: string | null
+          sessions_attended: number | null
         }
         Relationships: [
           {

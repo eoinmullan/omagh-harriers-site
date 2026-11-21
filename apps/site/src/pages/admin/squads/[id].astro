@@ -2,7 +2,14 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
-import { isEmpty, planGroupMembership } from '../../../lib/training/groups';
+import {
+  describeRegular,
+  isEmpty,
+  planGroupMembership,
+  REGULARS_WINDOW_WEEKS,
+  regularsToPromote,
+  type Regular,
+} from '../../../lib/training/groups';
 import { orThrow } from '../../../lib/supabase/or-throw';
 
 const { id } = Astro.params;
@@ -39,6 +46,20 @@ if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const members = await loadMembers();
 
+  if (formData.get('action') === 'promote') {
+    // One regular made a member of the squad, from the list of who has been
+    // turning up. The key is (member, squad), so promoting twice is harmless.
+    const member = members.find((candidate) => candidate.id === formData.get('member_id'));
+    if (!member) {
+      error = 'That member is no longer active.';
+    } else {
+      const { error: insertError } = await adminClient
+        .from('member_groups')
+        .upsert({ member_id: member.id, group_id: id }, { onConflict: 'member_id,group_id', ignoreDuplicates: true });
+      if (insertError) error = insertError.message;
+      else success = `${member.first_name} ${member.surname} is now a member of this squad.`;
+    }
+  } else {
   const change = planGroupMembership({
     groupId: id,
     current: await loadMemberIdsInGroup(id),
@@ -72,6 +93,7 @@ if (Astro.request.method === 'POST') {
       success = `${describeChange(change.add.length, 'added')}, ${describeChange(change.remove.length, 'removed')}.`;
     }
   }
+  }
 }
 
 // Succeeded: send the browser back here as a GET, so a reload can't
@@ -93,6 +115,25 @@ if (!group) return Astro.redirect('/admin/squads');
 
 const members = await loadMembers();
 const inGroup = new Set(await loadMemberIdsInGroup(id));
+
+// Who has trained with this squad lately. The window is the view's, the same
+// one that puts them on the registrar's Usuals, so the two can't disagree.
+const regularRows = orThrow(await adminClient
+  .from('squad_regulars')
+  .select('member_id, sessions_attended, last_attended_at')
+  .eq('group_id', id));
+
+const activeIds = new Set(members.map((member) => member.id));
+const regulars = new Map<string, Regular>(
+  (regularRows ?? [])
+    .filter((row) => activeIds.has(row.member_id))
+    .map((row) => [
+      row.member_id,
+      { memberId: row.member_id, sessionsAttended: row.sessions_attended, lastAttendedAt: row.last_attended_at },
+    ]),
+);
+const toPromote = regularsToPromote([...regulars.values()], inGroup);
+const memberById = new Map(members.map((member) => [member.id, member]));
 
 // Which other squads each member already trains with — the context that makes
 // a junior in the sprint squad obvious at a glance.
@@ -133,6 +174,7 @@ for (const row of (allMemberships ?? []) satisfies MembershipRow[]) {
       <h1 class="text-3xl font-bold">{group.name}</h1>
       <p class="text-gray-500 mt-1">
         {inGroup.size} of {members.length} members train with this squad.
+        {toPromote.length > 0 && ` ${toPromote.length} more ${toPromote.length === 1 ? 'has' : 'have'} been coming without being members.`}
       </p>
       {
         !group.is_active && (
@@ -143,6 +185,47 @@ for (const row of (allMemberships ?? []) satisfies MembershipRow[]) {
         )
       }
     </div>
+
+    {
+      toPromote.length > 0 && (
+        <section class="mb-10">
+          <h2 class="text-lg font-semibold">Trained here recently</h2>
+          <p class="text-sm text-gray-500 mt-1 mb-3">
+            Not members of this squad, but they've trained with it in the last {REGULARS_WINDOW_WEEKS} weeks,
+            so the registrar sees them on the Usuals list. They drop off {REGULARS_WINDOW_WEEKS} weeks after
+            they stop coming. Add them to keep them on it.
+          </p>
+          <ul class="divide-y divide-gray-100 border-y border-gray-100">
+            {toPromote.map((regular) => {
+              const member = memberById.get(regular.memberId)!;
+              return (
+                <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                  <div>
+                    <p class="font-medium">{member.surname}, {member.first_name}</p>
+                    <p class="text-sm text-gray-500">{describeRegular(regular)}</p>
+                  </div>
+                  <form method="POST">
+                    <input type="hidden" name="action" value="promote" />
+                    <input type="hidden" name="member_id" value={member.id} />
+                    <button
+                      type="submit"
+                      class="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                    >
+                      Add to squad
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )
+    }
+
+    <h2 class="text-lg font-semibold mb-1">Members of this squad</h2>
+    <p class="text-sm text-gray-500 mb-2">
+      Ticked members are always on the registrar's Usuals list.
+    </p>
 
     <form method="POST">
       <div
@@ -186,6 +269,11 @@ for (const row of (allMemberships ?? []) satisfies MembershipRow[]) {
                 {otherGroupNames.get(member.id) && (
                   <span class="text-xs text-gray-400">
                     {otherGroupNames.get(member.id)!.sort().join(' · ')}
+                  </span>
+                )}
+                {regulars.get(member.id) && (
+                  <span class="text-xs text-gray-500 ml-auto text-right">
+                    {describeRegular(regulars.get(member.id)!)}
                   </span>
                 )}
               </label>

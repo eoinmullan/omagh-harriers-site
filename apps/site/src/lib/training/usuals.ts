@@ -17,11 +17,12 @@ export interface RosterMember {
 /**
  * Surname first, then first name.
  *
- * The plan once asked for attendance frequency as the ordering as well as the
- * filter, which cannot hold at once. Frequency decides who is on the list;
- * surname decides how it reads. Ordering by frequency would scatter siblings,
- * and siblings arrive together — the next person the registrar needs is usually
- * the one underneath.
+ * The plan once asked for attendance frequency as the ordering. It isn't used
+ * for order or for who is on the list: the squad's assigned members, anyone who
+ * has trained with it in the last eight weeks, and anyone ticked tonight decide
+ * who is on it (`usualsFor`), and surname decides how it reads. Ordering by
+ * frequency would scatter siblings, and siblings arrive together — the next
+ * person the registrar needs is usually the one underneath.
  */
 export function bySurname(a: RosterMember, b: RosterMember): number {
   return a.surname.localeCompare(b.surname) || a.firstName.localeCompare(b.firstName);
@@ -32,7 +33,9 @@ export function bySurname(a: RosterMember, b: RosterMember): number {
  *
  * Seeded from `member_groups`, because history alone starts empty and on the
  * first night an empty list would be worse than no feature at all. Anyone who
- * has turned up to this group before is added, which is how the list learns.
+ * has trained with this group in the last eight weeks is added, which is how
+ * the list learns (`squad_regulars`, migration 0024). Someone who stops coming
+ * drops off again, unless an admin has made them a member of the squad.
  * Anyone already ticked tonight is on it by definition — including somebody the
  * registrar went and found in the full list, which is how "the system suggests,
  * the person holding the phone decides" is expressed without a second control.

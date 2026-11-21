@@ -136,15 +136,24 @@ draws it; every decision about which rows appear is in
 `lib/training/usuals.ts` and every optimistic state change is in
 `lib/training/night.ts`, both unit tested without a database.
 
-- **The Usuals are seeded from `member_groups` and learn from history.** Anyone
-  ticked tonight is on the list by definition, which is how "the registrar can
-  add somebody by hand" works without a second control. History comes from the
-  `squad_regulars` view (migration `0020`): each member who has trained with the
-  squad, once. So its size depends on the membership, not the history, and it
-  never meets PostgREST's row limit
-- **Frequency decides who is on the list; surname decides the order.** The plan
-  once asked for both as the ordering, which cannot hold at once. Siblings
-  arrive together, so they must be adjacent
+- **The Usuals are a squad's members, its recent regulars, and tonight.**
+  Members are `member_groups`, set on `/admin/squads/[id]`, and stay on the
+  list for good. Regulars come from the `squad_regulars` view (migration
+  `0024`): anyone who has trained with the squad in the last eight weeks, once
+  each, with how often and when they last came. They drop off eight weeks
+  after they stop coming. Anyone ticked tonight is on the list by definition,
+  which is how "the registrar can add somebody by hand" works without a second
+  control. The view is sized by membership, not history, so it never meets
+  PostgREST's row limit, and the window lives only in the view, so the
+  registrar's list and the admin page can't disagree
+- **A squad's page offers its regulars for promotion.** "Trained here
+  recently" lists who has been coming without being a member, most frequent
+  first, each with an **Add to squad** button, and the full list notes each
+  regular's attendance beside their tick box (`regularsToPromote` and
+  `describeRegular` in `groups.ts`)
+- **Surname decides the order, and frequency plays no part in it.** The plan
+  once asked for frequency as the ordering, but siblings arrive together, so
+  they must be adjacent
 - **Typing searches the whole club whichever toggle is showing.** Somebody
   typing a name has already decided the Usuals do not hold who they want
 - **The tick is optimistic and so is the pot.** The row flips and the household

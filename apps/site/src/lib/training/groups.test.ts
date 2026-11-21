@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  describeRegular,
+  regularsToPromote,
   isEmpty,
   planGroupMembership,
   planGroupRename,
@@ -177,5 +179,42 @@ describe('planGroupMembership', () => {
     });
 
     expect(change.remove).toEqual(['member-a']);
+  });
+});
+
+describe('regularsToPromote', () => {
+  const regular = (memberId: string, sessionsAttended: number, lastAttendedAt = '2026-11-17T18:00:00Z') => ({
+    memberId,
+    sessionsAttended,
+    lastAttendedAt,
+  });
+
+  it('offers only the regulars who are not already members of the squad', () => {
+    const offered = regularsToPromote([regular('jack', 3), regular('noah', 2)], new Set(['jack']));
+
+    expect(offered.map((r) => r.memberId)).toEqual(['noah']);
+  });
+
+  it('puts the most frequent first, then the most recent', () => {
+    const offered = regularsToPromote(
+      [regular('a', 1), regular('b', 4), regular('c', 1, '2026-11-19T18:00:00Z')],
+      new Set(),
+    );
+
+    expect(offered.map((r) => r.memberId)).toEqual(['b', 'c', 'a']);
+  });
+});
+
+describe('describeRegular', () => {
+  it('says how often and how recently', () => {
+    expect(describeRegular({ memberId: 'jack', sessionsAttended: 3, lastAttendedAt: '2026-11-17T18:00:00Z' })).toBe(
+      '3 sessions in the last 8 weeks, most recently Tue 17 Nov',
+    );
+  });
+
+  it('counts one session as one', () => {
+    expect(describeRegular({ memberId: 'jack', sessionsAttended: 1, lastAttendedAt: '2026-11-17T18:00:00Z' })).toMatch(
+      /^1 session in/,
+    );
   });
 });

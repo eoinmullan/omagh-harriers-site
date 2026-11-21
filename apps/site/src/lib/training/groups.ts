@@ -1,4 +1,5 @@
 import type { GroupInsert, GroupUpdate, MemberGroupInsert } from '../supabase/types';
+import { formatClubNight } from './club-time';
 import { normaliseForSearch } from './names';
 
 // Every rule about what may be written to `groups` and `member_groups` lives
@@ -110,4 +111,36 @@ function clashMessage(clash: ExistingGroup): string {
   return clash.isActive
     ? `There is already a group called ${clash.name}.`
     : `${clash.name} already exists but is retired. Bring that one back rather than adding it again.`;
+}
+
+/** The registrar's window for a squad's regulars, set by `squad_regulars` (0024). */
+export const REGULARS_WINDOW_WEEKS = 8;
+
+export interface Regular {
+  memberId: string;
+  sessionsAttended: number;
+  lastAttendedAt: string;
+}
+
+/**
+ * Who has been turning up to a squad without being one of its members.
+ *
+ * They're on the registrar's Usuals for as long as they keep coming, and drop
+ * off eight weeks after they stop. Offering them on the squad's page is how an
+ * admin makes that permanent. Most frequent first, because they're the likeliest
+ * to be a member in all but name.
+ */
+export function regularsToPromote(regulars: Regular[], assigned: Set<string>): Regular[] {
+  return regulars
+    .filter((regular) => !assigned.has(regular.memberId))
+    .sort(
+      (a, b) =>
+        b.sessionsAttended - a.sessionsAttended || b.lastAttendedAt.localeCompare(a.lastAttendedAt),
+    );
+}
+
+/** e.g. "3 sessions in the last 8 weeks, most recently Tue 17 Nov". */
+export function describeRegular(regular: Regular): string {
+  const sessions = regular.sessionsAttended === 1 ? '1 session' : `${regular.sessionsAttended} sessions`;
+  return `${sessions} in the last ${REGULARS_WINDOW_WEEKS} weeks, most recently ${formatClubNight(regular.lastAttendedAt)}`;
 }

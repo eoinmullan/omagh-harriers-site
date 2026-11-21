@@ -453,8 +453,10 @@ export type Database = {
         ];
       };
       // Migration 0020. Each member who has trained with a squad, once.
+      // Migration 0024: who has trained with each squad in the last eight
+      // weeks, with how often and when they last came.
       squad_regulars: {
-        Row: { group_id: string; member_id: string };
+        Row: { group_id: string; member_id: string; sessions_attended: number; last_attended_at: string };
         Relationships: [];
       };
     };

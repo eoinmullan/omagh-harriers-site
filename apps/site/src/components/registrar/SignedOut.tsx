@@ -32,7 +32,7 @@ export function SignedOut() {
                 Open <strong className="text-neutral-100">omaghharriers.com</strong> in Safari and
                 sign in to the members' area.
               </li>
-              <li>Tap <strong className="text-neutral-100">Sign runners in</strong>, then add it to your home screen again.</li>
+              <li>Tap <strong className="text-neutral-100">Registration app</strong>, then add it to your home screen again.</li>
             </ol>
             <p className="mt-2 text-neutral-400">
               It only happens if the app has sat unused for a long time.

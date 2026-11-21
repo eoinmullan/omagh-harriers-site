@@ -64,7 +64,7 @@ only after it has landed.
 
 The sign-in PWA is a **prerendered route on this site**, not a separate app:
 `src/pages/registrar/index.astro` serving a single React island from
-`src/components/registrar/`. Reached from a **Sign runners in** card in the
+`src/components/registrar/`. Reached from a **Registration app** card in the
 members' area that only renders for a registrar, admin or superuser.
 
 **It shares the members' area session, and that is the reason it lives here.**

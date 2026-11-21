@@ -9,7 +9,7 @@ ones.** Each fix below says which pattern it uses.
 
 ## Summary
 
-**Every item is done**, on the branch `usability-round`, including the app icon, which landed on 21 November with three smaller follow-ups. Nothing is merged or deployed, and no migrations were added. The tests (488) and `astro check` pass. Every screen was checked in the browser without writing any data. Decisions and questions are at the end.
+**Every item is done**, on the branch `usability-round`, including the app icon, which landed on 21 November with three smaller follow-ups. Nothing is merged or deployed, and no migrations were added. The tests (488) and `astro check` pass. Every screen was checked in the browser without writing any data. Decisions, and what was settled on review, are at the end.
 
 ## Progress
 
@@ -79,7 +79,7 @@ Ticked as each one lands, in the order they're tackled.
 - **Admin history:** a member's page lists the 20 most recent sessions they attended, each linked. The household page already had the statement, so it's unchanged.
 - **Logo** is a copy of the site's white-on-black logo at `/registrar/logo.jpg`, shown on every full screen of the app. It's under `/registrar/`, so the service worker caches it. Replacing it later needs the worker's `VERSION` bumped.
 - **Done and browser back** are the same move. After either, the single session on tonight no longer opens itself, so the home screen stays reachable.
-- **The manifest `short_name`** is now "Harriers Sign-in" too. Android may truncate it under the icon.
+- **The manifest `short_name`** is "Harriers", the same as the name, so Android has nothing to truncate.
 
 - **Five views** are one radio group in two rows: Usuals, Everyone, Guests on top, then Signed in and Paid with their figures. One is always chosen and nothing combines. The search box appears on Everyone only. "Here" and "money collected" are now "Signed in" and "Paid". The rule is `NightView` and `rosterToShow` in `training/usuals.ts`.
 - **Cash sheet:** £2, £5, £10 and £20 are large amber buttons in two columns, filled when chosen. The keypad sits below them, smaller, under "Other amount". This is the usual tip or donation pattern.
@@ -88,10 +88,9 @@ Ticked as each one lands, in the order they're tackled.
 - **New-session dialog** needed `m-auto`, because Tailwind's reset removes a dialog's centring. Caught in the browser this morning.
 - **The service worker's cache is now `registrar-v2`.** The worker serves everything under `/registrar/` from its cache first, and the icons kept their file names. Without the bump, a phone that had already opened the app would keep the old icons and the old manifest. The new worker waits for the app to be closed before it takes over, as before.
 
-## Questions for the morning
+## Settled on review
 
-- **Past sessions reach 14 days back.** Confirmed: 14 days is right.
-- **A statement line tied to a session now names the night**, e.g. "training session for Jack Kelly on Tue 17 Nov". A line is dated when it was entered, and a night put right later from Past sessions would otherwise read as a charge for the day it was entered. This covers the session charge, cash taken, a refund and a sign-in correction, on both the member's statement and the admin's.
-- **The installed app's name** is now "Harriers", long and short. The icon will identify it.
+- **Past sessions reach 14 days back.** Confirmed as right.
+- **A statement line tied to a session now names the night** (added on review), e.g. "training session for Jack Kelly on Tue 17 Nov". A line is dated when it was entered, and a night put right later from Past sessions would otherwise read as a charge for the day it was entered. This covers the session charge, cash taken, a refund and a sign-in correction, on both the member's statement and the admin's.
+- **The installed app's name** is "Harriers", long and short, shortened on review. The icon identifies it.
 - **Seen in the browser:** the admin dialog, the households filters, training times, member history, and the registrar home, Past sessions, five views, cash sheet and back navigation. To avoid writing test data, nothing was ticked or saved, and no session was created.
-- **Dev server:** its served dep hash (`871913e0`) doesn't match the cache on disk (`5a04923f`). The island still rendered, only slowly. If it goes blank, restart the dev server.

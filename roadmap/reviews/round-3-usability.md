@@ -78,7 +78,7 @@ Ticked as each one lands, in the order they're tackled.
 ## Questions for the morning
 
 - **Past sessions reach 14 days back.** Confirmed: 14 days is right.
-- **Logging a past night writes now-dated ledger rows against an old session.** That's correct for the ledger, which is append-only and records when the entry was made. A statement will show the entry under today's date, though, naming the session. Is that acceptable?
+- **A statement line tied to a session now names the night**, e.g. "training session for Jack Kelly on Tue 17 Nov". A line is dated when it was entered, and a night put right later from Past sessions would otherwise read as a charge for the day it was entered. This covers the session charge, cash taken, a refund and a sign-in correction, on both the member's statement and the admin's.
 - **The installed app's name** is now "Harriers", long and short. The icon will identify it.
 - **Seen in the browser:** the admin dialog, the households filters, training times, member history, and the registrar home, Past sessions, five views, cash sheet and back navigation. To avoid writing test data, nothing was ticked or saved, and no session was created.
 - **Dev server:** its served dep hash (`871913e0`) doesn't match the cache on disk (`5a04923f`). The island still rendered, only slowly. If it goes blank, restart the dev server.

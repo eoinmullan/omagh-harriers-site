@@ -145,3 +145,45 @@ describe('a refund says why', () => {
     );
   });
 });
+
+describe('a line tied to a session names the night', () => {
+  const tuesday = '2026-11-17T18:30:00Z';
+
+  it('dates a session charge by the session, not by when it was entered', () => {
+    const description = describeEntry(
+      entry({ type: 'session', amountPence: -200, memberName: 'Jack Kelly', sessionStartsAt: tuesday }),
+    );
+
+    expect(description).toBe('£2.00 deducted — training session for Jack Kelly on Tue 17 Nov');
+  });
+
+  it('dates cash taken at a session, before saying who recorded it', () => {
+    const description = describeEntry(
+      entry({ type: 'top_up_cash', amountPence: 1000, recordedBy: 'Eoin Mullan', sessionStartsAt: tuesday }),
+    );
+
+    expect(description).toBe('£10.00 added — paid by cash at training on Tue 17 Nov, recorded by Eoin Mullan');
+  });
+
+  it('dates the correction of a sign-in', () => {
+    const description = describeEntry(
+      entry({
+        type: 'manual_adjustment',
+        amountPence: 200,
+        notes: 'Middle Distance sign-in corrected',
+        memberName: 'Jack Kelly',
+        sessionStartsAt: tuesday,
+      }),
+    );
+
+    expect(description).toBe('£2.00 added — Middle Distance sign-in corrected for Jack Kelly on Tue 17 Nov');
+  });
+
+  it('dates a refund given back at a session', () => {
+    const description = describeEntry(
+      entry({ type: 'refund', amountPence: -500, sessionStartsAt: tuesday }),
+    );
+
+    expect(description).toBe('£5.00 deducted — refunded on Tue 17 Nov');
+  });
+});

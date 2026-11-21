@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clubDayKey,
   formatClubDateTime,
+  formatClubNight,
   formatClubTime,
   parseClubDateTime,
   toClubDateTimeInput,
@@ -83,5 +84,12 @@ describe('formatClubTime', () => {
 
   it('reads a winter evening the same way, with no offset to apply', () => {
     expect(formatClubTime('2026-01-12T19:00:00.000Z')).toBe('19:00');
+  });
+});
+
+describe('formatClubNight', () => {
+  it('names the night by Omagh\'s calendar, not UTC', () => {
+    expect(formatClubNight('2026-11-17T23:30:00Z')).toBe('Tue 17 Nov');
+    expect(formatClubNight('2026-07-06T23:30:00Z')).toBe('Tue 7 Jul');
   });
 });

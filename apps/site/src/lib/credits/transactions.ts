@@ -1,5 +1,6 @@
 import type { CreditTransactionType } from '../supabase/types';
 import { formatPounds } from './money';
+import { formatClubNight } from '../training/club-time';
 
 // Names arrive here from the rows a statement joins, never from the ledger's
 // own notes: the ledger is append-only, so it holds ids and this is where they
@@ -12,6 +13,12 @@ export interface LedgerEntry {
   counterpartyName?: string | null;
   recordedBy?: string | null;
   notes?: string | null;
+  /**
+   * When the session this entry belongs to started. A night can be put right
+   * days later from the registrar's Past sessions, and the line is dated when
+   * it was entered, so the session's own date has to be said as well.
+   */
+  sessionStartsAt?: string | null;
 }
 
 export function isCredit(entry: LedgerEntry): boolean {
@@ -28,20 +35,20 @@ function reasonFor(entry: LedgerEntry): string {
     case 'top_up_stripe':
       return 'paid by card via Stripe';
     case 'top_up_cash':
-      return attributed('paid by cash at training', entry.recordedBy);
+      return attributed(onTheNight('paid by cash at training', entry), entry.recordedBy);
     case 'session':
-      return entry.memberName ? `training session for ${entry.memberName}` : 'training session';
+      return onTheNight(forMember('training session', entry.memberName), entry);
     case 'refund':
       // A refund carries its reason the way an adjustment does. "£10.00
       // deducted — refunded" does not say why, and a keying slip corrected in
       // front of the member deserves a sentence they can check against the
       // evening they remember.
-      return attributed(noteOr(entry.notes, 'refunded'), entry.recordedBy);
+      return attributed(onTheNight(noteOr(entry.notes, 'refunded'), entry), entry.recordedBy);
     case 'manual_adjustment':
       // Only the untick sets a member on an adjustment, and its note names the
       // squad, not the runner. The runner comes from the member row.
       return attributed(
-        forMember(noteOr(entry.notes, 'adjusted by the club'), entry.memberName),
+        onTheNight(forMember(noteOr(entry.notes, 'adjusted by the club'), entry.memberName), entry),
         entry.recordedBy,
       );
     case 'transfer_in':
@@ -61,6 +68,10 @@ function forMember(reason: string, memberName?: string | null): string {
   return memberName ? `${reason} for ${memberName}` : reason;
 }
 
+function onTheNight(reason: string, entry: LedgerEntry): string {
+  return entry.sessionStartsAt ? `${reason} on ${formatClubNight(entry.sessionStartsAt)}` : reason;
+}
+
 function noteOr(notes: string | null | undefined, fallback: string): string {
   return notes?.trim() || fallback;
 }
@@ -68,3 +79,4 @@ function noteOr(notes: string | null | undefined, fallback: string): string {
 function attributed(reason: string, recordedBy?: string | null): string {
   return recordedBy ? `${reason}, recorded by ${recordedBy}` : reason;
 }
+

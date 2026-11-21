@@ -24,7 +24,7 @@ const balance = orThrow(await Astro.locals.supabase
 // the member's own. Scoped to this household's principal_id, server-side only.
 const rows = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
   .from('credit_transactions')
-  .select('id, type, amount_pence, notes, created_at, recorder:principals!created_by(display_name), member:member_id(first_name, surname)')
+  .select('id, type, amount_pence, notes, created_at, recorder:principals!created_by(display_name), member:member_id(first_name, surname), session:session_id(starts_at)')
   .eq('principal_id', principal.id)
   .order('created_at', { ascending: false }));
 
@@ -36,6 +36,7 @@ type LedgerRow = {
   created_at: string;
   recorder: { display_name: string } | null;
   member: { first_name: string; surname: string } | null;
+  session: { starts_at: string } | null;
 };
 
 const history = ((rows ?? []) satisfies LedgerRow[]).map((row) => {
@@ -45,6 +46,7 @@ const history = ((rows ?? []) satisfies LedgerRow[]).map((row) => {
     notes: row.notes,
     recordedBy: row.recorder?.display_name ?? null,
     memberName: row.member ? `${row.member.first_name} ${row.member.surname}` : null,
+    sessionStartsAt: row.session?.starts_at ?? null,
   };
   return {
     id: row.id,

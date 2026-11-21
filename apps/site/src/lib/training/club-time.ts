@@ -72,6 +72,16 @@ export function formatClubDate(iso: string): string {
   });
 }
 
+/** e.g. 'Tue 17 Nov' — the night a session was, in a line that already has a dated column. */
+export function formatClubNight(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    timeZone: CLUB_TIME_ZONE,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 /**
  * The club's calendar day for an instant, as `YYYY-MM-DD`.
  *

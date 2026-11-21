@@ -286,7 +286,11 @@ the members' area card all use the slash.
 
 Navigations are network-first so a deploy lands the moment there is signal, with
 the cached shell as the fallback. Hashed `/_astro/` assets are cache-first,
-because the hash *is* the version. **Cross-origin requests are never touched** —
+because the hash *is* the version. The app's other files (manifest, icons,
+logo) are network-first too, with the cache as the offline fallback: their
+names don't change with their contents, and serving them cache-first kept the
+old manifest, and so the old icon, on phones that had opened the app before.
+**Cross-origin requests are never touched** —
 caching a Supabase read would mean showing last week's balances as tonight's.
 There is no `skipWaiting()`: a new version waits rather than swapping assets
 under a registrar mid-session.
@@ -335,10 +339,13 @@ never hears about the night.
 Cloudflare's edge and every browser hold them to it. New artwork saved over an
 old file name is never seen: the first icon change kept its names, and the live
 site went on serving the old icons from the edge. Give a changed image a new
-name (`icon-192-v2.png`, `favicon-v2.svg`) and update what links to it. Under
-`/registrar/` the service worker also serves cached files first, which a new
-name gets round as well. HTML and the manifest aren't long-cached, so they
-pick up a new name at once.
+name (`icon-192-v2.png`, `favicon-v2.svg`) and update what links to it. HTML
+and the manifest aren't long-cached, so they pick up a new name at once.
+
+For the registrar app, rename the manifest too (`manifest-v2.webmanifest`) and
+bump the worker's `VERSION`. A phone keeps running its old worker until every
+tab with the app is closed, and a worker older than `registrar-v3` serves the
+manifest from its cache.
 
 ## Don't run a build while the dev server is up
 

@@ -23,7 +23,7 @@
  * header to widen it.
  */
 
-const VERSION = 'registrar-v2';
+const VERSION = 'registrar-v3';
 const SHELL = '/registrar/';
 
 // Hashed build assets. The hash is the version, so a cached one is never stale
@@ -78,22 +78,33 @@ self.addEventListener('fetch', (event) => {
 
   // Build assets, which are immutable by construction. Cache first, because the
   // fastest correct answer is the one already on the phone.
-  if (url.pathname.startsWith(IMMUTABLE) || url.pathname.startsWith('/registrar/')) {
+  if (url.pathname.startsWith(IMMUTABLE)) {
+    event.respondWith(caches.match(request).then((cached) => cached ?? fetchAndKeep(request)));
+    return;
+  }
+
+  // The app's own files: the manifest, icons and logo. Their names don't change
+  // when their contents do, so they are fetched first and the cache only answers
+  // with no signal. Serving these cache-first once kept the old manifest, and so
+  // the old icon, on every phone that had opened the app before the icon changed.
+  if (url.pathname.startsWith('/registrar/')) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ??
-          fetch(request).then((response) => {
-            if (response.ok) {
-              const copy = response.clone();
-              void caches.open(VERSION).then((cache) => cache.put(request, copy));
-            }
-            return response;
-          }),
+      fetchAndKeep(request).catch(() =>
+        caches.match(request).then((cached) => cached ?? Response.error()),
       ),
     );
   }
 });
+
+function fetchAndKeep(request) {
+  return fetch(request).then((response) => {
+    if (response.ok) {
+      const copy = response.clone();
+      void caches.open(VERSION).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  });
+}
 
 function offlineFallback() {
   return new Response(

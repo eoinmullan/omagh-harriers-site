@@ -100,14 +100,22 @@ export function CashSheet({
             : 'Nothing handed over yet tonight'}
         </p>
 
-        <div className="mt-5 grid grid-cols-4 gap-2">
+        {/* The usual amounts are the big buttons: nearly everything handed over
+            at a gate is one of them. The keypad below is for the rest, the
+            preset-plus-other-amount pattern of every tip and donation screen. */}
+        <div className="mt-5 grid grid-cols-2 gap-2">
           {QUICK_AMOUNTS_PENCE.map((amount, index) => (
             <button
               key={amount}
               ref={index === 0 ? firstAmount : undefined}
               type="button"
+              aria-pressed={pence === amount}
               onClick={() => setPence(amount)}
-              className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-lg font-semibold text-neutral-100 active:bg-neutral-800"
+              className={`min-h-16 rounded-xl text-2xl font-bold ${
+                pence === amount
+                  ? 'bg-amber text-black'
+                  : 'border border-neutral-700 bg-neutral-900 text-amber active:bg-neutral-800'
+              }`}
             >
               {cashLabel(amount)}
             </button>
@@ -116,13 +124,14 @@ export function CashSheet({
 
         {/* Digits shift in from the right, so there is no decimal point to
             place with cold fingers. */}
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <p className="mt-4 text-xs font-semibold tracking-wide text-neutral-400 uppercase">Other amount</p>
+        <div className="mt-1.5 grid grid-cols-3 gap-1.5">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
             <button
               key={digit}
               type="button"
               onClick={() => setPence((current) => appendDigit(current, digit))}
-              className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-2xl font-semibold text-neutral-100 active:bg-neutral-800"
+              className="min-h-11 rounded-lg border border-neutral-800 bg-neutral-900 text-lg font-semibold text-neutral-100 active:bg-neutral-800"
             >
               {digit}
             </button>
@@ -130,14 +139,14 @@ export function CashSheet({
           <button
             type="button"
             onClick={() => setPence(0)}
-            className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-base text-neutral-300 active:bg-neutral-800"
+            className="min-h-11 rounded-lg border border-neutral-800 bg-neutral-900 text-sm text-neutral-300 active:bg-neutral-800"
           >
             Clear
           </button>
           <button
             type="button"
             onClick={() => setPence((current) => appendDigit(current, '0'))}
-            className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-2xl font-semibold text-neutral-100 active:bg-neutral-800"
+            className="min-h-11 rounded-lg border border-neutral-800 bg-neutral-900 text-lg font-semibold text-neutral-100 active:bg-neutral-800"
           >
             0
           </button>
@@ -145,7 +154,7 @@ export function CashSheet({
             type="button"
             aria-label="Delete last digit"
             onClick={() => setPence(dropDigit)}
-            className="min-h-14 rounded-xl border border-neutral-800 bg-neutral-900 text-2xl text-neutral-100 active:bg-neutral-800"
+            className="min-h-11 rounded-lg border border-neutral-800 bg-neutral-900 text-lg text-neutral-100 active:bg-neutral-800"
           >
             ⌫
           </button>

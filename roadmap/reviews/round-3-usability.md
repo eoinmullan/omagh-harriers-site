@@ -38,7 +38,7 @@ Ticked as each one lands, in the order they're tackled.
 
 - [x] **The browser back button returns from a session to the session list.**
   The history API: each screen is a history entry.
-- [ ] **Preset amounts come first in the cash sheet**, as large buttons, with
+- [x] **Preset amounts come first in the cash sheet**, as large buttons, with
   a smaller keypad below them.
 - [x] **"Pick a different session" becomes "Done".**
 - [x] **One choice of five views**, not two sets of filters that combine:

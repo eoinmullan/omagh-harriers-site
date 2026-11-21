@@ -174,7 +174,8 @@ for (const row of (allMemberships ?? []) satisfies MembershipRow[]) {
       <h1 class="text-3xl font-bold">{group.name}</h1>
       <p class="text-gray-500 mt-1">
         {inGroup.size} of {members.length} members train with this squad.
-        {toPromote.length > 0 && ` ${toPromote.length} more ${toPromote.length === 1 ? 'has' : 'have'} been coming without being members.`}
+        {toPromote.length === 1 && ' 1 more has been coming without being a member.'}
+        {toPromote.length > 1 && ` ${toPromote.length} more have been coming without being members.`}
       </p>
       {
         !group.is_active && (

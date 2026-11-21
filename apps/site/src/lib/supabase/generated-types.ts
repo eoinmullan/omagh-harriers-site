@@ -502,6 +502,14 @@ export type Database = {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       is_club_admin: { Args: never; Returns: boolean }
       own_household_member_ids: { Args: never; Returns: string[] }
+      sign_in_guest: {
+        Args: {
+          p_attendance_id?: string
+          p_guest_id: string
+          p_session_id: string
+        }
+        Returns: string
+      }
       sign_in_member: {
         Args: {
           p_attendance_id?: string
@@ -509,6 +517,10 @@ export type Database = {
           p_session_id: string
         }
         Returns: string
+      }
+      undo_guest_sign_in: {
+        Args: { p_attendance_id: string }
+        Returns: undefined
       }
       undo_member_sign_in: {
         Args: { p_attendance_id: string }

@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { cashLabel } from '../../lib/credits/cash-label';
 import { formatBalance } from '../../lib/credits/money';
+import { cashCaption } from '../../lib/training/cash';
 import type { Household } from '../../lib/training/night';
 import { balanceTone, toneWords, type RosterMember } from '../../lib/training/usuals';
 
@@ -19,6 +20,7 @@ export function RunnerRow({
   household,
   pricePence,
   cashPence,
+  householdSize,
   isHere,
   onToggle,
   onCash,
@@ -27,6 +29,8 @@ export function RunnerRow({
   household: Household | undefined;
   pricePence: number;
   cashPence: number;
+  /** How many members share this household's cash, for the word under it. */
+  householdSize: number;
   isHere: boolean;
   onToggle: () => void;
   onCash: () => void;
@@ -96,7 +100,7 @@ export function RunnerRow({
         onClick={onCash}
         aria-label={
           cashPence > 0
-            ? `Cash from ${household?.name ?? 'this household'}: ${cashLabel(cashPence)}`
+            ? `Cash from ${household?.name ?? 'this household'}: ${cashLabel(cashPence)} ${cashCaption(householdSize)}`
             : `Take cash from ${household?.name ?? 'this household'}`
         }
         className={`flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-neutral-800 leading-none active:bg-neutral-800 ${
@@ -107,7 +111,7 @@ export function RunnerRow({
           <>
             <span className="text-base font-bold text-amber">{cashLabel(cashPence)}</span>
             <span className="mt-1 block text-[11px] tracking-wider text-neutral-400 uppercase">
-              added
+              {cashCaption(householdSize)}
             </span>
           </>
         ) : (

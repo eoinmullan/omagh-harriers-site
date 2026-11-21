@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cashCaption,
   describeCashChange,
+  householdSizes,
   appendDigit,
   cashTonight,
   dropDigit,
@@ -241,5 +243,28 @@ describe('describeCashChange', () => {
 
   it('says so when nothing would change', () => {
     expect(describeCashChange(500, 500)).toBe('No change');
+  });
+});
+
+describe('cashCaption', () => {
+  it('says added for a household of one', () => {
+    expect(cashCaption(1)).toBe('added');
+  });
+
+  it('says the money covers both siblings, not each of them', () => {
+    expect(cashCaption(2)).toBe('for both');
+  });
+
+  it('counts a larger household', () => {
+    expect(cashCaption(3)).toBe('for all 3');
+  });
+});
+
+describe('householdSizes', () => {
+  it('counts the members of each household', () => {
+    const sizes = householdSizes([{ principalId: 'bennett' }, { principalId: 'bennett' }, { principalId: 'kelly' }]);
+
+    expect(sizes.get('bennett')).toBe(2);
+    expect(sizes.get('kelly')).toBe(1);
   });
 });

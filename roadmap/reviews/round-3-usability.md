@@ -47,7 +47,7 @@ Ticked as each one lands, in the order they're tackled.
 - [x] **"Pick a different session" becomes "Done".**
 - [x] **One choice of five views**, not two sets of filters that combine:
   Usuals, Everyone, Signed in, Paid, Guests. A single segmented control.
-- [x] **The app is called "Harriers Sign-in"** in the manifest, on the home
+- [x] **The app is called "Harriers"** (first "Harriers Sign-in"; shortened on review so Android won't truncate it) in the manifest, on the home
   screen and in the title.
 - [x] **The Harriers logo, small, at the top of the app's home screen.**
 - [x] **"Start a session here" becomes "Create a new session".**
@@ -77,8 +77,8 @@ Ticked as each one lands, in the order they're tackled.
 
 ## Questions for the morning
 
-- **Past sessions reach 14 days back.** Is that the right window, or should a registrar reach further?
+- **Past sessions reach 14 days back.** Confirmed: 14 days is right.
 - **Logging a past night writes now-dated ledger rows against an old session.** That's correct for the ledger, which is append-only and records when the entry was made. A statement will show the entry under today's date, though, naming the session. Is that acceptable?
-- **The installed app's name** is "Harriers Sign-in" for both the long and short names. Android may cut it to "Harriers Si…" under the icon. A shorter `short_name`, such as "Sign-in", avoids that.
+- **The installed app's name** is now "Harriers", long and short. The icon will identify it.
 - **Seen in the browser:** the admin dialog, the households filters, training times, member history, and the registrar home, Past sessions, five views, cash sheet and back navigation. To avoid writing test data, nothing was ticked or saved, and no session was created.
 - **Dev server:** its served dep hash (`871913e0`) doesn't match the cache on disk (`5a04923f`). The island still rendered, only slowly. If it goes blank, restart the dev server.

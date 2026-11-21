@@ -329,6 +329,17 @@ thing that matters: **paper is the fallback, not the record.** Whatever is
 written on it still has to be entered in the app afterwards, or the ledger
 never hears about the night.
 
+## Changing an image means changing its name
+
+`public/_headers` caches every `.png`, `.jpg` and `.svg` for a year, and
+Cloudflare's edge and every browser hold them to it. New artwork saved over an
+old file name is never seen: the first icon change kept its names, and the live
+site went on serving the old icons from the edge. Give a changed image a new
+name (`icon-192-v2.png`, `favicon-v2.svg`) and update what links to it. Under
+`/registrar/` the service worker also serves cached files first, which a new
+name gets round as well. HTML and the manifest aren't long-cached, so they
+pick up a new name at once.
+
 ## Don't run a build while the dev server is up
 
 `astro build` and `astro dev` share `apps/site/node_modules/.vite`. Running

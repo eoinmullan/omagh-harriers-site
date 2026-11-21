@@ -87,7 +87,7 @@ Ticked as each one lands, in the order they're tackled.
 - **Past sessions** covers the last 14 days, newest first, without called-off sessions (`pastSessionsWindow` in `training/tonight.ts`). A past session opens the same screen as tonight's, with its date in the header. It needs a signal and isn't cached offline, since a next-day fix happens with signal. No migration was needed, because nothing in RLS limits writes by date.
 - **Back and Done** step through the screens: a session goes back to the list it was opened from, Past sessions goes back to Tonight.
 - **New-session dialog** needed `m-auto`, because Tailwind's reset removes a dialog's centring. Caught in the browser this morning.
-- **The service worker's cache is now `registrar-v2`.** The worker serves everything under `/registrar/` from its cache first, and the icons kept their file names. Without the bump, a phone that had already opened the app would keep the old icons and the old manifest. The new worker waits for the app to be closed before it takes over, as before.
+- **The service worker's cache is now `registrar-v3`, and the app's own files are network-first.** The worker used to serve everything under `/registrar/` from its cache first, so phones that had opened the app kept the old manifest and installed with the old icon. Now only hashed `/_astro/` assets are cache-first; the manifest, icons and logo come from the network, with the cache kept for offline. The changed icons and the manifest have `-v2` names, because Cloudflare caches images for a year. A new worker still waits for the app to be closed before it takes over.
 
 ## Settled on review
 

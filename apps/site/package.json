@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "astro dev --host",
     "build": "astro build",
+    "build:deploy": "astro check && vitest run && astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
     "test": "vitest run",

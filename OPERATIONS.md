@@ -60,7 +60,8 @@ backup that doesn't depend on the plan.
 | Setting | Value |
 |---|---|
 | **Production branch** | `main`. Every push to `main` deploys. |
-| **Build command** | `pnpm build:deploy`. It runs the typecheck and the tests before the build, the same checks as CI, so a failing check fails the Pages build and the previous deployment stays live (OR4). The steps are in the root `package.json`, so changing them is a commit, not a dashboard edit. |
+| **Build command** | `pnpm build:deploy`. It runs the typecheck and the tests before the build, the same checks as CI, so a failing check fails the Pages build and the previous deployment stays live (OR4). The steps are in `apps/site/package.json`, so changing them is a commit, not a dashboard edit. |
+| **Root directory** | `apps/site`. The build command runs there, so the script has to live in the site's `package.json`, not the workspace root's. |
 | **Environment variables** | `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`. The secret key is the service role's. If it's ever rotated in Supabase, update it here and redeploy. |
 
 **Rollback:** Deployments → a previous deployment → *Rollback to this

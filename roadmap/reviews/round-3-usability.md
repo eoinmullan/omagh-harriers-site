@@ -78,7 +78,8 @@ Ticked as each one lands, in the order they're tackled.
 - **Training times:** the period showing now is marked "Showing now". Past periods are newest first inside the expander.
 - **Admin history:** a member's page lists the 20 most recent sessions they attended, each linked. The household page already had the statement, so it's unchanged.
 - **Logo** is a copy of the site's white-on-black logo at `/registrar/logo.jpg`, shown on every full screen of the app. It's under `/registrar/`, so the service worker caches it. Replacing it later needs the worker's `VERSION` bumped.
-- **Done and browser back** are the same move. After either, the single session on tonight no longer opens itself, so the home screen stays reachable.
+- **Done and browser back** are the same move.
+- **The app always opens on its home screen**, even with one session on tonight (changed on 21 November). It used to open the only session itself, which was inconsistent, and wrong on a night with two squads where only one session had been created yet.
 - **The manifest `short_name`** is "Harriers", the same as the name, so Android has nothing to truncate.
 
 - **Five views** are one radio group in two rows: Usuals, Everyone, Guests on top, then Signed in and Paid with their figures. One is always chosen and nothing combines. The search box appears on Everyone only. "Here" and "money collected" are now "Signed in" and "Paid". The rule is `NightView` and `rosterToShow` in `training/usuals.ts`.

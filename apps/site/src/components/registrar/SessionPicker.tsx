@@ -5,7 +5,6 @@ import {
   clubDayWindow,
   pastSessionsToOffer,
   pastSessionsWindow,
-  theOnlyChoice,
   tonightsSessions,
   type SelectableSession,
   type TonightsSessions,
@@ -36,9 +35,6 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   const [groups, setGroups] = useState<SessionGroup[]>([]);
   const [actorId, setActorId] = useState('');
   const [startedHere, setStartedHere] = useState<SelectableSession[]>([]);
-  // Once the registrar has come back to the list, the one session on tonight
-  // stops opening itself, or Done would bounce straight back into it.
-  const [cameBack, setCameBack] = useState(false);
   // Looking back over the last fortnight to put a night right.
   const [browsingPast, setBrowsingPast] = useState(false);
 
@@ -49,7 +45,6 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
       setBrowsingPast(Boolean(event.state?.registrarPast));
       if (event.state?.registrarSession) return;
       setChosen(undefined);
-      setCameBack(true);
     }
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -160,7 +155,6 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
       return;
     }
     setChosen(undefined);
-    setCameBack(true);
   }
 
   if (load.state === 'loading') {
@@ -182,15 +176,13 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
 
   const { available, cancelled } = load.tonight;
   const tonightIncludingOurs = [...available, ...startedHere];
-  const opened = chosen ?? (cameBack ? undefined : theOnlyChoice(load.tonight));
-
-  if (opened) {
+  if (chosen) {
     return (
-      <AsHistoryEntry entry={{ registrarSession: opened.id, registrarPast: browsingPast }}>
+      <AsHistoryEntry entry={{ registrarSession: chosen.id, registrarPast: browsingPast }}>
         <AttendanceView
           authUserId={authUserId}
           outbox={outbox}
-          session={opened}
+          session={chosen}
           onBack={backToList}
         />
       </AsHistoryEntry>

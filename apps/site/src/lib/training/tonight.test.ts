@@ -3,7 +3,6 @@ import {
   clubDayWindow,
   pastSessionsToOffer,
   pastSessionsWindow,
-  theOnlyChoice,
   tonightsSessions,
   type SelectableSession,
 } from './tonight';
@@ -86,27 +85,6 @@ describe('tonightsSessions', () => {
 
   it('says nothing is on when nothing is', () => {
     expect(tonightsSessions([], mondayEvening)).toEqual({ available: [], cancelled: [] });
-  });
-});
-
-describe('theOnlyChoice', () => {
-  it('opens the session straight away when there is just the one', () => {
-    const tonight = tonightsSessions([session()], mondayEvening);
-
-    expect(theOnlyChoice(tonight)?.id).toBe('session-1');
-  });
-
-  it('makes the registrar choose between two, rather than guessing', () => {
-    const second = session({ id: 'second', startsAt: '2026-07-06T19:30:00.000Z' });
-    const tonight = tonightsSessions([session(), second], mondayEvening);
-
-    expect(theOnlyChoice(tonight)).toBeUndefined();
-  });
-
-  it('has nothing to open when the only session was called off', () => {
-    const tonight = tonightsSessions([session({ isCancelled: true })], mondayEvening);
-
-    expect(theOnlyChoice(tonight)).toBeUndefined();
   });
 });
 

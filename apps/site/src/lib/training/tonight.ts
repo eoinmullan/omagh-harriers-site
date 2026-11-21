@@ -47,17 +47,6 @@ export function tonightsSessions(
 }
 
 /**
- * The one session to open straight away, if there is exactly one.
- *
- * Most nights there is a single session and a list of one is a tap that asks
- * nothing. Two or more and the registrar has to choose, because picking for
- * them would put the night's attendance against the wrong group.
- */
-export function theOnlyChoice(tonight: TonightsSessions): SelectableSession | undefined {
-  return tonight.available.length === 1 ? tonight.available[0] : undefined;
-}
-
-/**
  * The instants bounding Omagh's today, so the query asks for one evening rather
  * than the whole table and then throws most of it away. A registrar on leisure
  * centre wifi notices the difference.

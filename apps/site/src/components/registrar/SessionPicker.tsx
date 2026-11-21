@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { formatClubTime } from '../../lib/training/club-time';
+import { formatClubDate, formatClubTime } from '../../lib/training/club-time';
 import { clubDayKey } from '../../lib/training/club-time';
 import {
   clubDayWindow,
+  pastSessionsToOffer,
+  pastSessionsWindow,
   theOnlyChoice,
   tonightsSessions,
   type SelectableSession,
@@ -37,11 +39,14 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   // Once the registrar has come back to the list, the one session on tonight
   // stops opening itself, or Done would bounce straight back into it.
   const [cameBack, setCameBack] = useState(false);
+  // Looking back over the last fortnight to put a night right.
+  const [browsingPast, setBrowsingPast] = useState(false);
 
   // An open session is a history entry of its own, so the phone's back gesture
   // returns to this list, as it would in any app, instead of leaving.
   useEffect(() => {
     function onPopState(event: PopStateEvent) {
+      setBrowsingPast(Boolean(event.state?.registrarPast));
       if (event.state?.registrarSession) return;
       setChosen(undefined);
       setCameBack(true);
@@ -181,12 +186,26 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
 
   if (opened) {
     return (
-      <AsHistoryEntry sessionId={opened.id}>
+      <AsHistoryEntry entry={{ registrarSession: opened.id, registrarPast: browsingPast }}>
         <AttendanceView
           authUserId={authUserId}
           outbox={outbox}
           session={opened}
           onBack={backToList}
+        />
+      </AsHistoryEntry>
+    );
+  }
+
+  if (browsingPast) {
+    return (
+      <AsHistoryEntry entry={{ registrarPast: true }}>
+        <PastSessions
+          onChoose={setChosen}
+          onBack={() => {
+            if (window.history.state?.registrarPast) window.history.back();
+            else setBrowsingPast(false);
+          }}
         />
       </AsHistoryEntry>
     );
@@ -228,24 +247,99 @@ Nothing is scheduled for tonight. Start one below and sign runners in.
         Check again
       </BigButton>
 
+      <BigButton tone="quiet" onClick={() => setBrowsingPast(true)}>
+        Past sessions
+      </BigButton>
+
       <InstallHint />
     </Screen>
   );
 }
 
-function AsHistoryEntry({ sessionId, children }: { sessionId: string; children: ReactNode }) {
+type HistoryEntry = { registrarSession?: string; registrarPast?: boolean };
+
+// Each screen past the home screen is a history entry of its own, so the back
+// gesture steps back through them as it would in any app.
+function AsHistoryEntry({ entry, children }: { entry: HistoryEntry; children: ReactNode }) {
+  const { registrarSession, registrarPast } = entry;
   useEffect(() => {
-    if (window.history.state?.registrarSession === sessionId) return;
-    window.history.pushState({ registrarSession: sessionId }, '');
-  }, [sessionId]);
+    const current: HistoryEntry | null = window.history.state;
+    if (current?.registrarSession === registrarSession && current?.registrarPast === registrarPast) return;
+    window.history.pushState({ registrarSession, registrarPast }, '');
+  }, [registrarSession, registrarPast]);
   return <>{children}</>;
+}
+
+type PastLoad =
+  | { state: 'loading' }
+  | { state: 'loaded'; sessions: SelectableSession[] }
+  | { state: 'failed' };
+
+// The last fortnight, newest first, so a registrar can put a night right the
+// next day. Opening one is the same screen as tonight's.
+function PastSessions({
+  onChoose,
+  onBack,
+}: {
+  onChoose: (session: SelectableSession) => void;
+  onBack: () => void;
+}) {
+  const [load, setLoad] = useState<PastLoad>({ state: 'loading' });
+
+  const fetchPast = useCallback(async () => {
+    setLoad({ state: 'loading' });
+    try {
+      const window = pastSessionsWindow(new Date());
+      const { data, error } = await createSupabaseBrowserClient()
+        .from('training_sessions')
+        .select('id, starts_at, note, price_pence, is_cancelled, group_id, group:group_id(name)')
+        .gte('starts_at', window.from)
+        .lt('starts_at', window.until);
+      setLoad(error ? { state: 'failed' } : { state: 'loaded', sessions: pastSessionsToOffer((data ?? []).map(asSelectable)) });
+    } catch {
+      setLoad({ state: 'failed' });
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchPast();
+  }, [fetchPast]);
+
+  return (
+    <Screen title="Past sessions">
+      {load.state === 'loading' && <p className="text-lg text-neutral-400">Looking back over the last fortnight…</p>}
+      {load.state === 'failed' && (
+        <>
+          <Problem>Couldn't load past sessions. They need a signal.</Problem>
+          <BigButton onClick={() => void fetchPast()}>Try again</BigButton>
+        </>
+      )}
+      {load.state === 'loaded' &&
+        (load.sessions.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {load.sessions.map((session) => (
+              <li key={session.id}>
+                <SessionChoice session={session} showDate onChoose={() => onChoose(session)} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Note>No sessions in the last fortnight.</Note>
+        ))}
+      <BigButton tone="quiet" onClick={onBack}>
+        Back to tonight
+      </BigButton>
+    </Screen>
+  );
 }
 
 function SessionChoice({
   session,
+  showDate,
   onChoose,
 }: {
   session: SelectableSession;
+  showDate?: boolean;
   onChoose: () => void;
 }) {
   return (
@@ -256,7 +350,7 @@ function SessionChoice({
     >
       <span className="block text-xl font-semibold text-white">{session.groupName}</span>
       <span className="mt-0.5 block text-base text-neutral-400">
-        {formatClubTime(session.startsAt)}
+        {showDate ? `${formatClubDate(session.startsAt)}, ${formatClubTime(session.startsAt)}` : formatClubTime(session.startsAt)}
       </span>
       {session.note && (
         <span className="mt-1 block text-base text-amber">{session.note}</span>

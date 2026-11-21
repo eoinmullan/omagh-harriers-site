@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cashLabel } from '../../lib/credits/cash-label';
-import { formatClubTime } from '../../lib/training/club-time';
+import { clubDayKey, formatClubDate, formatClubTime } from '../../lib/training/club-time';
 import {
   cashTonight,
   householdsWhoPaid,
@@ -670,7 +670,10 @@ export function AttendanceView({
         <div className="flex items-baseline justify-between px-4 pt-3 pb-2">
           <h1 className="truncate text-xl font-bold">{session.groupName}</h1>
           <p className="shrink-0 pl-3 text-sm text-neutral-400">
-            {formatClubTime(session.startsAt)}
+            {/* A night reopened from Past sessions says which night it was. */}
+            {clubDayKey(session.startsAt) === clubDayKey(new Date())
+              ? formatClubTime(session.startsAt)
+              : `${formatClubDate(session.startsAt)}, ${formatClubTime(session.startsAt)}`}
           </p>
         </div>
 

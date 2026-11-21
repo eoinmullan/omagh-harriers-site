@@ -80,3 +80,25 @@ export function clubDayWindow(now: Date = new Date()): { from: string; until: st
   // the signature honest rather than guarding against a real case.
   return { from: from ?? now.toISOString(), until: until ?? now.toISOString() };
 }
+
+/**
+ * How far back the registrar's Past sessions list reaches. Long enough to put
+ * right a night that went wrong, last week's included; anything older is the
+ * admin site's job.
+ */
+export const PAST_SESSION_DAYS = 14;
+
+/** The instants bounding the fortnight before Omagh's today. */
+export function pastSessionsWindow(now: Date = new Date()): { from: string; until: string } {
+  const { from: startOfToday } = clubDayWindow(now);
+  const [year, month, day] = clubDayKey(now).split('-').map(Number);
+  const firstDay = new Date(Date.UTC(year!, month! - 1, day! - PAST_SESSION_DAYS)).toISOString().slice(0, 10);
+  return { from: parseClubDateTime(`${firstDay}T00:00`) ?? startOfToday, until: startOfToday };
+}
+
+/** Past sessions worth reopening: newest first, without the called-off ones. */
+export function pastSessionsToOffer(sessions: SelectableSession[]): SelectableSession[] {
+  return sessions
+    .filter((session) => !session.isCancelled)
+    .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
+}

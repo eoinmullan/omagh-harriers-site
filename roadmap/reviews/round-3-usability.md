@@ -47,7 +47,7 @@ Ticked as each one lands, in the order they're tackled.
   screen and in the title.
 - [x] **The Harriers logo, small, at the top of the app's home screen.**
 - [x] **"Start a session here" becomes "Create a new session".**
-- [ ] **A "Past sessions" button on the home screen**, so a registrar can
+- [x] **A "Past sessions" button on the home screen**, so a registrar can
   fix something the next day.
 - **App icon: on hold.** The user is getting one.
 

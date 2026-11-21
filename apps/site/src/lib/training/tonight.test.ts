@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   clubDayWindow,
+  pastSessionsToOffer,
+  pastSessionsWindow,
   theOnlyChoice,
   tonightsSessions,
   type SelectableSession,
@@ -157,5 +159,34 @@ describe('clubDayWindow', () => {
 
     expect(Date.parse(lateFinish.startsAt)).toBeGreaterThanOrEqual(Date.parse(window.from));
     expect(Date.parse(lateFinish.startsAt)).toBeLessThan(Date.parse(window.until));
+  });
+});
+
+describe('pastSessionsWindow', () => {
+  it('covers the fortnight up to the start of Omagh\'s today, in summer time', () => {
+    expect(pastSessionsWindow(mondayEvening)).toEqual({
+      from: '2026-06-21T23:00:00.000Z',
+      until: '2026-07-05T23:00:00.000Z',
+    });
+  });
+
+  it('reads both edges through Omagh\'s clock across the change to winter time', () => {
+    expect(pastSessionsWindow(new Date('2026-11-02T19:00:00.000Z'))).toEqual({
+      from: '2026-10-18T23:00:00.000Z',
+      until: '2026-11-02T00:00:00.000Z',
+    });
+  });
+});
+
+describe('pastSessionsToOffer', () => {
+  it('puts the most recent first, so last night is the first tap', () => {
+    const older = session({ id: 'older', startsAt: '2026-07-01T18:30:00.000Z' });
+    const newer = session({ id: 'newer', startsAt: '2026-07-05T18:30:00.000Z' });
+
+    expect(pastSessionsToOffer([older, newer]).map((s) => s.id)).toEqual(['newer', 'older']);
+  });
+
+  it('leaves out sessions that were called off', () => {
+    expect(pastSessionsToOffer([session({ isCancelled: true })])).toEqual([]);
   });
 });

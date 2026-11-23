@@ -8,6 +8,7 @@ import { SessionPicker } from './SessionPicker';
 import { SignedOut } from './SignedOut';
 import { Screen } from './ui';
 import { useServiceWorker } from './useServiceWorker';
+import { useStayInTheApp } from './useStayInTheApp';
 import { useWriteQueue } from './useWriteQueue';
 
 // The whole route, as one island.
@@ -29,6 +30,7 @@ export function RegistrarApp() {
   // origin is public, and a worker registered by one of those would be able to
   // answer for the marketing site.
   useServiceWorker();
+  useStayInTheApp();
 
   // One outbox for the phone, mounted here so it keeps sending whatever screen
   // the registrar is on — or none of them. A tick owed for Monday's session is

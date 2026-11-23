@@ -137,6 +137,14 @@ neutrals for everything else.
   picker takes over the picker's entry. After a reload the app reopens the
   session its history entry names, if it's today's. The five views are not
   history, for the same reason tabs in a native app aren't
+- **Back never leaves the app for the website** (`useStayInTheApp`). Opened
+  from its icon the app is first in its window's history, so back from
+  today's list closes it. But it can start with website pages behind it:
+  tapped from the members' area in a browser, or in the installed app after
+  **Go to sign in** took a lapsed registrar through the sign-in pages. So
+  when it starts on today's list with history behind it, the entry it
+  arrived on becomes a guard under today's list, and back from today lands on
+  the guard and steps forward again. With nothing behind, there's no guard
 - **The header's figures are all about tonight**: Usuals, tonight's guests,
   signed in, paid. Everyone shows a search glyph rather than the size of the
   club

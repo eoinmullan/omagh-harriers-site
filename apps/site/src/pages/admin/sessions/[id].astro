@@ -399,17 +399,17 @@ const hasAttendance = attendanceDetail.length > 0;
             <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-gray-200 text-left">
-                  <th class="pb-3 font-semibold">Name</th>
-                  <th class="pb-3 font-semibold">Household</th>
-                  <th class="pb-3 font-semibold text-right">Charged</th>
-                  <th class="pb-3 font-semibold">Recorded by</th>
+                  <th class="pb-3 pr-4 font-semibold">Name</th>
+                  <th class="pb-3 pr-4 font-semibold">Household</th>
+                  <th class="pb-3 pr-8 font-semibold text-right">Charged</th>
+                  <th class="pb-3 pr-4 font-semibold">Recorded by</th>
                   <th class="pb-3 font-semibold">At</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
                 {signedIn.map((line) => (
                   <tr>
-                    <td class="py-3 font-medium">
+                    <td class="py-3 pr-4 font-medium">
                       {line.name}
                       {line.isGuest && (
                         <span class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
@@ -417,8 +417,8 @@ const hasAttendance = attendanceDetail.length > 0;
                         </span>
                       )}
                     </td>
-                    <td class="py-3 text-gray-600">{line.household ?? '—'}</td>
-                    <td class="py-3 text-right">
+                    <td class="py-3 pr-4 text-gray-600">{line.household ?? '—'}</td>
+                    <td class="py-3 pr-8 text-right whitespace-nowrap">
                       {line.isGuest
                         ? line.paidPence
                           ? `${formatPounds(line.paidPence)} cash`
@@ -427,7 +427,7 @@ const hasAttendance = attendanceDetail.length > 0;
                           ? `${formatPounds(line.chargedPence)} credit`
                           : 'not charged'}
                     </td>
-                    <td class="py-3 text-gray-600">{line.recordedBy}</td>
+                    <td class="py-3 pr-4 text-gray-600">{line.recordedBy}</td>
                     <td class="py-3 text-gray-500 text-xs">{line.at}</td>
                   </tr>
                 ))}

@@ -79,11 +79,24 @@ them the same way.
 
 ## Applying a migration
 
-Migrations in `supabase/migrations/` are applied to the live project by hand,
-in order, before the code that needs them is pushed. A push deploys straight
-away, and code that calls a function the database doesn't have yet has its
-writes refused. `0023` is one of these: the registrar app's guest ticks call
-`sign_in_guest` and `undo_guest_sign_in`.
+Migrations in `supabase/migrations/` are applied to the live project with the
+Supabase CLI, **before the code that needs them is pushed**. A push deploys
+straight away, and code that calls a function or column the database doesn't
+have yet has its writes refused.
+
+```sh
+supabase link --project-ref jwjkyiushsrtuvqdtwsx   # once per machine; state in supabase/.temp/
+supabase db push --linked --dry-run                # lists what would be applied
+supabase db push --linked
+pnpm --filter @omagh/site supabase:types
+pnpm --filter @omagh/site typecheck
+```
+
+`db push` applies whatever isn't in the project's migration history. A
+migration run by hand in the SQL Editor isn't recorded there, and the next
+push tries it again. Record it instead:
+`supabase migration repair --status applied <number>`. `0023` was run that
+way and repaired; the history matches the folder through `0024`.
 
 ---
 

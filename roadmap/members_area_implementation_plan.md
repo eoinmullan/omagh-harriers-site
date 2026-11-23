@@ -13,44 +13,40 @@ Phases are intended to be shipped independently. Each phase is self-contained an
 
 **Training sign-in PWA** is a prerendered route on the main site with a React island — mobile-first, installable, used at sessions to mark attendance and record cash payments. Reached from a card in the members' area that only a registrar sees, so it installs already signed in. See *One origin, one sign-in* in Phase 5.
 
-## End-state Folder Structure
+## Folder Structure
+
+As built. The plan once had a second app for the sign-in PWA and a shared
+`packages/supabase`; neither was needed, because the PWA is a route on the
+site (see *One origin, one sign-in* in Phase 5).
 
 ```
 omagh-harriers-site/
 ├── apps/
-│   ├── site/                       # Astro SSR — omaghharriers.com (Pages project A)
-│   │   ├── src/
-│   │   │   ├── pages/
-│   │   │   ├── layouts/
-│   │   │   ├── components/         # members-area UI
-│   │   │   ├── lib/                # supabase client, auth helpers, stripe
-│   │   │   ├── middleware.ts
-│   │   │   └── styles/
-│   │   ├── public/
-│   │   ├── astro.config.mjs
-│   │   ├── tsconfig.json           # extends ../../tsconfig.base.json
-│   │   └── package.json            # @omagh/site
-│   └── (no second app — the registrar PWA is /registrar on the site)
+│   └── site/                       # @omagh/site — the whole of omaghharriers.com
 │       ├── src/
-│       ├── public/
-│       ├── vite.config.ts
-│       └── package.json            # @omagh/signin
-├── packages/
-│   └── supabase/                   # generated DB types, client factory, RLS helpers
-│       └── package.json            # @omagh/supabase
+│       │   ├── pages/              # public site, members/, admin/, registrar/, signin/
+│       │   ├── layouts/            # Layout.astro, AdminLayout.astro
+│       │   ├── components/         # Astro components; registrar/ is the React island
+│       │   ├── lib/                # every rule, each with a *.test.ts beside it
+│       │   ├── data/               # training-schedule.ts
+│       │   └── middleware.ts
+│       ├── public/                 # _headers; registrar/ holds the worker, manifest, icons
+│       ├── scripts/                # sync-klubfunder.ts
+│       └── package.json
 ├── supabase/
-│   └── migrations/                 # SQL files, informally tracked
-├── .github/
-│   └── workflows/
-│       └── ci.yml                  # typecheck + build on PR (deploys stay with Pages)
-├── roadmap/
-├── pnpm-workspace.yaml
-├── package.json                    # root: workspaces + shared dev deps
-├── tsconfig.base.json
-└── README.md
+│   ├── migrations/                 # numbered, applied with `supabase db push`
+│   └── scripts/                    # one-off SQL: test data, go-live clear-down
+├── .github/workflows/ci.yml        # typecheck, test, build on every push to main and every PR
+├── roadmap/                        # this plan, reviews/, committee/
+├── OPERATIONS.md                   # dashboard settings and runbook
+└── CLAUDE.md                       # the decisions
 ```
 
-**CI/CD model:** two Cloudflare Pages projects, one per app, each with **Root directory** set to its `apps/<x>` subfolder. Pages handles pnpm-workspace installs natively. GitHub Actions runs typecheck + build as a PR safety net only — Pages owns deploys.
+**CI/CD model:** one Cloudflare Pages project, **Root directory** `apps/site`,
+build command `pnpm build:deploy`, which runs the typecheck and the tests
+before building, so a failing check leaves the last deployment live. GitHub
+Actions runs the same checks on every push to `main` and every pull request.
+Pages owns deploys.
 
 ## Cost Summary
 
@@ -523,7 +519,7 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [x] Unticking a guest deletes the attendance row. Guests have no ledger to compensate against, and attendance is not append-only — only `credit_transactions` is
 - [x] `describeEntry` should surface a refund's note the way it does for an adjustment. *"£10.00 deducted — refunded"* does not say why, and a keying slip corrected in front of the member deserves a reason
 - [x] The total is only complete once every device has synced. A registrar working offline sees what their own phone has taken, not the session's — say so on screen rather than showing a confident wrong number. The figure is labelled **Money collected**, so that caveat has to appear under it when it applies rather than hiding in the label, which is the right trade: the common case reads plainly and the exception announces itself
-- [x] **Two registrars at once.** A busy track will have more than one phone open on the same session. Idempotency keys stop a double charge; the view now also catches up with the other phone every twenty seconds, and on coming back to the app — but only when this phone owes nothing, so a tick never vanishes from under the registrar. A poll rather than a live subscription, deliberately — `lib/training/watching.ts` says why
+- [x] **Two registrars at once.** A busy track will have more than one phone open on the same session. Idempotency keys stop a double charge. When a phone's writes land it sends an empty "changed" nudge on a Supabase Realtime Broadcast channel, and so does the admin site when a form succeeds; the other phone refreshes within about a second, but only when it owes nothing, so a tick never vanishes from under the registrar. A once-a-minute poll, and coming back to the app, catch a missed nudge. The nudge carries no data, so there is nothing to merge (`lib/training/{nudge,watching}.ts`)
 - [x] **Built for the conditions.** Large targets, high contrast, legible under floodlights and in rain, usable one-handed and with cold fingers. No small text, no long presses, no precision gestures
 - [x] Paper fallback — a printable session list, for the night a phone dies. `/admin/sessions/[id]/sheet`: the same Usuals the app would show, ordered by surname, with a tick box, each household's credit, a column to write cash in, and spare lines for whoever turns up unexpected. An admin page, because printing happens sitting down — a registrar at the track with a dead phone is not printing anything
 
@@ -534,6 +530,8 @@ They are **the Usuals** on screen and in the code. "Shortlist" named the mechani
 - [x] Attendance view — the Usuals described above, not the full membership. One tap of the checkbox marks attendance, through `sign_in_member` so the attendance row and the paired debit are one transaction. The tick is optimistic and taken back if the write fails — `lib/training/night.ts`
 - [x] Record cash payment — tap the runner's cash cell, pick or key in the amount, writes a `top_up_cash` row with `session_id` always set, because a session was chosen before any name appeared
 - [x] Household balance visible inline against each name, so the registrar can see who needs to pay without opening anything
+- [x] **Back and forward behave as in a native app.** A session is a history entry, so back returns to today's list and forward reopens it; the cash sheet and the squad picker close on back; a reload reopens the session; and back never leaves the app for the website it was opened from (`useHistoryLayer`, `useStayInTheApp`)
+- [x] **A save indicator in the header**, *Saved*, *Saving* or *Offline*, in a slot of fixed width, so writes going out don't move the list
 
 #### Nobody should have to book the night in advance
 
@@ -689,7 +687,7 @@ round trip per opening of the app, in the only case that needs it.
 
 A read-only reporting area inside `/admin` for committee operational needs. No new tables — these are queries and views over `members`, `credit_transactions`, `training_sessions`, `groups`, `guests`, and `attendance`.
 
-- [x] Create `src/pages/admin/reports.astro` — index page linking to the reports below. `/admin/reports`, a **Reports** tab in the admin area. Three reports were built; the rest were already answered by existing screens, as marked below
+- [x] Create `src/pages/admin/reports.astro` — index page linking to the reports below. `/admin/reports`, a **Reports** tab in the admin area, which opens on the attendance report, with a switch to the money report. Two reports remain; the rest are answered by existing screens, as marked below. A proof of concept, with no requirements behind it yet
 - [~] Attendance by session — **who attended is `/admin/sessions/[id]`**. Who didn't (absent Usuals) isn't built, because nobody has asked for it yet
 - [x] Attendance by group — headcounts and trends per squad. `/admin/reports/attendance`: week by week, a column per squad
 - [~] Attendance by member — **the member's admin page lists their 20 most recent sessions**, and a household sees its own on `/members/credits`. No date range, because nobody has asked for it yet
@@ -697,8 +695,8 @@ A read-only reporting area inside `/admin` for committee operational needs. No n
 - [x] Top-up summary — `/admin/reports/money`: cash at training, guest payments, money handed back, and cash an admin recorded, by kind and by who recorded it. The cash rule is `session-cash.ts`'s
 - [x] Session summary — the same report as attendance by group, whose All squads column is sessions and headcount per week
 - [x] **Session report** — **already `/admin/sessions/[id]`**, which shows all four
-- [x] **Day report** — every session on a given date rolled together, which is how a committee member actually asks the question ("how did Monday go?")
-- [x] CSV export on each report — on the three new ones, as `?format=csv` on the same URL
+- [x] **Day report** — every session on a given date rolled together, which is how a committee member actually asks the question ("how did Monday go?"). Built, then removed in the simplification review (U3): `/admin/sessions` is grouped by day instead, with a total for a day that ran more than one session
+- [x] CSV export on each report — on both, as `?format=csv` on the same URL
 - [x] Gate `/admin/reports` to `role IN ('admin', 'superuser')` in middleware (already covered by `/admin/*` rule)
 
 ---
@@ -785,6 +783,14 @@ different threat models.
 
 - [x] **Data integrity**, scoped to what rounds 2 and 3 changed ([findings](reviews/round-4-data-integrity.md)): D4-1, a replayed guest untick can delete the guest's next sign-in
 - [x] **Security**, scoped to what rounds 2 and 3 changed ([findings](reviews/round-4-security.md)): S4-1, low
+
+### After round 4
+
+Two passes that weren't in the original plan, run once the reviews above
+had settled the code.
+
+- [x] **Simplification** ([findings](reviews/round-5-simplification.md)) — every screen, looking for features to pare down. U1 to U6, all made: squads search for members rather than listing the club, the admin session charge and the day report went, the registrar's Check again gave way to a refresh, the lists lost their database columns, and the household page leads with credit
+- [x] **The registrar app, screen by screen** ([findings](reviews/round-6-registrar-app.md)) — at phone size with the live data. R1 to R7, all made, the first being a Paid view whose rows added up to nearly twice the tin
 
 ---
 

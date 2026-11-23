@@ -1,5 +1,33 @@
 # Project notes for Claude Code
 
+## Working in this repo
+
+One app, `apps/site` (`@omagh/site`): the public website, the members' area,
+the admin area and the registrar app, all one Astro 5 SSR deployment on
+Cloudflare Pages, backed by one Supabase project. `README.md` has the commands
+and the map; this file has the decisions.
+
+- **Rules live in `src/lib/`, pages and the island decide nothing.** A page
+  hands a form to a lib function and gets back rows to write or one sentence
+  to show. Each module has a `*.test.ts` beside it (Vitest, Arrange/Act/Assert,
+  no comments), run without a database. Keep new rules there
+- **Check before pushing**: `pnpm --filter @omagh/site typecheck` and
+  `pnpm --filter @omagh/site test`. Pages runs both before building, so a
+  failure there keeps the last deployment live rather than shipping
+- **A push to `main` deploys.** Work lands by fast-forwarding `main`; there
+  are no long-lived branches
+- **Schema changes are numbered migrations** in `supabase/migrations/`,
+  applied with the Supabase CLI before the code that needs them is pushed
+  (see *Applying a migration* in `OPERATIONS.md`), then
+  `pnpm --filter @omagh/site supabase:types` and `astro check` (see
+  *Database types* below)
+- **Verify in the browser.** `.claude/launch.json` has the dev server
+  (`localhost:4321`). The registrar app is best checked at phone size
+  (375 × 812). Test data in the live database is fine before go-live; it is
+  cleared with `supabase/scripts/clear-training-data.sql`
+- **Reviews are in `roadmap/reviews/`**, one file per review, findings
+  numbered, with what was done about each
+
 ## Tooling
 
 ### `gh` CLI is scoped to this repo
@@ -32,7 +60,8 @@ Affected nav items are marked with `data-wip` in `apps/site/src/layouts/Layout.a
 
 ## Training times
 
-Session times for the home page and the juniors page come from
+Session times for the home page, the juniors page, the About page and
+`/upcoming-training-times` come from
 `apps/site/src/data/training-schedule.ts` — periods ordered oldest-first, each with an
 explicit `start` and `end`. The site shows the period covering today; once every period has
 lapsed it keeps showing the most recent one and adds a note saying the times may have been
@@ -44,14 +73,17 @@ The `Summer 2026` style heading is derived from the current calendar season and 
 freshness cue — it has nothing to do with which times are shown, or with the athletics
 calendar.
 
-Both pages are server-rendered (no `prerender` export) because they need the date at request
-time.
+All four are server-rendered (no `prerender` export) because they need the date at request
+time, and cached for five minutes. The About page's "Training sessions per week" is the
+number of senior sessions in the period (`seniorSessionsPerWeek`), and its tile is left
+out when there are none. **Don't hardcode a time on any page**: the About page had its
+own copy, and it still said 6:30pm a month after training moved to 6:45pm.
 
 `/admin/training-times` shows how the home page renders for every period in the file, plus the
 stale and empty fallback states. It is a normal admin page — the middleware restricts `/admin`
 to principals with role `admin` or `superuser`, so it needs no guard of its own.
 
-`?date=YYYY-MM-DD` on `/` or `/juniors` renders those pages as of that date. Dev only, gated on
+`?date=YYYY-MM-DD` on any of them renders the page as of that date. Dev only, gated on
 `import.meta.env.DEV` like the WIP flag.
 
 Schedule invariants TypeScript can't express (real calendar dates, ordering, overlaps,
@@ -567,7 +599,9 @@ page repeated it; what that page had and the statement didn't, sessions that
 cost nothing, are added from attendance as lines of their own. Session lines
 name the squad, on the admin statement too. A filter by member appears only
 when two or more members have lines, and the wording assumes neither one
-member nor several. `/members/training` redirects there.
+member nor several. `/members/training` redirects there. An admin sees a
+member's 20 most recent sessions on `/admin/members/[id]`
+(`training/history.ts`).
 
 `/members/credits` reads the ledger with the service-role client, scoped to the
 signed-in principal. That is deliberate: a line names the admin who recorded it,

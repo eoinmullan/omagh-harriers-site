@@ -1,6 +1,25 @@
 ---
 import Layout from '../layouts/Layout.astro';
-export const prerender = true;
+import TrainingCard from '../components/TrainingCard.astro';
+import TrainingTimesNote from '../components/TrainingTimesNote.astro';
+import { juniorAgeRequirement, trainingSchedule } from '../data/training-schedule';
+import { resolveToday, selectTraining, seniorSessionsPerWeek } from '../lib/training/schedule';
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=300');
+
+const today = resolveToday(Astro.url, import.meta.env.DEV);
+const active = selectTraining(trainingSchedule, today);
+const period = active.status === 'none' ? undefined : active.period;
+const sessionsPerWeek = seniorSessionsPerWeek(active);
+
+const seniorEntries =
+  period?.senior.sessions.map(({ when, where }) => ({ when, detail: where })) ?? [];
+
+const juniorEntries =
+  period?.junior.sessions.map(({ when, group, where }) => ({
+    when,
+    detail: `${group} — ${where}`,
+  })) ?? [];
 ---
 
 <Layout
@@ -44,11 +63,17 @@ export const prerender = true;
       </div>
 
       <!-- Key Facts -->
-      <div class="grid sm:grid-cols-3 gap-6 mb-16">
-        <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
-          <p class="text-4xl font-bold text-black mb-2">2</p>
-          <p class="text-gray-600 font-medium">Training sessions per week</p>
-        </div>
+      <div class={`grid ${sessionsPerWeek ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-6 mb-16`}>
+        {
+          sessionsPerWeek && (
+            <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
+              <p class="text-4xl font-bold text-black mb-2">{sessionsPerWeek}</p>
+              <p class="text-gray-600 font-medium">
+                Training {sessionsPerWeek === 1 ? 'session' : 'sessions'} per week
+              </p>
+            </div>
+          )
+        }
         <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
           <p class="text-4xl font-bold text-black mb-2">All</p>
           <p class="text-gray-600 font-medium">Abilities welcome</p>
@@ -61,20 +86,33 @@ export const prerender = true;
 
       <!-- Training -->
       <h2 class="text-3xl font-bold mb-6">Training</h2>
-      <div class="grid md:grid-cols-2 gap-6 mb-16">
-        <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber">
-          <h3 class="text-xl font-bold mb-3">Tuesday</h3>
-          <p class="text-gray-700 mb-1"><strong>Time:</strong> 6:30 PM</p>
-          <p class="text-gray-700 mb-1"><strong>Location:</strong> Omagh Leisure Complex Track</p>
-          <p class="text-gray-600 mt-2">Speed session</p>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber">
-          <h3 class="text-xl font-bold mb-3">Thursday</h3>
-          <p class="text-gray-700 mb-1"><strong>Time:</strong> 6:30 PM</p>
-          <p class="text-gray-700 mb-1"><strong>Location:</strong> Youth Sport, Omagh</p>
-          <p class="text-gray-600 mt-2">Endurance session</p>
-        </div>
-      </div>
+      {
+        !period ? (
+          <div class="bg-gray-50 rounded-lg p-8 border-l-4 border-amber mb-16">
+            <p class="text-lg">
+              We don't have training times listed at the moment &mdash; please get in touch or
+              check the club WhatsApp group.
+            </p>
+          </div>
+        ) : (
+          <div class="mb-16">
+            <div class="grid md:grid-cols-2 gap-6">
+              <TrainingCard
+                title="Senior Training"
+                notice={period.senior.notice}
+                entries={seniorEntries}
+              />
+              <TrainingCard
+                title="Junior Academy"
+                notice={period.junior.notice}
+                subtitle={juniorAgeRequirement}
+                entries={juniorEntries}
+              />
+            </div>
+            <TrainingTimesNote active={active} class="mt-6" />
+          </div>
+        )
+      }
 
       <!-- CTA -->
       <div class="bg-black text-white rounded-lg p-10 text-center">

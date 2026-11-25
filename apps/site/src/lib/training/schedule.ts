@@ -161,13 +161,3 @@ export function splitAroundToday<T extends { end?: string }>(
     past: previews.filter(hasRun).reverse(),
   };
 }
-
-/**
- * The figure behind "Training sessions per week" on the About page: the senior
- * sessions on offer in the period being shown. Undefined when there is nothing
- * to count, so the page leaves the figure out rather than claiming zero.
- */
-export function seniorSessionsPerWeek(active: ActiveTraining): number | undefined {
-  if (active.status === 'none') return undefined;
-  return active.period.senior.sessions.length || undefined;
-}

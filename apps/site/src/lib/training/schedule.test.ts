@@ -8,7 +8,6 @@ import {
   monthAndYear,
   resolveToday,
   selectTraining,
-  seniorSessionsPerWeek,
   splitAroundToday,
   todayInOmagh,
   type JuniorSession,
@@ -261,33 +260,5 @@ describe('splitAroundToday', () => {
     const { currentAndUpcoming } = splitAroundToday([spring, afterwards], '2027-01-01');
 
     expect(currentAndUpcoming).toEqual([afterwards]);
-  });
-});
-
-describe('seniorSessionsPerWeek', () => {
-  it('counts the senior sessions in the period being shown', () => {
-    const shown = period({ senior: { sessions: [seniorSession(), seniorSession(), seniorSession()] } });
-
-    const count = seniorSessionsPerWeek({ status: 'current', period: shown });
-
-    expect(count).toBe(3);
-  });
-
-  it('counts a lapsed period too, since that is what the page still shows', () => {
-    const count = seniorSessionsPerWeek({ status: 'stale', period: period() });
-
-    expect(count).toBe(1);
-  });
-
-  it('has no figure when the seniors have no sessions', () => {
-    const resting = period({ senior: { notice: 'Off for Christmas.', sessions: [] } });
-
-    const count = seniorSessionsPerWeek({ status: 'current', period: resting });
-
-    expect(count).toBeUndefined();
-  });
-
-  it('has no figure when no times are published', () => {
-    expect(seniorSessionsPerWeek({ status: 'none' })).toBeUndefined();
   });
 });

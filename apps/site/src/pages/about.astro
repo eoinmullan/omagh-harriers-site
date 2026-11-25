@@ -3,14 +3,13 @@ import Layout from '../layouts/Layout.astro';
 import TrainingCard from '../components/TrainingCard.astro';
 import TrainingTimesNote from '../components/TrainingTimesNote.astro';
 import { juniorAgeRequirement, trainingSchedule } from '../data/training-schedule';
-import { resolveToday, selectTraining, seniorSessionsPerWeek } from '../lib/training/schedule';
+import { resolveToday, selectTraining } from '../lib/training/schedule';
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=300');
 
 const today = resolveToday(Astro.url, import.meta.env.DEV);
 const active = selectTraining(trainingSchedule, today);
 const period = active.status === 'none' ? undefined : active.period;
-const sessionsPerWeek = seniorSessionsPerWeek(active);
 
 const seniorEntries =
   period?.senior.sessions.map(({ when, where }) => ({ when, detail: where })) ?? [];
@@ -63,23 +62,17 @@ const juniorEntries =
       </div>
 
       <!-- Key Facts -->
-      <div class={`grid ${sessionsPerWeek ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-6 mb-16`}>
-        {
-          sessionsPerWeek && (
-            <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
-              <p class="text-4xl font-bold text-black mb-2">{sessionsPerWeek}</p>
-              <p class="text-gray-600 font-medium">
-                Training {sessionsPerWeek === 1 ? 'session' : 'sessions'} per week
-              </p>
-            </div>
-          )
-        }
+      <div class="grid md:grid-cols-3 gap-6 mb-16">
         <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
-          <p class="text-4xl font-bold text-black mb-2">All</p>
+          <p class="text-3xl font-bold text-black mb-2 whitespace-nowrap">4 disciplines</p>
+          <p class="text-gray-600 font-medium">Track, roads, XC, indoor</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
+          <p class="text-3xl font-bold text-black mb-2 whitespace-nowrap">All</p>
           <p class="text-gray-600 font-medium">Abilities welcome</p>
         </div>
         <div class="bg-gray-50 rounded-lg p-6 text-center border-t-4 border-amber">
-          <p class="text-4xl font-bold text-black mb-2">ANI</p>
+          <p class="text-3xl font-bold text-black mb-2 whitespace-nowrap">ANI</p>
           <p class="text-gray-600 font-medium">Athletics NI affiliated</p>
         </div>
       </div>

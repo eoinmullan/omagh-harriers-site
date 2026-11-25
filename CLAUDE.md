@@ -74,10 +74,10 @@ freshness cue — it has nothing to do with which times are shown, or with the a
 calendar.
 
 All four are server-rendered (no `prerender` export) because they need the date at request
-time, and cached for five minutes. The About page's "Training sessions per week" is the
-number of senior sessions in the period (`seniorSessionsPerWeek`), and its tile is left
-out when there are none. **Don't hardcode a time on any page**: the About page had its
-own copy, and it still said 6:30pm a month after training moved to 6:45pm.
+time, and cached for five minutes. **Don't hardcode a time on any page**: the About page
+had its own copy, and it still said 6:30pm a month after training moved to 6:45pm. The
+About page's fact tiles show no session count for that reason: a number derived from the
+schedule was one more thing to explain when a period had no senior sessions.
 
 `/admin/training-times` shows how the home page renders for every period in the file, plus the
 stale and empty fallback states. It is a normal admin page — the middleware restricts `/admin`

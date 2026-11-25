@@ -46,7 +46,23 @@ describe('matchesName', () => {
     expect(matchesName(runner, '   ')).toBe(true);
   });
 
-  it('does not match across the gap between the two names', () => {
-    expect(matchesName({ firstName: 'John', surname: 'Okane' }, 'nokane')).toBe(false);
+  it('matches the full name in either order', () => {
+    expect(matchesName(runner, 'Siobhán O\'Kane')).toBe(true);
+    expect(matchesName(runner, "o'kane siobhan")).toBe(true);
+    expect(matchesName(runner, 'siobhan okane')).toBe(true);
+  });
+
+  it('matches part of each name, in either order', () => {
+    expect(matchesName(runner, 'sio kan')).toBe(true);
+    expect(matchesName(runner, 'kan sio')).toBe(true);
+  });
+
+  it('matches across the gap between the two names', () => {
+    expect(matchesName({ firstName: 'John', surname: 'Okane' }, 'nokane')).toBe(true);
+  });
+
+  it('refuses a name when only some of its words are found', () => {
+    expect(matchesName(runner, 'siobhan kelly')).toBe(false);
+    expect(matchesName(runner, 'kelly okane')).toBe(false);
   });
 });

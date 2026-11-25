@@ -206,42 +206,6 @@ function others(memberId: string): string | undefined {
     </ul>
   </section>
 
-  <section class="mb-10">
-    <h2 class="text-lg font-semibold mb-3">Members ({squadMembers.length})</h2>
-    {
-      squadMembers.length > 0 ? (
-        <ul class="divide-y divide-gray-100 border-y border-gray-100">
-          {squadMembers.map((member) => (
-            <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
-              <div>
-                <p class="font-medium">{member.surname}, {member.first_name}</p>
-                {(regulars.get(member.id) || others(member.id)) && (
-                  <p class="text-sm text-gray-500">
-                    {[regulars.get(member.id) && describeRegular(regulars.get(member.id)!), others(member.id) && `Also ${others(member.id)}`]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                )}
-              </div>
-              <form method="POST">
-                <input type="hidden" name="action" value="remove" />
-                <input type="hidden" name="member_id" value={member.id} />
-                <button
-                  type="submit"
-                  class="border border-gray-300 text-gray-600 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                >
-                  Remove
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p class="text-sm text-gray-500">Nobody yet. Add members above.</p>
-      )
-    }
-  </section>
-
   {
     toPromote.length > 0 && (
       <section class="mb-10">
@@ -277,6 +241,42 @@ function others(memberId: string): string | undefined {
       </section>
     )
   }
+
+  <section class="mb-10">
+    <h2 class="text-lg font-semibold mb-3">Members ({squadMembers.length})</h2>
+    {
+      squadMembers.length > 0 ? (
+        <ul class="divide-y divide-gray-100 border-y border-gray-100">
+          {squadMembers.map((member) => (
+            <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
+              <div>
+                <p class="font-medium">{member.surname}, {member.first_name}</p>
+                {(regulars.get(member.id) || others(member.id)) && (
+                  <p class="text-sm text-gray-500">
+                    {[regulars.get(member.id) && describeRegular(regulars.get(member.id)!), others(member.id) && `Also ${others(member.id)}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
+              </div>
+              <form method="POST">
+                <input type="hidden" name="action" value="remove" />
+                <input type="hidden" name="member_id" value={member.id} />
+                <button
+                  type="submit"
+                  class="border border-gray-300 text-gray-600 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Remove
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="text-sm text-gray-500">Nobody yet. Add members above.</p>
+      )
+    }
+  </section>
 </AdminLayout>
 
 <script>

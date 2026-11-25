@@ -158,7 +158,9 @@ neutrals for everything else.
   £60 night added up to £115 (`householdsThatPaid` in `usuals.ts`)
 - **The way back is a ‹ at the top left of the header**, always in reach. An
   iPhone home-screen app has no back button, and a Done at the foot of the
-  list was under 313 names on Everyone
+  list was under 313 names on Everyone. A Done still ends the page, for a short
+  list. The header is the squad on the first line, then the time (or date and
+  time) with the save indicator right-aligned beside it
 - **Back and forward behave as in a native app.** Each screen past today's
   list is a history entry (`AsHistoryEntry` in `SessionPicker.tsx`), so back
   steps out and **forward goes back in**: the picker remembers every session

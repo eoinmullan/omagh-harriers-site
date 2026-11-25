@@ -716,10 +716,11 @@ export function AttendanceView({
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col">
       <header className="sticky top-0 z-20 border-b border-neutral-800 bg-black">
-        <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+        <div className="flex items-start gap-3 px-4 pt-3 pb-2">
           {/* The way back, always in reach. An app on an iPhone's home screen
-              has no back button, and a Done at the foot of the list was under
-              313 names on Everyone. */}
+              has no back button, and a Done at the foot of the list is under
+              313 names on Everyone. Done is there too, for the end of a short
+              list. */}
           {onBack && (
             <button
               type="button"
@@ -730,15 +731,17 @@ export function AttendanceView({
               <span aria-hidden="true">‹</span>
             </button>
           )}
-          <h1 className="min-w-0 flex-1 truncate text-xl font-bold">{session.groupName}</h1>
-          <div className="flex shrink-0 items-center gap-3">
-            <SyncStatus status={syncStatus({ pending: outbox.pending, online: outbox.online })} />
-            <p className="text-sm text-neutral-400">
-              {/* A night reopened from Past sessions says which night it was. */}
-              {clubDayKey(session.startsAt) === clubDayKey(new Date())
-                ? formatClubTime(session.startsAt)
-                : `${formatClubDate(session.startsAt)}, ${formatClubTime(session.startsAt)}`}
-            </p>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-xl font-bold">{session.groupName}</h1>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-neutral-400">
+                {/* A night reopened from Past sessions says which night it was. */}
+                {clubDayKey(session.startsAt) === clubDayKey(new Date())
+                  ? formatClubTime(session.startsAt)
+                  : `${formatClubDate(session.startsAt)}, ${formatClubTime(session.startsAt)}`}
+              </p>
+              <SyncStatus status={syncStatus({ pending: outbox.pending, online: outbox.online })} />
+            </div>
           </div>
         </div>
 
@@ -949,6 +952,13 @@ export function AttendanceView({
         )}
       </div>
 
+      {onBack && (
+        <div className="mt-auto px-4 pt-4 pb-6">
+          <BigButton tone="quiet" onClick={onBack}>
+            Done
+          </BigButton>
+        </div>
+      )}
     </div>
   );
 }

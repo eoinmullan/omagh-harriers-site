@@ -55,7 +55,7 @@ Pages owns deploys.
 | Domain (existing) | — |
 | Cloudflare Pages | £0 (free tier covers a 40-member club many times over) |
 | Supabase | £0 (free tier: 500MB DB, 50k MAU, plenty for this) |
-| Stripe top-up fees | ~1.4% + 20p per transaction (e.g. 34p on a £10 top-up — paid by club, not member). Not being incurred: card payment is parked, see Phase 4 |
+| Stripe top-up fees | ~1.4% + 20p per transaction (e.g. 34p on a £10 top-up — paid by club, not member, unless the committee decides otherwise; see Phase 4) |
 | **Total ongoing** | **~£0/year** |
 
 One-off setup: only your time. No per-seat costs, no monthly subscriptions.
@@ -140,7 +140,7 @@ second principal, which is how this was found.
 
 Session balance tracking, top-up history, and admin tools for cash payments and session deductions. Balances are held **per principal** (the household), not per member — one parent tops up once and any of their members can draw from it. An admin credit-transfer feature also belongs here, used to move a stranded balance when a household's contact email changes in Klubfunder.
 
-**The club starts out on cash in, sessions out.** The committee decided on 17 Nov 2026 not to take card payments yet, so the Stripe section below is parked rather than pending — see it for what is already in place for when that changes.
+**The club started out on cash in, sessions out.** The committee decided on 17 Nov 2026 not to take card payments yet, and reversed that on 26 Nov 2026: Stripe top-up is going ahead. See the Stripe section below.
 
 ### Data model
 - [x] Create `credit_transactions` table — `id`, `principal_id`, `amount_pence` (positive for credit, negative for debit), `type` (`'top_up_stripe' | 'top_up_cash' | 'session' | 'manual_adjustment' | 'refund' | 'transfer_in' | 'transfer_out'`), `member_id` (nullable, set when the transaction is tied to a specific member — typically `'session'`), `idempotency_key` (unique), `notes`, `created_by`, `created_at`. A CHECK ties the sign of the amount to the type, and a trigger makes the table append-only — a mistake is corrected with a compensating row, not an edit. An `attendance_id` was pencilled in for Phase 5; Phase 5 decided against it, for the reason recorded there
@@ -152,15 +152,23 @@ Session balance tracking, top-up history, and admin tools for cash payments and 
 - [x] Use human-readable line formats, e.g. *"£10.00 added — paid by card via Stripe"*, *"£10.00 added — paid by cash at training, recorded by Eoin Mullan"*, *"£2.00 deducted — Monday Track Speed"* (`src/lib/credits/transactions.ts`)
 - [x] Link credits page from `/members` dashboard — the dashboard shows the balance itself
 
-### Stripe top-up — parked (committee decision, 17 Nov 2026)
+### Stripe top-up — going ahead (committee decision, 26 Nov 2026)
 
-Not being built. Cash is recorded by an admin instead. Nothing in the shipped code
-promises card payment: there is no top-up button and no dead route. What is already
-in place for the day it is wanted — the `top_up_stripe` transaction type, its CHECK
-constraint, and the *"paid by card via Stripe"* line format with its test — costs
-nothing to leave standing.
+Parked on 17 Nov 2026, approved on 26 Nov 2026. Already in place from when it
+was parked: the `top_up_stripe` transaction type, its CHECK constraint, and the
+*"paid by card via Stripe"* line format with its test. Nothing in the shipped code
+yet offers card payment: there is no top-up button and no route.
 
-The boxes below are kept as the plan, not as outstanding work.
+**Open questions, to settle before building:**
+
+- **Amounts.** £10 / £20 / £40 was pencilled in and never confirmed. Fixed buttons only, or a custom amount with a minimum?
+- **Who pays the fee.** The plan says the club absorbs ~1.4% + 20p. Confirm, or pass it on (and if so, how the line reads on the statement)
+- **Stripe account access.** Who holds the club's Stripe login, and whether a restricted key is enough rather than the full secret key
+- **Refunds.** Is unused card credit refunded to the card through Stripe, or handed back as cash like everything else? The terms (decision 7 in `committee/privacy-and-terms.md`) currently say cash or transfer only
+- **Running on Cloudflare.** The Stripe Node SDK needs its fetch HTTP client and `constructEventAsync` (SubtleCrypto) on Workers. Confirm before committing to the SDK over plain `fetch`
+- **Middleware.** The webhook route must sit outside `/members` and `/admin`, or the auth gate will refuse Stripe
+- **Terms and privacy notice.** Stripe becomes a processor of payment data, and card payment needs its own terms (see the Ts&Cs work in Phase 8)
+- **Registrar app.** Does the balance a registrar sees need to say a card top-up is pending? A webhook normally lands within seconds, so probably not
 
 - [ ] Retrieve API keys from existing club Stripe dashboard (Standard account)
 - [ ] Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to env
@@ -794,6 +802,95 @@ had settled the code.
 
 ---
 
+## Phase 8 — Child Safeguarding & Coach PWA
+
+Agreed with the committee on 26 Nov 2026. Guardians fill in a safeguarding form
+for each child; coaches and officers can see it when they need to; a second PWA
+puts it in a coach's hand at the track when something happens to a child; and
+the registrar app shows which children still have no form on file.
+
+**This is the most sensitive data the club will hold.** Children's health
+information is special category data under UK GDPR, so it needs an Article 9
+condition as well as a lawful basis, and almost certainly a DPIA before it is
+collected. Phase 7's reviews covered everything up to Phase 6; this phase
+needs its own privacy, security and data-integrity passes before real forms
+are collected.
+
+**Status: scoping.** The form's contents are TBC, and the open questions below
+are to be settled in a later session.
+
+### Safeguarding form (members' area)
+
+- [ ] `/members/safeguarding`: one form per child in the household, filled in by the household's login
+- [ ] Shows on the members' dashboard which children have no form on file, and links straight to it
+- [ ] Rules in `lib/safeguarding/` (a form in, a row or one sentence out), unit tested like everything else
+- [ ] Guardians can view and update what they've submitted
+
+### Storage and access
+
+- [ ] Migration: a safeguarding table (or tables) keyed by `member_id`, with RLS
+- [ ] Coach access (a role or a flag; see *How roles are modelled* below), and some form of officer access (welfare officer?), added to `roles.ts`, the access-token hook and `/admin/households/[id]`
+- [ ] Column grants so registrars can tell *whether* a child has a form, and nothing else (see *A login reads columns, not rows*)
+- [ ] Admin/officer screen to see a child's record and which children have none
+
+### Coach PWA (trackside incidents)
+
+A second prerendered PWA on the site, beside `/registrar/`, for the same
+reasons the registrar app lives there (see *One origin, one sign-in*). Probably
+`/coach/` with its own worker scoped to it.
+
+- [ ] Reached from a card in the members' area that only renders for a coach (or above)
+- [ ] On opening: pick a session (the same session list the registrar sees)
+- [ ] The session shows every child signed in
+- [ ] Tapping a child opens their safeguarding information
+- [ ] Phone numbers are `tel:` links, so tapping one opens the phone's call screen
+- [ ] **Offline mode**: with no coverage, the coach can search every member and open their record from a cached copy
+
+### Registrar app: missing form warning
+
+- [ ] A warning icon on the row of any child with no safeguarding form, so the registrar can remind the child or their parent
+- [ ] Hidden visually-only text for screen readers, like the balance tone words
+
+### Ts&Cs and privacy notice
+
+- [ ] Update the privacy notice: what's collected, why, who sees it, how long it's kept, the Article 9 condition
+- [ ] Update the terms: guardians' responsibility to keep it current; coaches' and officers' obligations (as decision 8 does for registrars)
+- [ ] Card payments (Phase 4, Stripe) in the same revision
+- [ ] Re-acceptance: existing members accepted the old terms. Does `terms_accepted_at` need a version, so everyone is asked again?
+- [ ] Committee approval, as with `committee/privacy-and-terms.md`
+
+### Open questions
+
+**The form**
+- What it asks for. Likely candidates: emergency contacts, medical conditions, allergies, medication, GP, consent to first aid/emergency treatment, photography consent. Check Athletics NI's safeguarding requirements and any template they provide
+- Does Klubfunder already collect any of this? If so, import it rather than ask twice
+- Who counts as a child: under 18 by date of birth? Do adult members fill in anything (emergency contact only)?
+- Does it expire, e.g. renewed each season or at Klubfunder renewal, so a stale form shows as missing?
+- Are previous versions kept, or only the current one?
+
+**Access**
+- Exactly who sees what. All coaches, all children? Or coaches only for their squads, with officers seeing everyone?
+- Which officers: welfare officer, child protection officer, chair? Is that a role, or a flag on a principal?
+- **How roles are modelled.** Today `role` is one ladder: `member` / `registrar` / `admin` / `superuser`. With coaches the ladder stops fitting, since an admin or a member may or may not be a registrar and/or a coach. One option: keep `superuser` / `admin` / `member` as the role, with `is_registrar` and `is_coach` as booleans beside it. That touches the access-token hook (`app_role` plus new claims), every RLS policy that calls `can_run_a_session()`, `roles.ts`, the registrar app's `lib/training/registrar.ts`, the members' area cards and `/admin/households/[id]`. Decide before adding a `coach` role, so it isn't built twice
+- Should viewing a record be logged, so the welfare officer can see who looked at what?
+
+**The coach app**
+- Does it need to be separate from the registrar app, or a second mode of it? Separate was asked for; one app would mean one install and one worker
+- Guests: children signed in as guests have no form. Should Add guest take an emergency contact?
+- What "present" means: everyone signed in, or children only?
+
+**Offline mode**
+- The requirement means a coach's phone holds every child's safeguarding record. Is that proportionate, or is it limited to the coach's squads, or tonight's sessions?
+- How long the cache lives, and whether it's wiped on sign-out or after a period unused
+- What happens when a phone is lost: is revoking the login enough, given the data already on the device?
+- Encryption at rest beyond the phone's own lock
+
+**Retention**
+- Deleted when a child lapses, or after a period? Probably much shorter than the two years for membership data
+- Does a record from an incident need keeping longer? Incident reports themselves are out of scope for now; confirm
+
+---
+
 ## Phase summary
 
 | Phase | What ships | Key dependency |
@@ -802,7 +899,8 @@ had settled the code.
 | 1 | SSR foundation on Cloudflare Pages | Phase 0 |
 | 2 | Magic link auth + Supabase members table (3-tier roles: member / admin / superuser) | Supabase project |
 | 3 | Google / Microsoft OAuth | OAuth app registrations |
-| 4 | Training credits, admin credit tools, member transparency view | — |
+| 4 | Training credits, admin credit tools, member transparency view; Stripe top-up (approved 26 Nov 2026) | — |
 | 5 | Training sessions, groups, guests, attendance, registrar role, sign-in PWA | Phase 4 schema |
 | 6 | Admin reporting area | Phase 5 schema |
 | 7 | Review — data integrity, security, privacy, then the code, then behaviour | Phase 6, and before go-live |
+| 8 | Child safeguarding form, coach role, coach PWA, registrar warning, Ts&Cs update | Form contents (TBC), DPIA, committee approval of terms |

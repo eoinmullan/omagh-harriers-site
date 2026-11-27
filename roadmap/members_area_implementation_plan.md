@@ -837,7 +837,9 @@ are to be settled in a later session.
 
 A second prerendered PWA on the site, beside `/registrar/`, for the same
 reasons the registrar app lives there (see *One origin, one sign-in*). Probably
-`/coach/` with its own worker scoped to it.
+`/coach/` with its own worker scoped to it. **Built as a section of the one
+club app (Phase 10)**, reached from its section switcher, rather than as an
+app of its own.
 
 - [ ] Reached from a card in the members' area that only renders for a coach (or above)
 - [ ] On opening: pick a session (the same session list the registrar sees)
@@ -875,7 +877,7 @@ reasons the registrar app lives there (see *One origin, one sign-in*). Probably
 - Should viewing a record be logged, so the welfare officer can see who looked at what?
 
 **The coach app**
-- Does it need to be separate from the registrar app, or a second mode of it? Separate was asked for; one app would mean one install and one worker
+- ~~Does it need to be separate from the registrar app, or a second mode of it?~~ Settled 27 Nov 2026: one club app with a section for each job (Phase 10). Whether the sections share one worker is still open there
 - Guests: children signed in as guests have no form. Should Add guest take an emergency contact?
 - What "present" means: everyone signed in, or children only?
 
@@ -888,6 +890,92 @@ reasons the registrar app lives there (see *One origin, one sign-in*). Probably
 **Retention**
 - Deleted when a child lapses, or after a period? Probably much shorter than the two years for membership data
 - Does a record from an incident need keeping longer? Incident reports themselves are out of scope for now; confirm
+
+---
+
+## Phase 9 — Sign in with a code
+
+**Status: next up.** Agreed 27 Nov 2026.
+
+The sign-in email carries a 6-digit code as well as the link, and the code can
+be typed wherever the person is signing in. Both keep working: the link for
+anybody reading their email on the device they're signing in on, the code for
+everybody else.
+
+**Why: the iPhone home-screen trap.** An app added to an iPhone's home screen
+has its own cookies, copied from Safari once, when the icon is created. If its
+session ever lapses there's no way back in from inside it, because the link in
+the email opens Safari, not the app. Today the registrar app's signed-out
+screen tells people to delete the icon, sign in in Safari and add it again
+(`SignedOut.tsx`). A code typed into the app signs the app itself in. Android
+and desktop share the browser's cookies, so the link already works there, but
+the code works everywhere. It also comes before the club app (Phase 10), which
+would otherwise put every member on an iPhone in the same trap.
+
+- [ ] Supabase email template: the link and the code (`{{ .Token }}`) in the one email, the code large enough to read at a glance. Set the code's lifetime, and record the template and the setting in `OPERATIONS.md`
+- [ ] `/signin`: after the email is sent, the "check your email" screen offers a box for the code (`inputmode="numeric"`, `autocomplete="one-time-code"`, so phones offer it from the email). `verifyOtp({ email, token, type: 'email' })`, then the same path as `/signin/callback`: terms, then where they were going
+- [ ] Rules in `lib/auth/` (what a code must look like, and one sentence for each way it can fail: wrong, expired, too many tries), unit tested like everything else
+- [ ] Registrar app: the signed-out screen asks for the email and then the code **inside the app**, through the browser client, instead of the delete-and-re-add instructions. It has to stay within `/registrar/`, the manifest's scope, or the page opens outside the app and the cookie lands in the wrong place
+- [ ] Guessing: six digits is a million codes, so check what Supabase limits on `verifyOtp` attempts, and add our own if it isn't enough. Turnstile already guards sending the email
+- [ ] Check on an iPhone home-screen app, Android, and desktop: signing in by link and by code, and a code used after it has expired
+- [ ] Security review of the new path (a Phase 7 style pass), and update the sign-in notes in `CLAUDE.md`
+
+---
+
+## Phase 10 — One club app
+
+**Status: planned**, after Phase 9. Agreed 27 Nov 2026.
+
+One "Omagh Harriers" app on the home screen for everybody, instead of one app
+for each job. Members open it to see their household and training credit (and,
+with Phase 4, to top up). Volunteers see the tools they hold as well:
+Registration, Coach, Admin. One install and one sign-in, however many jobs
+somebody does. It also answers the Phase 8 question of whether the coach app is
+separate: it's a section of this one.
+
+**Desktop doesn't change.** The app is the same site opened from an icon, at
+the same addresses. In a desktop browser the members' area and admin are what
+they are today, and the registrar stays phone-shaped.
+
+### How you move around it
+
+- **Each section keeps its own navigation**: admin its bottom tab bar, the
+  registrar its screens and ‹ back, the coach whatever suits a trackside phone.
+  A second bar on top of admin's would crowd the part that works best
+- **One section switcher, the same everywhere**: the title at the top of a
+  section's main screen ("Admin ▾", "Registration ▾") opens a sheet listing
+  Home and each tool you hold, the way Slack switches workspaces. It replaces
+  admin's "Your own account" in More
+- **What you see depends on what you hold.** A member with no tools sees no
+  switcher at all. One tool: Home and that tool. Two or three: the same sheet,
+  longer. On Home each tool is also a card with a line worth reading
+  ("Registration: Tuesday Seniors at 18:00 tonight", "Admin: 7 households
+  overdrawn")
+- **The icon opens the section you last used**, so a registrar lands on
+  Registration and an admin on Admin. Home the first time
+- **Opening must work with no signal.** Home and admin are drawn by the server
+  and need a connection; the registrar and coach work offline. So the icon
+  opens a small prerendered launch page with its own worker, which sends you to
+  your last section when online, and to Registration or Coach when not, rather
+  than a blank screen at the track
+
+### Work
+
+- [ ] Manifest with scope `/` and the club's icon, linked from the members' area, admin and the app's sections only, so adding a public page to the home screen stays an ordinary bookmark
+- [ ] Launch page (`/app/` or similar), prerendered, with its worker: last section used, the offline rule above, Home on first launch
+- [ ] In the app, hide the public site's header and footer (`display-mode: standalone`, and `navigator.standalone` on iOS): their links are for visitors
+- [ ] The section switcher, built from what the person holds (`accessOf` in `lib/auth/roles.ts`), hidden for a member with no tools
+- [ ] Home: balance and household first, then a card for each tool held
+- [ ] An "Add it to your home screen" guide in the members' area: Share → Add to Home Screen on an iPhone (reuse the registrar's `InstallHint`), the browser's own install prompt on Android
+- [ ] Fold the registrar in: the switcher in its header, and the move from its own manifest to the club app's. Icons already installed keep working until they're replaced
+- [ ] Build the coach app (Phase 8) as a section from the start
+- [ ] Decide alongside the move from roles to privileges, since the switcher lists privileges
+
+### Open questions
+
+- The name under the icon: the registrar app is "Harriers" today
+- One worker for the whole app, or one per offline section as now (the registrar has its own, scoped to `/registrar/`)
+- How long "the section you last used" lasts, and whether it should ever be Home for somebody who mostly registers
 
 ---
 
@@ -904,3 +992,5 @@ reasons the registrar app lives there (see *One origin, one sign-in*). Probably
 | 6 | Admin reporting area | Phase 5 schema |
 | 7 | Review — data integrity, security, privacy, then the code, then behaviour | Phase 6, and before go-live |
 | 8 | Child safeguarding form, coach role, coach PWA, registrar warning, Ts&Cs update | Form contents (TBC), DPIA, committee approval of terms |
+| 9 | Sign in with a 6-digit code as well as the link, inside a home-screen app too (next up) | Supabase email template |
+| 10 | One club app for everyone: section switcher, launch page that works offline, install guide | Phase 9 |

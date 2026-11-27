@@ -4,7 +4,7 @@ import { nudgeTheRegistrarApp } from '../../../lib/training/admin-nudge';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { planDisplayName } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
-import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS } from '../../../lib/auth/roles';
+import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS, shownRole } from '../../../lib/auth/roles';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
 import { householdHistory } from '../../../lib/credits/history';
 import Statement from '../../../components/Statement.astro';
@@ -95,7 +95,7 @@ const IDENTITY_ACTIONS = ['update_name', 'set_role', 'deactivate', 'reactivate']
 
 async function changeIdentity(action: string, field: Field): Promise<Outcome> {
   if (!isSuperuser) {
-    return { error: 'Only a superuser can change a name, a role or an account status.' };
+    return { error: 'A name, access or account status can’t be changed from this login.' };
   }
 
   if (action === 'update_name') {
@@ -329,7 +329,7 @@ const reopenDialog = error ? DIALOG_FOR_ACTION[postedAction] : undefined;
 
   <RecordHeader title={principal.display_name}>
     <Fragment slot="pills">
-      <AccessPills role={principal.role} />
+      <AccessPills role={principal.role} viewer={actingPrincipal.role} />
       {principal.is_active ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Inactive</Pill>}
     </Fragment>
     <p>{principal.email}</p>
@@ -359,8 +359,8 @@ const reopenDialog = error ? DIALOG_FOR_ACTION[postedAction] : undefined;
       <SummaryRow label="Email">{principal.email}</SummaryRow>
       <SummaryRow label="Access">
         <span class="inline-flex flex-wrap items-center gap-2">
-          <AccessPills role={principal.role} />
-          <span class="text-gray-600">{ROLE_DESCRIPTIONS[principal.role]}</span>
+          <AccessPills role={principal.role} viewer={actingPrincipal.role} />
+          <span class="text-gray-600">{ROLE_DESCRIPTIONS[shownRole(principal.role, actingPrincipal.role)]}</span>
         </span>
         {isSuperuser && (
           <button slot="action" type="button" data-open-dialog="change-access" class="btn-link text-sm">Change</button>

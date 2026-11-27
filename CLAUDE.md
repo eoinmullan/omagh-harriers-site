@@ -1099,3 +1099,8 @@ Every admin tab is a **list page** and a **detail page**, built from
 - **Access** is shown only through `AccessPills`, which reads `accessOf` in
   `lib/auth/roles.ts`. Moving from roles to privileges changes those two, not
   the pages.
+- **Superuser is a developer's convenience, never shown to the committee.** To
+  anybody but another superuser a superuser appears as an admin (`shownRole`),
+  and no screen an admin can reach mentions the word, so nobody wonders
+  whether the chair should have it. Admin is everything a committee member
+  needs

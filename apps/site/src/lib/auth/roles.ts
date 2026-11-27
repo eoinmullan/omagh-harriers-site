@@ -49,6 +49,16 @@ export function planRoleChange(request: {
   return { role };
 }
 
+/**
+ * A role as the person looking at it should see it. Superuser is a developer's
+ * convenience, not a committee role: to anybody but another superuser it is
+ * shown as admin, which is everything a committee member needs. Otherwise the
+ * committee sees it and wonders whether the chair should have it too.
+ */
+export function shownRole(role: PrincipalRole, viewerRole: PrincipalRole): PrincipalRole {
+  return role === 'superuser' && viewerRole !== 'superuser' ? 'admin' : role;
+}
+
 /** What a login can do beyond seeing their own household, as shown beside their name. */
 export type Access = Exclude<PrincipalRole, 'member'>;
 

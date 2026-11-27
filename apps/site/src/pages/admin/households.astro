@@ -133,7 +133,6 @@ function tagsOf(h: (typeof households)[number]): string {
   return [
     h.balancePence < 0 && 'overdrawn',
     h.balancePence > 0 && 'in-credit',
-    ...accessOf(h.role).map((access) => `access:${access}`),
     accessOf(h.role).length > 0 && 'volunteer',
   ]
     .filter(Boolean)
@@ -157,42 +156,24 @@ function tagsOf(h: (typeof households)[number]): string {
   <Flash success={success} error={isSuperuser ? null : error} />
 
   <!-- Overdrawn and In credit are filters as well as figures: most
-       households sit at £0, so the question is usually "who isn't?". -->
+       households sit at £0, so the question is usually "who isn't?". Each
+       also sorts what it shows, owing most or most credit first. Otherwise
+       the list is A to Z. -->
   <StatTiles columns={3}>
     <StatTile label="Overdrawn" value={overdrawn} tone="danger" filter="overdrawn" list="households" />
     <StatTile label="In credit" value={inCredit} filter="in-credit" list="households" />
     <StatTile label="Volunteers" value={volunteers} hint="admins and registrars" filter="volunteer" list="households" />
   </StatTiles>
 
-  <ListToolbar list="households" placeholder="Search by name or email…" label="Search households by name or email">
-    <label for="access-filter" class="sr-only">Filter by what they can do</label>
-    <select id="access-filter" data-list-select="households" class="field w-auto shrink-0">
-      <option value="">Any access</option>
-      <option value="access:registrar">Registrars</option>
-      <option value="access:admin">Admins</option>
-      <option value="access:superuser">Superusers</option>
-    </select>
-    <label for="household-sort" class="sr-only">Sort households</label>
-    <select id="household-sort" class="field w-auto shrink-0 sm:hidden">
-      <option value="name">A to Z</option>
-      <option value="poorest">Owing most first</option>
-      <option value="richest">Most credit first</option>
-    </select>
-  </ListToolbar>
+  <ListToolbar list="households" placeholder="Search by name or email…" label="Search households by name or email" />
 
   <ResourceTable id="households" noMatches="No households match.">
     <thead>
       <tr>
-        <th aria-sort="ascending">
-          <button type="button" data-sort="name" class="uppercase tracking-wide hover:text-gray-900">Name</button>
-        </th>
+        <th id="name-heading" aria-sort="ascending">Name</th>
         <th>Email</th>
         <th class="num">Members</th>
-        <th aria-sort="none" class="num">
-          <button type="button" data-sort="balance" class="uppercase tracking-wide hover:text-gray-900">
-            Balance <span id="balance-arrow" aria-hidden="true"></span>
-          </button>
-        </th>
+        <th id="balance-heading" aria-sort="none" class="num">Balance <span id="balance-arrow" aria-hidden="true"></span></th>
         <th>Status</th>
         <th><span class="sr-only">Open</span></th>
       </tr>
@@ -209,7 +190,7 @@ function tagsOf(h: (typeof households)[number]): string {
           <td class="cell-primary">
             <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <a href={`/admin/households/${h.id}`} class="row-link">{h.display_name}</a>
-              <AccessPills role={h.role} />
+              <AccessPills role={h.role} viewer={actingPrincipal.role} />
             </span>
           </td>
           <td class="mobile-only cell-secondary">
@@ -250,48 +231,36 @@ function tagsOf(h: (typeof households)[number]): string {
 </AdminLayout>
 
 <script>
-  // Who owes money is the question the balance column exists to answer, so one
-  // click sorts by it, poorest first. Clicking again turns it around, and Name
-  // puts the list back the way the server sent it. Searching and filtering are
-  // the admin area's shared list script, in AdminLayout.
-  const body = document.querySelector<HTMLTableSectionElement>('#households tbody');
-  const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('#households tbody tr[data-balance]'));
-  const nameOrder = rows.slice();
+  // Overdrawn lists who owes most first, and In credit who holds most first,
+  // since those are the people the question is about. With neither on, the
+  // list is back in the order the server sent it, A to Z. The filtering
+  // itself is the admin area's shared list script, in AdminLayout.
+  const table = document.getElementById('households');
+  const body = table?.querySelector<HTMLTableSectionElement>('tbody');
+  const nameOrder = Array.from(table?.querySelectorAll<HTMLTableRowElement>('tbody tr[data-balance]') ?? []);
   const arrow = document.getElementById('balance-arrow');
-  let order: 'name' | 'poorest' | 'richest' = 'name';
 
-  function byBalance(a: HTMLTableRowElement, b: HTMLTableRowElement): number {
-    return Number(a.dataset.balance) - Number(b.dataset.balance);
-  }
+  const balanceOf = (row: HTMLTableRowElement) => Number(row.dataset.balance);
 
-  // On a phone the column headers aren't shown, so the same orders are a select.
-  const phoneSort = document.getElementById('household-sort') as HTMLSelectElement | null;
-  phoneSort?.addEventListener('change', () => {
-    order = phoneSort.value as typeof order;
-    render();
-  });
+  function sortFor(filter: string | null) {
+    const order = filter === 'overdrawn' ? 'poorest' : filter === 'in-credit' ? 'richest' : 'name';
 
-  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach((button) => {
-    button.addEventListener('click', () => {
-      order = button.dataset.sort === 'name' ? 'name' : order === 'poorest' ? 'richest' : 'poorest';
-      render();
-    });
-  });
-
-  function render() {
     const sorted =
-      order === 'name' ? nameOrder : nameOrder.slice().sort(order === 'poorest' ? byBalance : (a, b) => byBalance(b, a));
-
+      order === 'name'
+        ? nameOrder
+        : nameOrder.slice().sort((a, b) => (order === 'poorest' ? balanceOf(a) - balanceOf(b) : balanceOf(b) - balanceOf(a)));
     sorted.forEach((row) => body?.appendChild(row));
-
-    if (arrow) arrow.textContent = order === 'poorest' ? '↑' : order === 'richest' ? '↓' : '';
 
     // The arrow is for the eye and hidden from screen readers; aria-sort is
     // what tells them how the table is ordered. Poorest first is ascending.
-    document.querySelector('[data-sort=name]')?.closest('th')
-      ?.setAttribute('aria-sort', order === 'name' ? 'ascending' : 'none');
-    document.querySelector('[data-sort=balance]')?.closest('th')
+    if (arrow) arrow.textContent = order === 'poorest' ? '↑' : order === 'richest' ? '↓' : '';
+    document.getElementById('name-heading')?.setAttribute('aria-sort', order === 'name' ? 'ascending' : 'none');
+    document
+      .getElementById('balance-heading')
       ?.setAttribute('aria-sort', order === 'poorest' ? 'ascending' : order === 'richest' ? 'descending' : 'none');
-    if (phoneSort) phoneSort.value = order;
   }
+
+  table?.addEventListener('list-filter', (event) => sortFor((event as CustomEvent<{ filter: string | null }>).detail.filter));
+  // The shared script may have applied a ?filter= before this one ran.
+  sortFor(document.querySelector<HTMLElement>('[data-list-for="households"][aria-pressed="true"]')?.dataset.listFilter ?? null);
 </script>

@@ -270,6 +270,10 @@ const icons: Record<string, string> = {
       if (active) active.hidden = on.length === 0;
       if (activeLabel) activeLabel.textContent = on.join(' · ');
       if (phoneCount) phoneCount.textContent = describeShown(shown, parsed.length);
+
+      // A page can follow the tile filter, as Households does to sort by
+      // balance when Overdrawn or In credit is on.
+      table.dispatchEvent(new CustomEvent('list-filter', { detail: { filter: tileFilter } }));
     };
 
     clear?.addEventListener('click', () => {

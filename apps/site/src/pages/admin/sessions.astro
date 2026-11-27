@@ -29,7 +29,6 @@ import FormDialog from '../../components/admin/FormDialog.astro';
 import Pill from '../../components/admin/Pill.astro';
 import { whoIsSignedIn } from '../../lib/auth/signed-in';
 import {
-  averageTurnout,
   countHeads,
   rollUpSessions,
   summariseSessionCash,
@@ -236,7 +235,6 @@ const pastWithFigures = past.map((session) => {
 // screen, so they always agree with the Past list beneath them.
 const ran = pastWithFigures.filter((session) => !session.is_cancelled);
 const windowTotals = rollUpSessions(ran);
-const turnout = averageTurnout(ran);
 const upcomingOn = upcoming.filter((session) => !session.is_cancelled);
 const windowLabel = pastRange.isRecent
   ? 'last 12 weeks'
@@ -270,7 +268,7 @@ const untilParam = pastRange.isRecent ? '' : `&until=${Astro.url.searchParams.ge
     </div>
   )}
 
-  <StatTiles columns={4}>
+  <StatTiles columns={3}>
     <StatTile
       label="Coming up"
       value={upcomingOn.length}
@@ -280,10 +278,9 @@ const untilParam = pastRange.isRecent ? '' : `&until=${Astro.url.searchParams.ge
     <StatTile
       label="Sessions run"
       value={ran.length}
-      hint={windowLabel}
+      hint={`${windowTotals.heads.total} sign-ins, ${windowLabel}`}
       view={{ href: `/admin/sessions?show=past${untilParam}`, current: showPast }}
     />
-    <StatTile label="Average turnout" value={turnout ?? '—'} hint={`${windowTotals.heads.total} sign-ins, ${windowLabel}`} />
     <StatTile label="Money collected" value={formatPounds(windowTotals.cash.totalPence)} hint={windowLabel} />
   </StatTiles>
 

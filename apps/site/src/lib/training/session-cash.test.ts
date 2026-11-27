@@ -6,7 +6,6 @@ import {
   type SessionAttendanceRow,
   type SessionLedgerRow,
   rollUpSessions,
-  averageTurnout,
 } from './session-cash';
 
 function ledgerRow(overrides: Partial<SessionLedgerRow> = {}): SessionLedgerRow {
@@ -164,17 +163,5 @@ describe('rollUpSessions', () => {
 
   it('is nothing on a day with no sessions', () => {
     expect(rollUpSessions([])).toEqual({ heads: { members: 0, guests: 0, total: 0 }, cash: { totalPence: 0, byRecorder: [] } });
-  });
-});
-
-describe('averageTurnout', () => {
-  const heads = (total: number) => ({ heads: { members: total, guests: 0, total } });
-
-  it('averages the runners across the sessions, to a whole runner', () => {
-    expect(averageTurnout([heads(10), heads(13), heads(12)])).toBe(12);
-  });
-
-  it('has no average when nothing ran', () => {
-    expect(averageTurnout([])).toBeUndefined();
   });
 });

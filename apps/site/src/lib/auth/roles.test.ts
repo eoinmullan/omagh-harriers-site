@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accessOf, assignableRoles, planRoleChange, type RoleChange } from './roles';
+import { accessOf, assignableRoles, planRoleChange, shownRole, type RoleChange } from './roles';
 
 const SUPERUSER = 'superuser-principal-id';
 const TARGET = 'target-principal-id';
@@ -77,5 +77,23 @@ describe('accessOf', () => {
     expect(accessOf('registrar')).toEqual(['registrar']);
     expect(accessOf('admin')).toEqual(['admin']);
     expect(accessOf('superuser')).toEqual(['superuser']);
+  });
+});
+
+describe('shownRole', () => {
+  it('shows a superuser as an admin to anybody who is not one', () => {
+    expect(shownRole('superuser', 'admin')).toBe('admin');
+    expect(shownRole('superuser', 'registrar')).toBe('admin');
+    expect(shownRole('superuser', 'member')).toBe('admin');
+  });
+
+  it('shows a superuser as one to another superuser', () => {
+    expect(shownRole('superuser', 'superuser')).toBe('superuser');
+  });
+
+  it('shows every other role as it is', () => {
+    expect(shownRole('admin', 'admin')).toBe('admin');
+    expect(shownRole('registrar', 'admin')).toBe('registrar');
+    expect(shownRole('member', 'admin')).toBe('member');
   });
 });

@@ -1,18 +1,22 @@
 ---
 import Pill from './Pill.astro';
 import type { PillTone } from './tones';
-import { accessOf, type Access } from '../../lib/auth/roles';
+import { accessOf, shownRole, type Access } from '../../lib/auth/roles';
 import type { PrincipalRole } from '../../lib/supabase/types';
 
 // What a login can do, as pills. The one place a role becomes a label and a
 // colour, so moving from one role to a set of privileges changes accessOf and
-// this map, not every page that shows somebody's access.
+// this map, not every page that shows somebody's access. The viewer is
+// required so a superuser is never shown to somebody who isn't one
+// (shownRole).
 
 interface Props {
   role: PrincipalRole;
+  /** The role of whoever is looking at the page. */
+  viewer: PrincipalRole;
 }
 
-const { role } = Astro.props;
+const { role, viewer } = Astro.props;
 
 const tones: Record<Access, PillTone> = {
   registrar: 'amber',
@@ -21,4 +25,4 @@ const tones: Record<Access, PillTone> = {
 };
 ---
 
-{accessOf(role).map((access) => <Pill tone={tones[access]}>{access.charAt(0).toUpperCase() + access.slice(1)}</Pill>)}
+{accessOf(shownRole(role, viewer)).map((access) => <Pill tone={tones[access]}>{access.charAt(0).toUpperCase() + access.slice(1)}</Pill>)}

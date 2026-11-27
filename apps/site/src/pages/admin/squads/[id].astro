@@ -257,49 +257,70 @@ function others(memberId: string): string | undefined {
   </Section>
 
   <Section title="Members" count={squadMembers.length}>
-    <div class="mb-3">
+    {/* A typeahead: the matches open over the page rather than pushing the
+        members list down, so nothing moves while a name is typed. Arrow keys
+        and Enter work as in any search box; a click or Enter adds the member
+        through the one form below. */}
+    <div class="mb-4">
       <label for="member-search" class="field-label">Add a member</label>
-      <input
-        id="member-search"
-        type="search"
-        placeholder="Type part of a name…"
-        autocomplete="off"
-        class="field sm:w-96"
-      />
-      <p id="search-hint" class="text-xs text-gray-500 mt-1" aria-live="polite">Type at least two letters.</p>
-
-      {/* Hidden until a name is typed, so the page doesn't open on the whole club. */}
-      <ul id="member-list" class="mt-2 border border-gray-200 rounded-lg bg-white divide-y divide-gray-200 sm:w-96" hidden>
-        {searchable.map((member) => (
-          <li
-            data-member-row
-            data-first-name={member.first_name}
-            data-surname={member.surname}
-            hidden
-            class="flex items-center justify-between gap-3 px-3 py-2"
-          >
-            <div class="min-w-0">
-              <p class="font-medium text-sm">{member.surname}, {member.first_name}</p>
-              {(promoting.has(member.id) || others(member.id)) && (
-                <p class="text-xs text-gray-500">
-                  {[promoting.has(member.id) && 'Trained here recently', others(member.id) && `Also ${others(member.id)}`]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
+      <div class="relative sm:w-96" data-typeahead>
+        <input
+          id="member-search"
+          type="search"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded="false"
+          aria-controls="member-list"
+          aria-describedby="search-hint"
+          placeholder="Type part of a name…"
+          autocomplete="off"
+          class="field"
+        />
+        <ul
+          id="member-list"
+          role="listbox"
+          aria-label="Members matching the search"
+          hidden
+          class="absolute inset-x-0 top-full z-30 mt-1 max-h-[min(22rem,55vh)] overflow-y-auto overscroll-contain rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+        >
+          {searchable.map((member) => (
+            <li
+              role="option"
+              id={`member-option-${member.id}`}
+              data-member-row
+              data-member-id={member.id}
+              data-first-name={member.first_name}
+              data-surname={member.surname}
+              aria-selected="false"
+              aria-disabled={inGroup.has(member.id) ? 'true' : undefined}
+              hidden
+              class="flex items-center justify-between gap-3 px-3 py-2 min-h-12 cursor-pointer hover:bg-gray-50 aria-selected:bg-amber-50 aria-disabled:cursor-default aria-disabled:hover:bg-white"
+            >
+              <div class="min-w-0">
+                <p class="font-medium text-sm">{member.surname}, {member.first_name}</p>
+                {(promoting.has(member.id) || others(member.id)) && (
+                  <p class="text-xs text-gray-500">
+                    {[promoting.has(member.id) && 'Trained here recently', others(member.id) && `Also ${others(member.id)}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
+              </div>
+              {inGroup.has(member.id) ? (
+                <Pill tone="green">In this squad</Pill>
+              ) : (
+                <span aria-hidden="true" class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium">Add</span>
               )}
-            </div>
-            {inGroup.has(member.id) ? (
-              <span class="shrink-0 inline-flex items-center min-h-8"><Pill tone="green">In this squad</Pill></span>
-            ) : (
-              <form method="POST" class="shrink-0">
-                <input type="hidden" name="action" value="add" />
-                <input type="hidden" name="member_id" value={member.id} />
-                <button type="submit" class="btn btn-secondary btn-sm">Add</button>
-              </form>
-            )}
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+          <li id="search-status" role="presentation" hidden class="px-3 py-2 text-xs text-gray-500"></li>
+        </ul>
+      </div>
+      <p id="search-hint" class="text-xs text-gray-500 mt-1 min-h-4" aria-live="polite">Type at least two letters.</p>
+      <form id="add-member-form" method="POST" hidden>
+        <input type="hidden" name="action" value="add" />
+        <input type="hidden" name="member_id" id="add-member-id" />
+      </form>
     </div>
 
     {squadMembers.length > 0 ? (
@@ -412,35 +433,122 @@ function others(memberId: string): string | undefined {
   import { matchesName } from '../../../lib/training/names';
 
   const search = document.getElementById('member-search') as HTMLInputElement | null;
-  const hint = document.getElementById('search-hint');
   const list = document.getElementById('member-list');
-  const rows = [...document.querySelectorAll<HTMLLIElement>('#member-list li[data-member-row]')];
+  const status = document.getElementById('search-status');
+  const hint = document.getElementById('search-hint');
+  const form = document.getElementById('add-member-form') as HTMLFormElement | null;
+  const memberId = document.getElementById('add-member-id') as HTMLInputElement | null;
+  const wrapper = document.querySelector<HTMLElement>('[data-typeahead]');
+  const options = [...document.querySelectorAll<HTMLLIElement>('#member-list li[data-member-row]')];
 
   // Two letters before anything shows: one letter matches most of the club.
   const MIN_LETTERS = 2;
   const MAX_SHOWN = 20;
 
-  function applyFilter() {
-    const term = (search?.value ?? '').trim();
-    let matched = 0;
+  let shown: HTMLLIElement[] = [];
+  let active = -1;
 
-    for (const row of rows) {
+  const term = () => (search?.value ?? '').trim();
+
+  function setOpen(open: boolean) {
+    if (list) list.hidden = !open;
+    search?.setAttribute('aria-expanded', String(open));
+    if (!open) setActive(-1);
+  }
+
+  function setActive(index: number) {
+    active = index;
+    shown.forEach((option, i) => option.setAttribute('aria-selected', String(i === index)));
+    const current = shown[index];
+    if (current) {
+      search?.setAttribute('aria-activedescendant', current.id);
+      current.scrollIntoView({ block: 'nearest' });
+    } else {
+      search?.removeAttribute('aria-activedescendant');
+    }
+  }
+
+  function applyFilter() {
+    const typed = term();
+    shown = [];
+
+    for (const option of options) {
       const matches =
-        term.length >= MIN_LETTERS &&
-        matched < MAX_SHOWN &&
-        matchesName({ firstName: row.dataset.firstName ?? '', surname: row.dataset.surname ?? '' }, term);
-      row.hidden = !matches;
-      if (matches) matched += 1;
+        typed.length >= MIN_LETTERS &&
+        shown.length < MAX_SHOWN &&
+        matchesName({ firstName: option.dataset.firstName ?? '', surname: option.dataset.surname ?? '' }, typed);
+      option.hidden = !matches;
+      if (matches) shown.push(option);
     }
 
-    if (list) list.hidden = matched === 0;
-    if (!hint) return;
-    if (term.length < MIN_LETTERS) hint.textContent = 'Type at least two letters.';
-    else if (matched === 0) hint.textContent = 'Nobody in the club matches that name.';
-    else if (matched === MAX_SHOWN) hint.textContent = `The first ${MAX_SHOWN} matches. Type more of the name to narrow it.`;
-    else hint.textContent = '';
+    const message =
+      typed.length < MIN_LETTERS
+        ? ''
+        : shown.length === 0
+          ? 'Nobody in the club matches that name.'
+          : shown.length === MAX_SHOWN
+            ? `The first ${MAX_SHOWN} matches. Type more of the name to narrow it.`
+            : '';
+    if (status) {
+      status.textContent = message;
+      status.hidden = message === '';
+    }
+    if (hint) hint.textContent = typed.length < MIN_LETTERS ? 'Type at least two letters.' : message;
+
+    setActive(-1);
+    setOpen(typed.length >= MIN_LETTERS);
+  }
+
+  function choose(option: HTMLLIElement | undefined) {
+    if (!option || option.getAttribute('aria-disabled') === 'true') return;
+    if (memberId) memberId.value = option.dataset.memberId ?? '';
+    form?.requestSubmit();
   }
 
   search?.addEventListener('input', applyFilter);
+  search?.addEventListener('focus', () => {
+    if (term().length >= MIN_LETTERS) setOpen(true);
+  });
+  // Tabbing away closes it; a click in the list keeps focus (see below).
+  search?.addEventListener('blur', () => setOpen(false));
+
+  search?.addEventListener('keydown', (event) => {
+    const open = !list?.hidden;
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        if (!open && term().length >= MIN_LETTERS) setOpen(true);
+        if (shown.length) setActive(Math.min(active + 1, shown.length - 1));
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        if (shown.length) setActive(Math.max(active - 1, 0));
+        break;
+      case 'Enter':
+        if (open && active >= 0) {
+          event.preventDefault();
+          choose(shown[active]);
+        }
+        break;
+      case 'Escape':
+        if (open) {
+          event.preventDefault();
+          setOpen(false);
+        }
+        break;
+    }
+  });
+
+  // Pressing on the list mustn't take focus from the box, or it would close
+  // before the click lands.
+  list?.addEventListener('mousedown', (event) => event.preventDefault());
+  list?.addEventListener('click', (event) => {
+    choose((event.target as Element).closest<HTMLLIElement>('li[data-member-row]') ?? undefined);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (wrapper && !wrapper.contains(event.target as Node)) setOpen(false);
+  });
+
   applyFilter();
 </script>

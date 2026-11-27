@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignableRoles, planRoleChange, type RoleChange } from './roles';
+import { accessOf, assignableRoles, planRoleChange, type RoleChange } from './roles';
 
 const SUPERUSER = 'superuser-principal-id';
 const TARGET = 'target-principal-id';
@@ -65,5 +65,17 @@ describe('planRoleChange', () => {
       request({ targetPrincipalId: SUPERUSER, currentRole: 'superuser', requestedRole: 'admin' }),
     );
     expect(problemOf(change)).toContain('lock you out of this screen');
+  });
+});
+
+describe('accessOf', () => {
+  it('shows nothing for a member, who can only see their own household', () => {
+    expect(accessOf('member')).toEqual([]);
+  });
+
+  it('shows what a volunteer can do', () => {
+    expect(accessOf('registrar')).toEqual(['registrar']);
+    expect(accessOf('admin')).toEqual(['admin']);
+    expect(accessOf('superuser')).toEqual(['superuser']);
   });
 });

@@ -21,3 +21,10 @@ export function parsePounds(input: string): number | undefined {
   const pence = Number(match[1]) * 100 + Number((match[2] ?? '0').padEnd(2, '0'));
   return pence > 0 ? pence : undefined;
 }
+
+/** A statement line's amount: money in with a plus, money out with a minus. */
+export function formatMovement(pence: number): string {
+  if (pence > 0) return `+${formatPounds(pence)}`;
+  if (pence < 0) return `−${formatPounds(pence)}`;
+  return 'No charge';
+}

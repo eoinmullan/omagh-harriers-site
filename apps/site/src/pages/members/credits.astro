@@ -3,7 +3,8 @@ import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import { formatBalance } from '../../lib/credits/money';
-import { householdHistory, linesFor, membersWithLines, type HistoryKind } from '../../lib/credits/history';
+import { householdHistory, linesFor, membersWithLines } from '../../lib/credits/history';
+import Statement from '../../components/Statement.astro';
 import type { CreditTransactionType } from '../../lib/supabase/types';
 import { everyRow } from '../../lib/supabase/every-row';
 import { orThrow } from '../../lib/supabase/or-throw';
@@ -116,112 +117,70 @@ const shown = linesFor(history, chosen);
 
 const balancePence = balance?.balance_pence ?? 0;
 
-const badges: Record<HistoryKind, { label: string; className: string }> = {
-  credit: { label: 'Credit', className: 'bg-green-100 text-green-700' },
-  debit: { label: 'Debit', className: 'bg-gray-100 text-gray-600' },
-  free: { label: 'Free', className: 'bg-gray-50 text-gray-500 border border-gray-200' },
-};
-
-function dated(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    timeZone: 'Europe/London',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
 ---
 
 <Layout title="Training credit — Omagh Harriers AC">
   <PageContainer>
-    <p class="text-sm text-gray-500 mb-6">
+    <a href="/members" class="sm:hidden -mt-4 mb-2 -ml-1 inline-flex items-center gap-1 min-h-11 pr-3 text-sm font-medium text-gray-600">
+      <span aria-hidden="true" class="text-2xl leading-none">‹</span> Members' area
+    </a>
+    <p class="hidden sm:block text-sm text-gray-500 mb-6">
       <a href="/members" class="hover:underline">Members' area</a> / Training credit
     </p>
 
-    <h1 class="text-3xl font-bold mb-2">Training credit</h1>
-    <p class="text-gray-600 mb-8">
-      Your household has one balance. Each session a member of your household is signed in at is
-      paid from it.
+    <h1 class="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Training credit</h1>
+    <p class="text-gray-600 mb-5 sm:mb-8">
+      Your household has one balance. Each session a member of your household is signed in at is paid from it.
     </p>
 
-    <div class="bg-gray-50 border border-gray-200 rounded-lg px-6 py-5 mb-10">
+    <div class="bg-white border border-gray-200 rounded-lg px-5 py-4 sm:px-6 sm:py-5 mb-8 sm:mb-10 shadow-[inset_0_4px_0_var(--color-amber)]">
       <p class="text-sm text-gray-500">Current balance</p>
-      <p
-        class:list={[
-          'text-4xl font-bold mt-1',
-          balancePence < 0 ? 'text-red-600' : 'text-gray-900',
-        ]}
-      >
+      <p class:list={['text-4xl font-bold mt-1 tabular-nums', balancePence < 0 ? 'text-red-600' : 'text-gray-900']}>
         {formatBalance(balancePence)}
       </p>
-      {
-        balancePence < 0 && (
-          <p class="text-sm text-red-600 mt-2">
-            Your balance is below zero. Please top up at the next session.
-          </p>
-        )
-      }
+      {balancePence < 0 && (
+        <p class="text-sm text-red-700 bg-red-50 rounded-md px-3 py-2 mt-3">
+          Your balance is below zero. Please top up at the next session.
+        </p>
+      )}
     </div>
 
     <section>
       <h2 class="text-xl font-semibold mb-1">History</h2>
-      <p class="text-sm text-gray-500 mb-4">Sessions, payments and corrections, newest first.</p>
+      <p class="text-sm text-gray-500 mb-3">Sessions, payments and corrections, newest first.</p>
 
-      {
-        choices.length > 1 && (
-          <nav aria-label="Show the history of" class="flex flex-wrap gap-2 mb-4">
+      {choices.length > 1 && (
+        <nav aria-label="Show the history of" class="-mx-4 px-4 mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none] sm:mx-0 sm:px-0 sm:flex-wrap">
+          <a
+            href="/members/credits"
+            aria-current={chosen === null ? 'page' : undefined}
+            class:list={[
+              'shrink-0 inline-flex items-center text-sm rounded-full px-4 min-h-10 border',
+              chosen === null ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:border-gray-500',
+            ]}
+          >
+            Everyone
+          </a>
+          {choices.map((choice) => (
             <a
-              href="/members/credits"
-              aria-current={chosen === null ? 'page' : undefined}
+              href={`/members/credits?member=${choice.memberId}`}
+              aria-current={chosen === choice.memberId ? 'page' : undefined}
               class:list={[
-                'text-sm rounded-full px-3 py-1 border',
-                chosen === null ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:border-gray-500',
+                'shrink-0 inline-flex items-center text-sm rounded-full px-4 min-h-10 border',
+                chosen === choice.memberId ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:border-gray-500',
               ]}
             >
-              Everything
+              {choice.name}
             </a>
-            {choices.map((choice) => (
-              <a
-                href={`/members/credits?member=${choice.memberId}`}
-                aria-current={chosen === choice.memberId ? 'page' : undefined}
-                class:list={[
-                  'text-sm rounded-full px-3 py-1 border',
-                  chosen === choice.memberId ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:border-gray-500',
-                ]}
-              >
-                {choice.name}
-              </a>
-            ))}
-          </nav>
-        )
-      }
+          ))}
+        </nav>
+      )}
 
-      {
-        shown.length > 0 ? (
-          <ul class="divide-y divide-gray-200 border-t border-b border-gray-200">
-            {shown.map((line) => (
-              <li class="py-4 flex items-baseline justify-between gap-4">
-                <div>
-                  <p class="font-medium">{line.description}</p>
-                  <p class="text-sm text-gray-500 mt-0.5">{dated(line.at)}</p>
-                </div>
-                <span
-                  class:list={[
-                    'text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap',
-                    badges[line.kind].className,
-                  ]}
-                >
-                  {badges[line.kind].label}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p class="text-gray-500 text-sm">
-            Nothing here yet. Sessions and payments appear as soon as they're recorded.
-          </p>
-        )
-      }
+      {shown.length > 0 ? (
+        <Statement lines={shown} />
+      ) : (
+        <p class="text-gray-500 text-sm">Nothing here yet. Sessions and payments appear as soon as they're recorded.</p>
+      )}
     </section>
   </PageContainer>
 </Layout>

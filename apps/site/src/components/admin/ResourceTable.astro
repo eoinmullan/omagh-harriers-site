@@ -1,0 +1,27 @@
+---
+// Every list in the admin area. A table on a desktop and a list on a phone,
+// from the same markup: see the phone rules for .admin-table in global.css.
+// On a phone it runs edge to edge and doesn't scroll sideways, so day
+// headings can stick to the top of the screen. The page supplies <thead> and <tbody>; rows
+// that open something carry data-href and end with a <td class="row-chevron">.
+// Rows that search or filter carry data-search and data-tags (see
+// AdminLayout's list script), and the list's id ties them to the search box
+// and filter tiles. The empty slot shows when nothing is left to show.
+
+interface Props {
+  id?: string;
+  /** Shown when the search and filters leave no rows. */
+  noMatches?: string;
+}
+
+const { id, noMatches = 'Nothing matches.' } = Astro.props;
+---
+
+<div class="-mx-4 border-y border-gray-200 bg-white sm:mx-0 sm:overflow-x-auto sm:border sm:rounded-lg">
+  <table id={id} class="admin-table">
+    <slot />
+  </table>
+  {id && (
+    <p data-list-empty={id} hidden class="text-sm text-gray-500 text-center py-8">{noMatches}</p>
+  )}
+</div>

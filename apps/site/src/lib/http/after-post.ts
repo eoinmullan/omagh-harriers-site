@@ -29,7 +29,11 @@ interface PostedPage {
   redirect(path: string, status: 303): Response;
 }
 
-export function redirectAfterPost(page: PostedPage, confirmation: string): Response {
+/**
+ * Back to the page that was posted, or to `to` when the form made something
+ * that has a page of its own, such as a new squad.
+ */
+export function redirectAfterPost(page: PostedPage, confirmation: string, to?: string): Response {
   page.cookies.set(FLASH_COOKIE, confirmation, {
     path: '/',
     httpOnly: true,
@@ -37,7 +41,7 @@ export function redirectAfterPost(page: PostedPage, confirmation: string): Respo
     secure: !import.meta.env.DEV,
     maxAge: 60,
   });
-  return page.redirect(page.url.pathname + page.url.search, 303);
+  return page.redirect(to ?? page.url.pathname + page.url.search, 303);
 }
 
 /** The confirmation a redirect left behind, read once. */

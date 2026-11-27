@@ -7,7 +7,7 @@ import { newFormId, submittedFormId } from '../../lib/http/form-id';
 import { everyRow } from '../../lib/supabase/every-row';
 import { DEFAULT_SESSION_PRICE_PENCE } from '../../lib/credits/ledger';
 import { formatPounds } from '../../lib/credits/money';
-import { clubDayKey, formatClubDateTime, formatClubTime } from '../../lib/training/club-time';
+import { clubDayKey, formatClubDateTime, formatClubNight, formatClubTime } from '../../lib/training/club-time';
 import {
   byClubDay,
   DEFAULT_SESSION_START_TIME,
@@ -20,8 +20,16 @@ import {
 } from '../../lib/training/sessions';
 import { formatClubDate } from '../../lib/training/club-time';
 import { orThrow } from '../../lib/supabase/or-throw';
+import PageHeader from '../../components/admin/PageHeader.astro';
+import Flash from '../../components/admin/Flash.astro';
+import StatTiles from '../../components/admin/StatTiles.astro';
+import StatTile from '../../components/admin/StatTile.astro';
+import ResourceTable from '../../components/admin/ResourceTable.astro';
+import FormDialog from '../../components/admin/FormDialog.astro';
+import Pill from '../../components/admin/Pill.astro';
 import { whoIsSignedIn } from '../../lib/auth/signed-in';
 import {
+  averageTurnout,
   countHeads,
   rollUpSessions,
   summariseSessionCash,
@@ -223,294 +231,256 @@ const pastWithFigures = past.map((session) => {
   };
 });
 
+
+// The figures across the top are for the sessions that ran in the window on
+// screen, so they always agree with the Past list beneath them.
+const ran = pastWithFigures.filter((session) => !session.is_cancelled);
+const windowTotals = rollUpSessions(ran);
+const turnout = averageTurnout(ran);
+const upcomingOn = upcoming.filter((session) => !session.is_cancelled);
+const windowLabel = pastRange.isRecent
+  ? 'last 12 weeks'
+  : `${formatClubDate(middayOf(pastRange.from))} to ${formatClubDate(middayOf(new Date(pastRange.to.getTime() - 24 * 60 * 60 * 1000)))}`;
+
+// One list at a time, chosen with the Coming up and Sessions run tiles.
+// Coming up opens first while there's anything in it; an earlier window
+// (?until=) is always about the past.
+const requested = Astro.url.searchParams.get('show');
+const showPast = requested === 'past' || (requested !== 'upcoming' && (upcoming.length === 0 || !pastRange.isRecent));
+const untilParam = pastRange.isRecent ? '' : `&until=${Astro.url.searchParams.get('until')}`;
+
 ---
 
 <AdminLayout section="sessions" title="Sessions">
-    <div class="flex items-center justify-between gap-4 mb-8">
-      <div>
-        <h1 class="text-3xl font-bold">Training sessions</h1>
-        <p class="text-gray-500 mt-1">
-          {upcoming.length} coming up · {pastCount} run
-        </p>
-      </div>
-      <div class="flex items-center gap-4">
-        {runningGroups.length > 0 && (
-          <button
-            type="button"
-            data-open-dialog="new-session"
-            class="bg-black text-white rounded px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
-            >New session</button
-          >
-        )}
-      </div>
-    </div>
+  <PageHeader
+    title="Training sessions"
+    subtitle={`${upcomingOn.length} coming up · ${pastCount} run`}
+    primary={runningGroups.length > 0 ? { label: 'New session', dialog: 'new-session' } : undefined}
+  />
 
-    {
-      success && (
-        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
-          {success}
-        </div>
-      )
-    }
+  <Flash success={success} />
 
-    {
-      runningGroups.length === 0 ? (
-        <div class="mb-10 border border-gray-200 rounded-lg px-5 py-4">
-          <h2 class="text-lg font-semibold mb-1">Add a squad first</h2>
-          <p class="text-sm text-gray-600">
-            Every session belongs to a squad, and the registrar's list of who to
-            expect comes from it.{' '}
-            <a href="/admin/squads" class="underline">Add the squads that train this week →</a>
-          </p>
-        </div>
-      ) : (
-        <dialog
-          id="new-session"
-          aria-labelledby="new-session-title"
-          data-open-on-load={error ? '' : undefined}
-          class="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg p-0 shadow-xl backdrop:bg-black/40"
-        >
-          <form method="POST" class="p-6 space-y-4">
-            <h2 id="new-session-title" class="text-lg font-semibold">New session</h2>
-            {error && (
-              <p class="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{error}</p>
-            )}
-            <input type="hidden" name="form_id" value={newFormId()} />
-            <div>
-              <label class="block text-sm font-medium mb-1" for="session-group">Squad</label>
-              <select
-                id="session-group"
-                name="group_id"
-                required
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              >
-                <option value="">Choose a squad…</option>
-                {runningGroups.map((group) => (
-                  <option value={group.id} selected={group.id === draft.groupId}>{group.name}</option>
-                ))}
-              </select>
-            </div>
-            <div class="grid grid-cols-[1fr_7rem] gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1" for="session-day">Date</label>
-                <input
-                  id="session-day"
-                  type="date"
-                  name="day"
-                  required
-                  value={draft.day}
-                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1" for="session-time">Time</label>
-                <select
-                  id="session-time"
-                  name="time"
-                  required
-                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                >
-                  {sessionStartTimes().map((time) => (
-                    <option value={time} selected={time === draft.time}>{time}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div class="grid grid-cols-[1fr_7rem] gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1" for="session-note">
-                  Note <span class="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <input
-                  id="session-note"
-                  type="text"
-                  name="note"
-                  value={draft.note}
-                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1" for="session-price">Price</label>
-                <input
-                  id="session-price"
-                  type="text"
-                  name="price"
-                  inputmode="decimal"
-                  value={draft.price}
-                  class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
-            <div class="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                data-close-dialog
-                class="rounded px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50"
-                >Cancel</button
-              >
-              <button
-                type="submit"
-                class="bg-black text-white rounded px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
-                >Create session</button
-              >
-            </div>
-          </form>
-        </dialog>
-      )
-    }
-
-    <section class="mb-10">
-      <h2 class="text-lg font-semibold mb-4">Coming up ({upcoming.length})</h2>
-
-      {
-        upcoming.length > 0 ? (
-          <ul class="divide-y divide-gray-100 border-t border-b border-gray-200">
-            {upcoming.map((session) => (
-              <li class="py-3 flex flex-wrap items-baseline justify-between gap-3">
-                <div>
-                  <p class:list={['font-medium', session.is_cancelled && 'line-through']}>
-                    {session.group?.name}
-                  </p>
-                  <p class="text-sm text-gray-500">
-                    {formatClubDateTime(session.startsAt)} · {session.price_pence === 0 ? 'Free' : formatPounds(session.price_pence)}
-                  </p>
-                  {session.note && <p class="text-sm text-gray-600 mt-0.5">{session.note}</p>}
-                </div>
-                <div class="flex items-center gap-3">
-                  {session.is_cancelled && (
-                    <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                      Cancelled
-                    </span>
-                  )}
-                  <a
-                    href={`/admin/sessions/${session.id}`}
-                    class="text-xs underline hover:text-gray-600"
-                  >
-                    Open →
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p class="text-gray-500 text-sm">Nothing scheduled yet.</p>
-        )
-      }
-    </section>
-
-    <section>
-      <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-        <h2 class="text-lg font-semibold">
-          {pastRange.isRecent
-            ? `Run in the last 12 weeks (${past.length})`
-            : `Run ${formatClubDate(middayOf(pastRange.from))} to ${formatClubDate(middayOf(new Date(pastRange.to.getTime() - 24 * 60 * 60 * 1000)))} (${past.length})`}
-        </h2>
-        {!pastRange.isRecent && (
-          <a href="/admin/sessions" class="text-sm underline hover:text-gray-600">Back to the most recent</a>
-        )}
-      </div>
-
-      {
-        pastWithFigures.length > 0 ? (
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b border-gray-200 text-left">
-                  <th class="pb-3 font-semibold">Session</th>
-                  <th class="pb-3 font-semibold text-right">Here</th>
-                  <th class="pb-3 font-semibold text-right">Money collected</th>
-                  <th class="pb-3" />
-                </tr>
-              </thead>
-              {/* A day at a time, since a day is how the committee asks about a
-                  night. A day that ran more than one session gets a total,
-                  added up by the same rule as each session's own figures. */}
-              {byClubDay(pastWithFigures).map(({ day, sessions: onTheDay }) => {
-                const ran = onTheDay.filter((session) => !session.is_cancelled);
-                const dayTotal = ran.length > 1 ? rollUpSessions(ran) : undefined;
-                return (
-                  <tbody class="divide-y divide-gray-100 border-b border-gray-200">
-                    <tr>
-                      <th colspan="4" scope="rowgroup" class="pt-5 pb-1 text-left text-xs font-semibold tracking-wide text-gray-500 uppercase">
-                        {formatClubDate(`${day}T12:00:00Z`)}
-                      </th>
-                    </tr>
-                    {onTheDay.map((session) => (
-                      <tr class={session.is_cancelled ? 'opacity-50' : ''}>
-                        <td class="py-3">
-                          <p class:list={['font-medium', session.is_cancelled && 'line-through']}>
-                            {session.group?.name}
-                          </p>
-                          <p class="text-xs text-gray-500">{formatClubTime(session.startsAt)}</p>
-                          {session.note && <p class="text-xs text-gray-600">{session.note}</p>}
-                        </td>
-                        <td class="py-3 text-right">
-                          {session.heads.total}
-                          {session.heads.guests > 0 && (
-                            <span class="text-xs text-gray-500">
-                              {' '}
-                              ({session.heads.guests} guest{session.heads.guests === 1 ? '' : 's'})
-                            </span>
-                          )}
-                        </td>
-                        <td class="py-3 text-right">{formatPounds(session.cash.totalPence)}</td>
-                        <td class="py-3 text-right">
-                          <a
-                            href={`/admin/sessions/${session.id}`}
-                            class="text-xs underline hover:text-gray-600"
-                          >
-                            Open →
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                    {dayTotal && (
-                      <tr class="bg-gray-50">
-                        <td class="py-2 pl-2 text-sm font-semibold">Day total</td>
-                        <td class="py-2 text-right font-semibold">{dayTotal.heads.total}</td>
-                        <td class="py-2 text-right font-semibold">{formatPounds(dayTotal.cash.totalPence)}</td>
-                        <td />
-                      </tr>
-                    )}
-                  </tbody>
-                );
-              })}
-            </table>
-          </div>
-        ) : (
-          <p class="text-gray-500 text-sm">
-            {pastCount === 0 ? 'No session has run yet.' : 'No sessions ran in these twelve weeks.'}
-          </p>
-        )
-      }
-      {
-        earlierCount > 0 && (
-          <p class="mt-4">
-            <a href={`/admin/sessions?until=${pastRange.earlierUntil}`} class="text-sm underline hover:text-gray-600">
-              The twelve weeks before ({earlierCount} older session{earlierCount === 1 ? '' : 's'} in all) →
-            </a>
-          </p>
-        )
-      }
-      <p class="text-xs text-gray-400 mt-4">
-        Money collected is the cash taken at the session, less anything handed
-        back, plus what its guests paid. Session charges are left out — they move
-        credit out of a household's pot rather than money into the tin.
+  {runningGroups.length === 0 && (
+    <div class="mb-6 border border-dashed border-gray-300 rounded-lg px-6 py-6">
+      <p class="font-medium">Add a squad first</p>
+      <p class="text-sm text-gray-600 mt-1">
+        Every session belongs to a squad, and the registrar's list of who to expect comes from it.{' '}
+        <a href="/admin/squads" class="underline">Add the squads that train this week →</a>
       </p>
-    </section>
-</AdminLayout>
+    </div>
+  )}
 
-<script>
-  // A native <dialog>: showModal gives focus trapping, Escape and the backdrop
-  // for free. A form that came back with a problem opens it again on load.
-  for (const opener of document.querySelectorAll<HTMLElement>('[data-open-dialog]')) {
-    const dialog = document.getElementById(opener.dataset.openDialog ?? '') as HTMLDialogElement | null;
-    opener.addEventListener('click', () => dialog?.showModal());
-  }
-  for (const closer of document.querySelectorAll<HTMLElement>('[data-close-dialog]')) {
-    closer.addEventListener('click', () => closer.closest('dialog')?.close());
-  }
-  for (const dialog of document.querySelectorAll<HTMLDialogElement>('dialog[data-open-on-load]')) {
-    dialog.showModal();
-  }
-</script>
+  <StatTiles columns={4}>
+    <StatTile
+      label="Coming up"
+      value={upcomingOn.length}
+      hint={upcomingOn[0] ? `next ${formatClubDate(upcomingOn[0].startsAt)}` : 'nothing scheduled'}
+      view={{ href: '/admin/sessions?show=upcoming', current: !showPast }}
+    />
+    <StatTile
+      label="Sessions run"
+      value={ran.length}
+      hint={windowLabel}
+      view={{ href: `/admin/sessions?show=past${untilParam}`, current: showPast }}
+    />
+    <StatTile label="Average turnout" value={turnout ?? '—'} hint={`${windowTotals.heads.total} sign-ins, ${windowLabel}`} />
+    <StatTile label="Money collected" value={formatPounds(windowTotals.cash.totalPence)} hint={windowLabel} />
+  </StatTiles>
+
+  <h2 class="text-lg font-semibold mb-3">
+    {showPast ? (pastRange.isRecent ? 'Run in the last 12 weeks' : `Run ${windowLabel}`) : 'Coming up'}
+  </h2>
+
+  {!showPast && (
+    upcoming.length > 0 ? (
+      <ResourceTable>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Session</th>
+            <th class="num">Price</th>
+            <th>Status</th>
+            <th><span class="sr-only">Open</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {upcoming.map((session) => (
+            <tr data-href={`/admin/sessions/${session.id}`} class:list={[session.is_cancelled && 'is-muted']}>
+              <td class="mobile-only cell-primary">
+                <a href={`/admin/sessions/${session.id}`} class:list={['row-link', session.is_cancelled && 'line-through']}>
+                  {session.group?.name}
+                </a>
+              </td>
+              <td class="mobile-only cell-secondary">
+                {formatClubNight(session.startsAt)} · {formatClubTime(session.startsAt)}{session.note && ` · ${session.note}`}
+              </td>
+              <td class="mobile-only cell-trailing text-sm">
+                {session.is_cancelled ? <Pill tone="gray">Cancelled</Pill> : session.price_pence === 0 ? 'Free' : formatPounds(session.price_pence)}
+              </td>
+              <td class="whitespace-nowrap text-gray-600">{formatClubDate(session.startsAt)}</td>
+              <td>
+                <a href={`/admin/sessions/${session.id}`} class:list={['row-link', session.is_cancelled && 'line-through']}>
+                  {session.group?.name}
+                </a>
+                <p class="text-xs text-gray-500">
+                  {formatClubTime(session.startsAt)}{session.note && ` · ${session.note}`}
+                </p>
+              </td>
+              <td class="num">{session.price_pence === 0 ? 'Free' : formatPounds(session.price_pence)}</td>
+              <td>{session.is_cancelled ? <Pill tone="gray">Cancelled</Pill> : <Pill tone="blue">Scheduled</Pill>}</td>
+              <td class="row-chevron" aria-hidden="true"></td>
+            </tr>
+          ))}
+        </tbody>
+      </ResourceTable>
+    ) : (
+      <div class="border border-dashed border-gray-300 rounded-lg px-6 py-10 text-center">
+        <p class="font-medium">Nothing scheduled</p>
+        <p class="text-sm text-gray-500 mt-1">A registrar can also start a session from the app on the night.</p>
+        {runningGroups.length > 0 && (
+          <button type="button" data-open-dialog="new-session" class="btn btn-primary mt-4">New session</button>
+        )}
+      </div>
+    )
+  )}
+
+  {showPast && (
+    <>
+      {!pastRange.isRecent && (
+        <p class="mb-3 text-sm"><a href="/admin/sessions?show=past" class="underline hover:text-gray-600">Back to the most recent</a></p>
+      )}
+      {pastWithFigures.length > 0 ? (
+        <ResourceTable>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Session</th>
+              <th class="num">Attended</th>
+              <th class="num">Money collected</th>
+              <th>Status</th>
+              <th><span class="sr-only">Open</span></th>
+            </tr>
+          </thead>
+          {/* One row per session, newest first, each with its own date, like
+              every other list. A day is how the committee asks about a night,
+              so a day that ran more than one session ends with a total row,
+              added up by the same rule as each session's own figures. */}
+          <tbody>
+            {byClubDay(pastWithFigures).map(({ sessions: onTheDay }) => {
+              const ranThatDay = onTheDay.filter((session) => !session.is_cancelled);
+              const dayTotal = ranThatDay.length > 1 ? rollUpSessions(ranThatDay) : undefined;
+              return (
+                <>
+                  {onTheDay.map((session) => (
+                    <tr data-href={`/admin/sessions/${session.id}`} class:list={[session.is_cancelled && 'is-muted']}>
+                      <td class="mobile-only cell-primary">
+                        <a href={`/admin/sessions/${session.id}`} class:list={['row-link', session.is_cancelled && 'line-through']}>
+                          {session.group?.name}
+                        </a>
+                      </td>
+                      <td class="mobile-only cell-secondary">
+                        {formatClubNight(session.startsAt)} · {formatClubTime(session.startsAt)} · {session.heads.total} attended
+                        {session.heads.guests > 0 && ` (${session.heads.guests} guest${session.heads.guests === 1 ? '' : 's'})`}
+                      </td>
+                      <td class="mobile-only cell-trailing">
+                        {session.is_cancelled ? <Pill tone="gray">Cancelled</Pill> : <span class="font-medium tabular-nums">{formatPounds(session.cash.totalPence)}</span>}
+                      </td>
+                      <td class="whitespace-nowrap text-gray-600">{formatClubDate(session.startsAt)}</td>
+                      <td>
+                        <a href={`/admin/sessions/${session.id}`} class:list={['row-link', session.is_cancelled && 'line-through']}>
+                          {session.group?.name}
+                        </a>
+                        <p class="text-xs text-gray-500">
+                          {formatClubTime(session.startsAt)}{session.note && ` · ${session.note}`}
+                        </p>
+                      </td>
+                      <td class="num">
+                        {session.heads.total}
+                        {session.heads.guests > 0 && (
+                          <span class="text-xs text-gray-500">
+                            {' '}({session.heads.guests} guest{session.heads.guests === 1 ? '' : 's'})
+                          </span>
+                        )}
+                      </td>
+                      <td class="num">{formatPounds(session.cash.totalPence)}</td>
+                      <td>{session.is_cancelled ? <Pill tone="gray">Cancelled</Pill> : <Pill tone="green">Ran</Pill>}</td>
+                      <td class="row-chevron" aria-hidden="true"></td>
+                    </tr>
+                  ))}
+                  {dayTotal && (
+                    <tr class="subtotal">
+                      <td class="mobile-only cell-primary">Day total</td>
+                      <td class="mobile-only cell-secondary">
+                        {formatClubNight(onTheDay[0].startsAt)} · {dayTotal.heads.total} attended
+                      </td>
+                      <td class="mobile-only cell-trailing tabular-nums">{formatPounds(dayTotal.cash.totalPence)}</td>
+                      <td class="whitespace-nowrap text-gray-600">{formatClubDate(onTheDay[0].startsAt)}</td>
+                      <td>Day total</td>
+                      <td class="num">{dayTotal.heads.total}</td>
+                      <td class="num">{formatPounds(dayTotal.cash.totalPence)}</td>
+                      <td colspan="2"></td>
+                    </tr>
+                  )}
+                </>
+              );
+            })}
+          </tbody>
+        </ResourceTable>
+      ) : (
+        <p class="text-gray-500 text-sm">
+          {pastCount === 0 ? 'No session has run yet.' : 'No sessions ran in these twelve weeks.'}
+        </p>
+      )}
+      {earlierCount > 0 && (
+        <p class="mt-4">
+          <a href={`/admin/sessions?show=past&until=${pastRange.earlierUntil}`} class="text-sm underline hover:text-gray-600">
+            The twelve weeks before ({earlierCount} older session{earlierCount === 1 ? '' : 's'} in all) →
+          </a>
+        </p>
+      )}
+      <p class="text-xs text-gray-400 mt-4">
+        Money collected is the cash taken at the session, less anything handed back, plus what its guests paid. Session
+        charges are left out — they move credit out of a household's pot rather than money into the tin.
+      </p>
+    </>
+  )}
+
+  {runningGroups.length > 0 && (
+    <FormDialog id="new-session" title="New session" submitLabel="Create session" error={error} reopen>
+      <input type="hidden" name="form_id" value={newFormId()} />
+      <div>
+        <label class="field-label" for="session-group">Squad</label>
+        <select id="session-group" name="group_id" required class="field">
+          <option value="">Choose a squad…</option>
+          {runningGroups.map((group) => (
+            <option value={group.id} selected={group.id === draft.groupId}>{group.name}</option>
+          ))}
+        </select>
+      </div>
+      <div class="grid grid-cols-[1fr_7rem] gap-4">
+        <div>
+          <label class="field-label" for="session-day">Date</label>
+          <input id="session-day" type="date" name="day" required value={draft.day} class="field" />
+        </div>
+        <div>
+          <label class="field-label" for="session-time">Time</label>
+          <select id="session-time" name="time" required class="field">
+            {sessionStartTimes().map((time) => (
+              <option value={time} selected={time === draft.time}>{time}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-[1fr_7rem] gap-4">
+        <div>
+          <label class="field-label" for="session-note">Note <span class="text-gray-400 font-normal">(optional)</span></label>
+          <input id="session-note" type="text" name="note" value={draft.note} class="field" />
+        </div>
+        <div>
+          <label class="field-label" for="session-price">Price</label>
+          <input id="session-price" type="text" name="price" inputmode="decimal" value={draft.price} class="field" />
+        </div>
+      </div>
+    </FormDialog>
+  )}
+</AdminLayout>

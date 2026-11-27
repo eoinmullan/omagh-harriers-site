@@ -50,115 +50,105 @@ const members = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
 
 <Layout title="Members' Area — Omagh Harriers AC">
   <PageContainer>
-    <div class="flex items-start justify-between mb-8">
-      <div>
-        <h1 class="text-3xl font-bold">Members' area</h1>
+    <div class="flex items-start justify-between gap-4 mb-5 sm:mb-8">
+      <div class="min-w-0">
+        <h1 class="text-2xl sm:text-3xl font-bold">Members' area</h1>
         <p class="text-gray-500 mt-1">Welcome back, {principal.display_name}</p>
-        <p class="text-gray-400 text-sm mt-1">Signed in as {user.email}</p>
+        <p class="text-gray-400 text-sm mt-0.5 [overflow-wrap:anywhere]">Signed in as {user.email}</p>
       </div>
-      <form method="POST">
+      <form method="POST" class="hidden sm:block">
         <input type="hidden" name="action" value="signout" />
-        <button
-          type="submit"
-          class="text-sm text-gray-500 hover:text-gray-800 underline transition-colors"
-        >
-          Sign out
-        </button>
+        <button type="submit" class="text-sm text-gray-500 hover:text-gray-800 underline transition-colors">Sign out</button>
       </form>
     </div>
 
+    {/* The balance is what most people come here for, so it leads, and the
+        whole card is the way to the statement. A Top up button joins it with
+        card payments (Phase 4). */}
     <a
       href="/members/credits"
-      class="block bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 mb-10 hover:border-gray-400 transition-colors"
+      class="block bg-white border border-gray-200 rounded-lg px-5 py-4 mb-8 sm:mb-10 shadow-[inset_0_4px_0_var(--color-amber)] hover:border-gray-400 active:bg-gray-50 transition-colors"
     >
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-gray-500">Training credit</p>
-          <p
-            class:list={[
-              'text-2xl font-bold mt-0.5',
-              balancePence < 0 ? 'text-red-600' : 'text-gray-900',
-            ]}
-          >
-            {formatBalance(balancePence)}
-          </p>
-        </div>
-        <span class="text-sm underline">Sessions and payments &rarr;</span>
+      <p class="text-sm text-gray-500">Training credit</p>
+      <div class="flex items-end justify-between gap-4">
+        <p class:list={['text-4xl font-bold mt-0.5 tabular-nums', balancePence < 0 ? 'text-red-600' : 'text-gray-900']}>
+          {formatBalance(balancePence)}
+        </p>
+        <span class="inline-flex items-center gap-1 text-sm font-medium min-h-11">
+          Sessions and payments <span aria-hidden="true" class="text-xl text-gray-400">›</span>
+        </span>
       </div>
+      {balancePence < 0 && (
+        <p class="text-sm text-red-700 bg-red-50 rounded-md px-3 py-2 mt-2">Your balance is below zero. Please top up at the next session.</p>
+      )}
     </a>
 
     <section>
-      <h2 class="text-xl font-semibold mb-4">
+      <h2 class="text-lg sm:text-xl font-semibold mb-3">
         {members && members.length > 0 ? 'Your household' : 'No members found'}
       </h2>
 
-      {
-        members && members.length > 0 ? (
-          <ul class="space-y-3">
-            {members.map((member) => (
-              <li class="bg-gray-50 border border-gray-200 rounded-lg px-5 py-4 flex items-center justify-between">
-                <div>
-                  <p class="font-medium">
-                    {member.first_name} {member.surname}
-                  </p>
-                  <p class="text-sm text-gray-500">
-                    {formatDob(member.date_of_birth)}
-                    {member.gender ? ` · ${member.gender}` : ''}
-                  </p>
-                </div>
-                <span
-                  class={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    member.status === 'paid'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {member.status === 'paid' ? 'Active' : 'Lapsed'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p class="text-gray-500 text-sm">
-            No active members are linked to your account. Please contact the
-            committee if you believe this is incorrect.
-          </p>
-        )
-      }
+      {members && members.length > 0 ? (
+        <ul class="-mx-4 sm:mx-0 border-y border-gray-200 sm:border sm:rounded-lg divide-y divide-gray-200 bg-white">
+          {members.map((member) => (
+            <li class="flex items-center justify-between gap-4 px-4 py-3 min-h-15">
+              <div class="min-w-0">
+                <p class="font-medium">{member.first_name} {member.surname}</p>
+                <p class="text-sm text-gray-500">
+                  {formatDob(member.date_of_birth)}
+                  {member.gender ? ` · ${member.gender}` : ''}
+                </p>
+              </div>
+              <span
+                class={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
+                  member.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {member.status === 'paid' ? 'Active' : 'Lapsed'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="text-gray-500 text-sm">
+          No active members are linked to your account. Please contact the committee if you believe this is incorrect.
+        </p>
+      )}
     </section>
 
-    {
-      mayRunASession(principal.role) && (
-        <section class="mt-10 pt-8 border-t border-gray-200">
-          <h2 class="text-lg font-semibold mb-3">Taking sign-ins</h2>
-          <a
-            href="/registrar/"
-            class="block bg-gray-900 text-white rounded-lg px-5 py-4 hover:bg-gray-800 transition-colors"
-          >
-            <span class="block font-semibold">Registration app &rarr;</span>
-            <span class="block text-sm text-gray-300 mt-0.5">
-              Download and add to your home screen.
-            </span>
-          </a>
-        </section>
-      )
-    }
+    {(mayRunASession(principal.role) || principal.role === 'admin' || principal.role === 'superuser') && (
+      <section class="mt-8 sm:mt-10">
+        <h2 class="text-lg font-semibold mb-3">Helping out</h2>
+        <ul class="-mx-4 sm:mx-0 border-y border-gray-200 sm:border sm:rounded-lg divide-y divide-gray-200 bg-white">
+          {mayRunASession(principal.role) && (
+            <li>
+              <a href="/registrar/" class="flex items-center justify-between gap-4 px-4 py-3 min-h-15 hover:bg-gray-50 active:bg-gray-100">
+                <span>
+                  <span class="block font-semibold">Registration app</span>
+                  <span class="block text-sm text-gray-500">Taking sign-ins. Add it to your home screen.</span>
+                </span>
+                <span aria-hidden="true" class="text-2xl text-gray-300">›</span>
+              </a>
+            </li>
+          )}
+          {(principal.role === 'admin' || principal.role === 'superuser') && (
+            <li>
+              <a href="/admin/sessions" class="flex items-center justify-between gap-4 px-4 py-3 min-h-15 hover:bg-gray-50 active:bg-gray-100">
+                <span>
+                  <span class="block font-semibold">Club admin</span>
+                  <span class="block text-sm text-gray-500">Sessions, squads, households, members and training credit.</span>
+                </span>
+                <span aria-hidden="true" class="text-2xl text-gray-300">›</span>
+              </a>
+            </li>
+          )}
+        </ul>
+      </section>
+    )}
 
-    {
-      (principal.role === 'admin' || principal.role === 'superuser') && (
-        <section class="mt-10 pt-8 border-t border-gray-200">
-          <h2 class="text-lg font-semibold mb-3">Running the club</h2>
-          <a
-            href="/admin/sessions"
-            class="block border border-gray-300 rounded-lg px-5 py-4 hover:bg-gray-50 transition-colors"
-          >
-            <span class="block font-semibold">Club admin &rarr;</span>
-            <span class="block text-sm text-gray-500 mt-0.5">
-              Sessions, squads, households, members and training credit.
-            </span>
-          </a>
-        </section>
-      )
-    }
+    <form method="POST" class="sm:hidden mt-10">
+      <input type="hidden" name="action" value="signout" />
+      <button type="submit" class="btn btn-secondary w-full">Sign out</button>
+    </form>
   </PageContainer>
 </Layout>

@@ -2,11 +2,22 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { nudgeTheRegistrarApp } from '../../lib/training/admin-nudge';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
-import { planMember } from '../../lib/people';
+import { ageOn, isJunior, planMember } from '../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../lib/http/after-post';
 import { newFormId, submittedFormId } from '../../lib/http/form-id';
 import { orThrow } from '../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../lib/auth/signed-in';
+import { everyRow } from '../../lib/supabase/every-row';
+import { membersInNoSquad } from '../../lib/training/groups';
+import { RECENT_TRAINING_DAYS, recentTrainingSince } from '../../lib/training/history';
+import PageHeader from '../../components/admin/PageHeader.astro';
+import Flash from '../../components/admin/Flash.astro';
+import StatTiles from '../../components/admin/StatTiles.astro';
+import StatTile from '../../components/admin/StatTile.astro';
+import ListToolbar from '../../components/admin/ListToolbar.astro';
+import ResourceTable from '../../components/admin/ResourceTable.astro';
+import FormDialog from '../../components/admin/FormDialog.astro';
+import Pill from '../../components/admin/Pill.astro';
 
 const { principal: actingPrincipal } = whoIsSignedIn(Astro.locals);
 
@@ -82,206 +93,184 @@ function formatDob(dob: string): string {
     year: 'numeric',
   });
 }
+
+// What the figures across the top are made from: who is in which squad, and
+// who has signed in lately. Both grow with the club, so both page.
+const now = new Date();
+const today = now.toISOString().slice(0, 10);
+
+const membershipRows = await everyRow((from, to) =>
+  adminClient
+    .from('member_groups')
+    .select('member_id, group_id, group:group_id(name, is_active)')
+    .order('member_id')
+    .order('group_id')
+    .range(from, to),
+);
+
+type MembershipRow = { member_id: string; group_id: string; group: { name: string; is_active: boolean } | null };
+
+const squadNamesByMember = new Map<string, string[]>();
+const runningGroupIds = new Set<string>();
+for (const row of membershipRows satisfies MembershipRow[]) {
+  if (!row.group?.is_active) continue;
+  runningGroupIds.add(row.group_id);
+  squadNamesByMember.set(row.member_id, [...(squadNamesByMember.get(row.member_id) ?? []), row.group.name].sort());
+}
+
+const recentSessions = orThrow(await adminClient
+  .from('training_sessions')
+  .select('id')
+  .eq('is_cancelled', false)
+  .gte('starts_at', recentTrainingSince(now).toISOString())
+  .lte('starts_at', now.toISOString()));
+const recentSessionIds = (recentSessions ?? []).map((row) => row.id);
+const recentAttendance = recentSessionIds.length
+  ? await everyRow((from, to) =>
+      adminClient
+        .from('attendance')
+        .select('id, member_id')
+        .in('session_id', recentSessionIds)
+        .not('member_id', 'is', null)
+        .order('id')
+        .range(from, to),
+    )
+  : [];
+const trainedRecently = new Set(recentAttendance.map((row) => row.member_id!));
+
+const active = (members ?? []).filter((m) => m.is_active);
+const activeIds = new Set(active.map((m) => m.id));
+const inNoSquad = membersInNoSquad({
+  activeMemberIds: activeIds,
+  memberships: membershipRows.map((row) => ({ memberId: row.member_id, groupId: row.group_id })),
+  runningGroupIds,
+});
+const juniors = active.filter((m) => isJunior(m.date_of_birth, today));
+const recentlyActive = active.filter((m) => trainedRecently.has(m.id));
+
+// Only active members carry tags, so a filter never turns up somebody who has
+// left the club, and each figure counts exactly what its filter shows.
+function tagsOf(m: { id: string; date_of_birth: string; is_active: boolean }): string {
+  if (!m.is_active) return '';
+  return [
+    isJunior(m.date_of_birth, today) ? 'junior' : 'adult',
+    inNoSquad.has(m.id) && 'no-squad',
+    trainedRecently.has(m.id) && 'trained-recently',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
 ---
 
 <AdminLayout section="members" title="Members">
-    <div class="flex items-center justify-between mb-8">
+  <PageHeader
+    title="Members"
+    subtitle={`${members?.length ?? 0} total · the people who train, each in a household`}
+    primary={isSuperuser ? { label: 'Add member', dialog: 'new-member' } : undefined}
+  />
+
+  <Flash success={success} />
+
+  <!-- The first tile shows the whole list again; each of the others narrows it. A safeguarding tile (children
+       with no form on file) belongs here once Phase 8 lands. -->
+  <StatTiles columns={4}>
+    <StatTile label="Active members" value={active.length} hint={`show everyone · ${(members?.length ?? 0) - active.length} inactive`} reset list="members" />
+    <StatTile label="Juniors" value={juniors.length} hint={`under 18, of ${active.length} active`} filter="junior" list="members" />
+    <StatTile label="In no squad" value={inNoSquad.size} hint="no registrar expects them" filter="no-squad" list="members" />
+    <StatTile
+      label="Trained recently"
+      value={recentlyActive.length}
+      hint={`signed in, last ${RECENT_TRAINING_DAYS / 7} weeks`}
+      filter="trained-recently"
+      list="members"
+    />
+  </StatTiles>
+
+  <ListToolbar list="members" placeholder="Search by name or household…" label="Search members by name, household or email" />
+
+  <ResourceTable id="members" noMatches="No members match.">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Date of birth</th>
+        <th>Household</th>
+        <th>Squads</th>
+        <th>Status</th>
+        <th><span class="sr-only">Open</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {members?.map((m) => {
+        const p = principalById.get(m.principal_id);
+        const squads = squadNamesByMember.get(m.id) ?? [];
+        return (
+          <tr
+            data-href={`/admin/members/${m.id}`}
+            data-search={`${m.first_name} ${m.surname} ${p?.display_name ?? ''} ${p?.email ?? ''} ${squads.join(' ')}`.toLowerCase()}
+            data-tags={tagsOf(m)}
+            class:list={[!m.is_active && 'is-muted']}
+          >
+            <td class="cell-primary"><a href={`/admin/members/${m.id}`} class="row-link">{m.first_name} {m.surname}</a></td>
+            <td class="mobile-only cell-secondary">
+              Age {ageOn(m.date_of_birth, today)}{p && ` · ${p.display_name}`}{squads.length > 0 && ` · ${squads.join(', ')}`}
+            </td>
+            <td class="mobile-only cell-trailing">
+              {m.status !== 'paid' && <Pill tone="gray">Lapsed</Pill>}
+            </td>
+            <td class="text-gray-600 whitespace-nowrap">
+              {formatDob(m.date_of_birth)}
+              <span class="text-gray-400"> · {ageOn(m.date_of_birth, today)}</span>
+            </td>
+            <td class="text-gray-600">{p ? p.display_name : <span class="text-gray-400">—</span>}</td>
+            <td class="text-gray-600">{squads.length > 0 ? squads.join(', ') : <span class="text-gray-400">—</span>}</td>
+            <td>{m.status === 'paid' ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Lapsed</Pill>}</td>
+            <td class="row-chevron" aria-hidden="true"></td>
+          </tr>
+        );
+      })}
+    </tbody>
+  </ResourceTable>
+  {(!members || members.length === 0) && <p class="text-gray-500 text-sm py-8 text-center">No members found.</p>}
+
+  {isSuperuser && (
+    <FormDialog id="new-member" title="Add member" submitLabel="Add member" error={error} reopen wide>
+      <input type="hidden" name="action" value="add" />
+      <input type="hidden" name="form_id" value={newFormId()} />
       <div>
-        <h1 class="text-3xl font-bold">Members</h1>
-        <p class="text-gray-500 mt-1">{members?.length ?? 0} total</p>
+        <label class="field-label" for="member-household">Household</label>
+        <select id="member-household" name="principal_id" required class="field">
+          <option value="">— Select household —</option>
+          {principals?.map((p) => (
+            <option value={p.id}>{p.display_name} ({p.email})</option>
+          ))}
+        </select>
       </div>
-      <a href="/admin/households" class="text-sm underline hover:text-gray-600"
-        >View households →</a
-      >
-    </div>
-
-    {
-      error && (
-        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
-          {error}
-        </div>
-      )
-    }
-    {
-      success && (
-        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
-          {success}
-        </div>
-      )
-    }
-
-    {isSuperuser && <details class="mb-8 border border-gray-200 rounded-lg">
-      <summary class="px-5 py-3 font-medium cursor-pointer select-none"
-        >Add member</summary
-      >
-      <form method="POST" class="px-5 pb-5 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <input type="hidden" name="action" value="add" />
-        <input type="hidden" name="form_id" value={newFormId()} />
-        <div class="sm:col-span-2">
-          <label class="block text-sm font-medium mb-1">Household</label>
-          <select
-            name="principal_id"
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          >
-            <option value="">— Select household —</option>
-            {
-              principals?.map((p) => (
-                <option value={p.id}>
-                  {p.display_name} ({p.email})
-                </option>
-              ))
-            }
-          </select>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="field-label" for="member-first-name">First name</label>
+          <input id="member-first-name" type="text" name="first_name" required class="field" />
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">First name</label>
-          <input
-            type="text"
-            name="first_name"
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
+          <label class="field-label" for="member-surname">Surname</label>
+          <input id="member-surname" type="text" name="surname" required class="field" />
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">Surname</label>
-          <input
-            type="text"
-            name="surname"
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
+          <label class="field-label" for="member-dob">Date of birth</label>
+          <input id="member-dob" type="date" name="date_of_birth" required class="field" />
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">Date of birth</label>
-          <input
-            type="date"
-            name="date_of_birth"
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1"
-            >Gender <span class="text-gray-400 font-normal">(optional)</span></label
-          >
-          <select
-            name="gender"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          >
+          <label class="field-label" for="member-gender">Gender <span class="text-gray-400 font-normal">(optional)</span></label>
+          <select id="member-gender" name="gender" class="field">
             <option value="">—</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1"
-            >Athletics NI number <span class="text-gray-400 font-normal"
-              >(optional)</span
-            ></label
-          >
-          <input
-            type="text"
-            name="athletic_association_number"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
+          <label class="field-label" for="member-ani">Athletics NI number <span class="text-gray-400 font-normal">(optional)</span></label>
+          <input id="member-ani" type="text" name="athletic_association_number" class="field" />
         </div>
-        <div class="sm:col-span-2 flex justify-end">
-          <button
-            type="submit"
-            class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-            >Add member</button
-          >
-        </div>
-      </form>
-    </details>}
-
-    <label for="member-filter" class="sr-only">Filter members by name or email</label>
-
-    <input
-      id="member-filter"
-      type="search"
-      placeholder="Filter by name or email…"
-      class="mb-4 w-full sm:w-80 border border-gray-300 rounded px-3 py-2 text-sm"
-    />
-
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-gray-200 text-left">
-            <th class="pb-3 font-semibold">Name</th>
-            <th class="pb-3 font-semibold">Date of birth</th>
-            <th class="pb-3 font-semibold">Household</th>
-            <th class="pb-3 font-semibold">Status</th>
-            <th class="pb-3"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          {
-            members?.map((m) => {
-              const p = principalById.get(m.principal_id);
-              return (
-                <tr
-                  class={!m.is_active ? 'opacity-50' : ''}
-                  data-filter={`${m.first_name} ${m.surname} ${p?.display_name ?? ''} ${p?.email ?? ''}`.toLowerCase()}
-                >
-                  <td class="py-3 font-medium">
-                    {m.first_name} {m.surname}
-                  </td>
-                  <td class="py-3 text-gray-600">{formatDob(m.date_of_birth)}</td>
-                  <td class="py-3 text-gray-600">
-                    {p ? (
-                      <a
-                        href={`/admin/households/${m.principal_id}`}
-                        class="hover:underline"
-                      >
-                        {p.display_name}
-                      </a>
-                    ) : (
-                      <span class="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td class="py-3">
-                    <span
-                      class={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        m.status === 'paid'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {m.status === 'paid' ? 'Active' : 'Lapsed'}
-                    </span>
-                  </td>
-                  <td class="py-3 text-right">
-                    <a
-                      href={`/admin/members/${m.id}`}
-                      class="text-xs underline hover:text-gray-600"
-                    >
-                      {isSuperuser ? 'Edit →' : 'View →'}
-                    </a>
-                  </td>
-                </tr>
-              );
-            })
-          }
-        </tbody>
-      </table>
-      {
-        (!members || members.length === 0) && (
-          <p class="text-gray-500 text-sm py-8 text-center">No members found.</p>
-        )
-      }
-    </div>
+      </div>
+    </FormDialog>
+  )}
 </AdminLayout>
-
-<script>
-  const input = document.getElementById('member-filter') as HTMLInputElement;
-  const rows = document.querySelectorAll<HTMLTableRowElement>('tbody tr[data-filter]');
-
-  input?.addEventListener('input', () => {
-    const term = input.value.toLowerCase();
-    rows.forEach((row) => {
-      row.hidden = term !== '' && !row.dataset.filter?.includes(term);
-    });
-  });
-</script>

@@ -2,7 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { nudgeTheRegistrarApp } from '../../../lib/training/admin-nudge';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
-import { planMemberEdit } from '../../../lib/people';
+import { ageOn, planMemberEdit } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { orThrow } from '../../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../../lib/auth/signed-in';
@@ -10,6 +10,17 @@ import { everyRow } from '../../../lib/supabase/every-row';
 import { formatClubDateTime } from '../../../lib/training/club-time';
 import { formatPounds } from '../../../lib/credits/money';
 import { recentAttendance } from '../../../lib/training/history';
+import RecordHeader from '../../../components/admin/RecordHeader.astro';
+import Figure from '../../../components/admin/Figure.astro';
+import Flash from '../../../components/admin/Flash.astro';
+import Pill from '../../../components/admin/Pill.astro';
+import Section from '../../../components/admin/Section.astro';
+import SummaryList from '../../../components/admin/SummaryList.astro';
+import SummaryRow from '../../../components/admin/SummaryRow.astro';
+import ResourceTable from '../../../components/admin/ResourceTable.astro';
+import FormDialog from '../../../components/admin/FormDialog.astro';
+import DangerZone from '../../../components/admin/DangerZone.astro';
+import DangerAction from '../../../components/admin/DangerAction.astro';
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/members');
@@ -23,6 +34,7 @@ const isSuperuser = actingPrincipal.role === 'superuser';
 
 let error: string | null = null;
 let success: string | null = null;
+let failedAction: string | null = null;
 
 if (Astro.request.method === 'POST' && isSuperuser) {
   const formData = await Astro.request.formData();
@@ -64,6 +76,7 @@ if (Astro.request.method === 'POST' && isSuperuser) {
     if (e) error = e.message;
     else success = 'Member reactivated.';
   }
+  if (error) failedAction = action;
 }
 
 // Succeeded: send the browser back here as a GET, so a reload can't
@@ -101,6 +114,21 @@ const attendanceRows = await everyRow((from, to) =>
     .range(from, to),
 );
 
+const squadRows = orThrow(await adminClient
+  .from('member_groups')
+  .select('group:group_id(id, name, is_active)')
+  .eq('member_id', member.id));
+
+const squads = ((squadRows ?? []) as { group: { id: string; name: string; is_active: boolean } | null }[])
+  .flatMap((row) => (row.group ? [row.group] : []))
+  .sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
+
+const today = new Date().toISOString().slice(0, 10);
+
+function formatDob(dob: string): string {
+  return new Date(dob).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 type AttendanceWithSession = {
   id: string;
   session: { id: string; starts_at: string; price_pence: number; group: { name: string } | null } | null;
@@ -121,218 +149,171 @@ const history = recentAttendance(
 ---
 
 <AdminLayout section="members" title={`${member.first_name} ${member.surname}`} breadcrumb={[{ label: 'Members', href: '/admin/members' }, { label: `${member.first_name} ${member.surname}` }]}>
+  <Flash success={success} error={failedAction === 'update' ? null : error} />
 
-    {
-      error && (
-        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
-          {error}
-        </div>
-      )
-    }
-    {
-      success && (
-        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
-          {success}
-        </div>
-      )
-    }
+  <RecordHeader title={`${member.first_name} ${member.surname}`}>
+    <Fragment slot="pills">
+      {member.status === 'paid' ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Lapsed</Pill>}
+      {!member.is_active && <Pill tone="gray">Inactive</Pill>}
+    </Fragment>
+    {principal && (
+      <p>
+        Household: <a href={`/admin/households/${principal.id}`} class="underline hover:text-gray-700">{principal.display_name}</a>
+        <span class="text-gray-400"> · {principal.email}</span>
+      </p>
+    )}
+    <Fragment slot="figures">
+      <Figure label="Age" value={ageOn(member.date_of_birth, today)} />
+      <Figure
+        label="Sessions"
+        value={history.total}
+        hint={history.shown[0] ? `last ${formatClubDateTime(history.shown[0].startsAt)}` : 'not trained yet'}
+      />
+    </Fragment>
+  </RecordHeader>
 
-    <div class="bg-gray-50 border border-gray-200 rounded-lg px-6 py-5 mb-8">
-      <div class="flex items-start justify-between">
-        <div>
-          <h1 class="text-2xl font-bold">
-            {member.first_name}
-            {member.surname}
-          </h1>
-          {
-            principal && (
-              <p class="text-gray-500 mt-1">
-                Household:{' '}
-                <a
-                  href={`/admin/households/${principal.id}`}
-                  class="hover:underline"
-                >
-                  {principal.display_name} ({principal.email})
-                </a>
-              </p>
-            )
-          }
-        </div>
-        <div class="flex gap-2">
-          <span
-            class={`text-xs font-medium px-2 py-1 rounded-full ${
-              member.status === 'paid'
-                ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            {member.status === 'paid' ? 'Active' : 'Lapsed'}
-          </span>
-          {
-            !member.is_active && (
-              <span class="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-500">
-                Inactive
-              </span>
-            )
-          }
-        </div>
-      </div>
-      <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        <div>
-          <dt class="text-gray-500">Source</dt>
-          <dd>{member.source}</dd>
-        </div>
-        {
-          member.athletic_association_number && (
-            <div>
-              <dt class="text-gray-500">Athletics NI number</dt>
-              <dd>{member.athletic_association_number}</dd>
-            </div>
-          )
-        }
-      </dl>
-    </div>
-
-    <section class="mb-8">
-      <div class="flex items-baseline justify-between mb-3">
-        <h2 class="text-lg font-semibold">Training history</h2>
-        {principal && (
-          <a href={`/admin/households/${principal.id}#credit`} class="text-sm underline hover:text-gray-600"
-            >Household statement →</a
-          >
-        )}
-      </div>
-      {history.total === 0 ? (
-        <p class="text-sm text-gray-500">Not signed in at any session yet.</p>
-      ) : (
-        <>
-          <ul class="divide-y divide-gray-100 border-y border-gray-100 text-sm">
-            {history.shown.map((session) => (
-              <li class="flex items-center justify-between py-2.5">
-                <a href={`/admin/sessions/${session.sessionId}`} class="hover:underline">
-                  <span class="font-medium">{session.squad}</span>
-                  <span class="text-gray-500"> · {formatClubDateTime(session.startsAt)}</span>
-                </a>
-                <span class="text-gray-600 tabular-nums">
-                  {session.pricePence === 0 ? 'Free' : formatPounds(session.pricePence)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {history.total > history.shown.length && (
-            <p class="text-xs text-gray-500 mt-2">
-              The {history.shown.length} most recent of {history.total} sessions.
-            </p>
-          )}
-        </>
-      )}
-    </section>
-
+  <Section title="Details">
     {isSuperuser && (
-      <>
-        <!-- Edit form -->
-        <section class="mb-8">
-          <h2 class="text-lg font-semibold mb-4">Edit details</h2>
-          <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input type="hidden" name="action" value="update" />
-            <div>
-              <label class="block text-sm font-medium mb-1">First name</label>
-              <input
-                type="text"
-                name="first_name"
-                value={member.first_name}
-                required
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Surname</label>
-              <input
-                type="text"
-                name="surname"
-                value={member.surname}
-                required
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Date of birth</label>
-              <input
-                type="date"
-                name="date_of_birth"
-                value={member.date_of_birth}
-                required
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Gender</label>
-              <select
-                name="gender"
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              >
-                <option value="" selected={!member.gender}>—</option>
-                <option value="Male" selected={member.gender === 'Male'}>Male</option>
-                <option value="Female" selected={member.gender === 'Female'}>Female</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Athletics NI number</label>
-              <input
-                type="text"
-                name="athletic_association_number"
-                value={member.athletic_association_number ?? ''}
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Status</label>
-              <select
-                name="status"
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              >
-                <option value="paid" selected={member.status === 'paid'}>Active (paid)</option>
-                <option value="lapsed" selected={member.status === 'lapsed'}>Lapsed</option>
-              </select>
-            </div>
-            <div class="sm:col-span-2 flex justify-end">
-              <button
-                type="submit"
-                class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-                >Save changes</button
-              >
-            </div>
+      <button slot="actions" type="button" data-open-dialog="edit-member" class="btn btn-secondary btn-sm">Edit details</button>
+    )}
+    <SummaryList>
+      <SummaryRow label="Date of birth">{formatDob(member.date_of_birth)}</SummaryRow>
+      <SummaryRow label="Gender">{member.gender ?? <span class="text-gray-400">Not given</span>}</SummaryRow>
+      <SummaryRow label="Athletics NI number">
+        {member.athletic_association_number ?? <span class="text-gray-400">None</span>}
+      </SummaryRow>
+      <SummaryRow label="Household">
+        {principal ? (
+          <a href={`/admin/households/${principal.id}`} class="underline hover:text-gray-700">{principal.display_name}</a>
+        ) : (
+          '—'
+        )}
+        {principal && (
+          <a slot="action" href={`/admin/households/${principal.id}#credit`} class="btn-link text-sm">Statement</a>
+        )}
+      </SummaryRow>
+      <SummaryRow label="Source">{member.source}</SummaryRow>
+      <SummaryRow label="Status">
+        {member.is_active ? (member.status === 'paid' ? 'Active (paid)' : 'Lapsed') : 'Inactive'}
+        {isSuperuser && !member.is_active && (
+          <form slot="action" method="POST">
+            <input type="hidden" name="action" value="reactivate" />
+            <button type="submit" class="btn btn-secondary btn-sm">Reactivate</button>
           </form>
-        </section>
+        )}
+      </SummaryRow>
+    </SummaryList>
+  </Section>
 
-        <!-- Deactivate / Reactivate -->
-        <section>
-          <h2 class="text-lg font-semibold mb-3">Account status</h2>
-          {
-            member.is_active ? (
-              <form method="POST">
-                <input type="hidden" name="action" value="deactivate" />
-                <button
-                  type="submit"
-                  class="border border-red-300 text-red-600 rounded px-4 py-2 text-sm hover:bg-red-50 transition-colors"
-                  onclick="return confirm('Deactivate this member?')"
-                >
-                  Deactivate
-                </button>
-              </form>
-            ) : (
-              <form method="POST">
-                <input type="hidden" name="action" value="reactivate" />
-                <button
-                  type="submit"
-                  class="border border-green-300 text-green-700 rounded px-4 py-2 text-sm hover:bg-green-50 transition-colors"
-                >
-                  Reactivate
-                </button>
-              </form>
-            )
-          }
-        </section>
+  <Section title="Squads" count={squads.length} description="The registrar app expects them at these squads' sessions.">
+    {squads.length > 0 ? (
+      <ResourceTable>
+        <thead>
+          <tr>
+            <th>Squad</th>
+            <th>Status</th>
+            <th><span class="sr-only">Open</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {squads.map((squad) => (
+            <tr data-href={`/admin/squads/${squad.id}`}>
+              <td class="cell-primary"><a href={`/admin/squads/${squad.id}`} class="row-link">{squad.name}</a></td>
+              <td class="cell-trailing">{squad.is_active ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Retired</Pill>}</td>
+              <td class="row-chevron" aria-hidden="true"></td>
+            </tr>
+          ))}
+        </tbody>
+      </ResourceTable>
+    ) : (
+      <p class="text-sm text-gray-500">
+        In no squad. Add them from a squad's own page in <a href="/admin/squads" class="underline">Squads</a>.
+      </p>
+    )}
+  </Section>
+
+  <Section title="Training history" count={history.total}>
+    {history.total === 0 ? (
+      <p class="text-sm text-gray-500">Not signed in at any session yet.</p>
+    ) : (
+      <>
+        <ResourceTable>
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>When</th>
+              <th class="num">Price</th>
+              <th><span class="sr-only">Open</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.shown.map((session) => (
+              <tr data-href={`/admin/sessions/${session.sessionId}`}>
+                <td class="cell-primary"><a href={`/admin/sessions/${session.sessionId}`} class="row-link">{session.squad}</a></td>
+                <td class="cell-secondary text-gray-600 whitespace-nowrap">{formatClubDateTime(session.startsAt)}</td>
+                <td class="num cell-trailing">{session.pricePence === 0 ? 'Free' : formatPounds(session.pricePence)}</td>
+                <td class="row-chevron" aria-hidden="true"></td>
+              </tr>
+            ))}
+          </tbody>
+        </ResourceTable>
+        {history.total > history.shown.length && (
+          <p class="text-xs text-gray-500 mt-2">The {history.shown.length} most recent of {history.total} sessions.</p>
+        )}
       </>
     )}
+  </Section>
+
+  {isSuperuser && member.is_active && (
+    <DangerZone>
+      <DangerAction
+        title="Deactivate this member"
+        description="They drop off the registrar app and are marked lapsed. Their history is kept, and they can be reactivated."
+      >
+        <form method="POST">
+          <input type="hidden" name="action" value="deactivate" />
+          <button type="submit" class="btn btn-danger" onclick="return confirm('Deactivate this member?')">Deactivate</button>
+        </form>
+      </DangerAction>
+    </DangerZone>
+  )}
+
+  {isSuperuser && (
+    <FormDialog id="edit-member" title="Edit details" submitLabel="Save changes" error={error} reopen={failedAction === 'update'} wide>
+      <input type="hidden" name="action" value="update" />
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="field-label" for="edit-first-name">First name</label>
+          <input id="edit-first-name" type="text" name="first_name" value={member.first_name} required class="field" />
+        </div>
+        <div>
+          <label class="field-label" for="edit-surname">Surname</label>
+          <input id="edit-surname" type="text" name="surname" value={member.surname} required class="field" />
+        </div>
+        <div>
+          <label class="field-label" for="edit-dob">Date of birth</label>
+          <input id="edit-dob" type="date" name="date_of_birth" value={member.date_of_birth} required class="field" />
+        </div>
+        <div>
+          <label class="field-label" for="edit-gender">Gender</label>
+          <select id="edit-gender" name="gender" class="field">
+            <option value="" selected={!member.gender}>—</option>
+            <option value="Male" selected={member.gender === 'Male'}>Male</option>
+            <option value="Female" selected={member.gender === 'Female'}>Female</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="edit-ani">Athletics NI number</label>
+          <input id="edit-ani" type="text" name="athletic_association_number" value={member.athletic_association_number ?? ''} class="field" />
+        </div>
+        <div>
+          <label class="field-label" for="edit-status">Status</label>
+          <select id="edit-status" name="status" class="field">
+            <option value="paid" selected={member.status === 'paid'}>Active (paid)</option>
+            <option value="lapsed" selected={member.status === 'lapsed'}>Lapsed</option>
+          </select>
+        </div>
+      </div>
+    </FormDialog>
+  )}
 </AdminLayout>

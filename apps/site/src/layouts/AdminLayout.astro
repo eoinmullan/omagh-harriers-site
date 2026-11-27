@@ -38,11 +38,27 @@ const sections = [
   { key: 'reports', label: 'Reports', href: '/admin/reports/attendance' },
   { key: 'times', label: 'Training times', href: '/admin/training-times' },
 ] as const;
+
+// On a phone the sections are a tab bar along the bottom, in reach of a thumb,
+// with the two that are used least behind More. A detail page leads with the
+// way back to its list, as the registrar app does.
+const primaryTabs = sections.filter((item) => ['sessions', 'squads', 'households', 'members'].includes(item.key));
+const moreTabs = sections.filter((item) => !primaryTabs.includes(item));
+const inMore = moreTabs.some((item) => item.key === section);
+const backTo = breadcrumb.find((crumb) => crumb.href);
+
+const icons: Record<string, string> = {
+  sessions: 'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z',
+  squads: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 11a2.5 2.5 0 1 0 0-5M18 14.5c1.8.8 3 2.6 3 4.5',
+  households: 'M3 11 12 4l9 7M5 10v10h14V10M10 20v-5h4v5',
+  members: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21c0-4.4 3.6-8 8-8s8 3.6 8 8',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+};
 ---
 
-<Layout title={`${title} — Admin — Omagh Harriers AC`}>
+<Layout title={`${title} — Admin — Omagh Harriers AC`} footer="desktop">
   <PageContainer>
-    <div class="flex flex-wrap items-baseline justify-between gap-3 mb-4">
+    <div class="hidden sm:flex flex-wrap items-baseline justify-between gap-3 mb-4">
       <p class="text-sm font-semibold tracking-wide text-gray-500 uppercase">Club admin</p>
       <!-- The one link that genuinely leaves the area, and says so. -->
       <a href="/members" class="text-sm underline hover:text-gray-600">
@@ -50,7 +66,7 @@ const sections = [
       </a>
     </div>
 
-    <nav aria-label="Admin sections" class="border-b border-gray-200 mb-6">
+    <nav aria-label="Admin sections" class="hidden sm:block border-b border-gray-200 mb-6">
       <ul class="flex flex-wrap gap-x-1 gap-y-2 -mb-px">
         {
           sections.map((item) => (
@@ -59,10 +75,10 @@ const sections = [
                 href={item.href}
                 aria-current={section === item.key ? 'page' : undefined}
                 class:list={[
-                  'inline-block px-3 py-2 text-sm border-b-2 transition-colors',
+                  'inline-block px-3 py-2 text-sm border-b-[3px] transition-colors',
                   section === item.key
-                    ? 'border-gray-900 font-semibold text-gray-900'
-                    : 'border-transparent text-gray-500 hover:text-gray-900',
+                    ? 'border-amber font-semibold text-gray-900'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300',
                 ]}
               >
                 {item.label}
@@ -75,7 +91,7 @@ const sections = [
 
     {
       breadcrumb.length > 0 && (
-        <p class="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-1">
+        <p class="hidden sm:flex text-sm text-gray-500 mb-4 flex-wrap items-center gap-1">
           {breadcrumb.map((crumb, index) => (
             <>
               {index > 0 && <span aria-hidden="true">/</span>}
@@ -90,8 +106,201 @@ const sections = [
       )
     }
 
+    {backTo && (
+      <a href={backTo.href} class="sm:hidden -mt-4 mb-2 -ml-1 inline-flex items-center gap-1 min-h-11 pr-3 text-sm font-medium text-gray-600">
+        <span aria-hidden="true" class="text-2xl leading-none">‹</span> {backTo.label}
+      </a>
+    )}
+
     {!wide && <slot />}
   </PageContainer>
 
+  <nav aria-label="Admin sections" class="admin-tabbar sm:hidden fixed inset-x-0 bottom-0 z-40 bg-black text-gray-400 pb-[env(safe-area-inset-bottom)]">
+    <ul class="grid grid-cols-5">
+      {primaryTabs.map((item) => (
+        <li>
+          <a
+            href={item.href}
+            aria-current={section === item.key ? 'page' : undefined}
+            class:list={[
+              'flex flex-col items-center gap-0.5 pt-2 pb-1.5 min-h-14 text-[0.6875rem] font-medium border-t-[3px]',
+              section === item.key ? 'border-amber text-amber' : 'border-transparent active:text-white',
+            ]}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d={icons[item.key]} />
+            </svg>
+            {item.label}
+          </a>
+        </li>
+      ))}
+      <li>
+        <button
+          type="button"
+          data-open-dialog="admin-more"
+          aria-current={inMore ? 'page' : undefined}
+          class:list={[
+            'w-full flex flex-col items-center gap-0.5 pt-2 pb-1.5 min-h-14 text-[0.6875rem] font-medium border-t-[3px]',
+            inMore ? 'border-amber text-amber' : 'border-transparent active:text-white',
+          ]}
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+            <path d={icons.more} />
+          </svg>
+          More
+        </button>
+      </li>
+    </ul>
+  </nav>
+
+  <dialog id="admin-more" aria-label="More" class="sheet m-auto w-[calc(100%-2rem)] max-w-sm rounded-lg p-0 shadow-xl backdrop:bg-black/40">
+    <ul class="px-2 py-3">
+      {moreTabs.map((item) => (
+        <li>
+          <a href={item.href} aria-current={section === item.key ? 'page' : undefined} class="flex items-center justify-between min-h-12 px-3 rounded-md text-base aria-[current=page]:font-semibold active:bg-gray-100">
+            {item.label} <span aria-hidden="true" class="text-gray-300 text-xl">›</span>
+          </a>
+        </li>
+      ))}
+      <li class="border-t border-gray-100 mt-2 pt-2">
+        <a href="/members" class="flex items-center justify-between min-h-12 px-3 rounded-md text-base active:bg-gray-100">
+          Your own account <span aria-hidden="true" class="text-gray-300 text-xl">›</span>
+        </a>
+      </li>
+    </ul>
+    <div class="px-5 pb-4">
+      <button type="button" data-close-dialog class="btn btn-secondary w-full">Close</button>
+    </div>
+  </dialog>
+
   {wide && <slot />}
 </Layout>
+
+<script>
+  // Behaviour every admin page shares, so a list row, a dialog or a filter
+  // tile works the same on every tab. See components/admin/.
+  import { describeShown, isShown } from '../lib/admin/list-filter';
+
+  // A row with data-href opens its item when clicked anywhere, except on
+  // something of its own to click, or when text is being selected to copy.
+  // Cmd/Ctrl-click opens it in a new tab, as a link would.
+  const INTERACTIVE = 'a, button, input, select, textarea, label, summary, form';
+  document.addEventListener('click', (event) => {
+    const target = event.target as Element | null;
+    const row = target?.closest<HTMLElement>('tr[data-href]');
+    if (!row || target?.closest(INTERACTIVE)) return;
+    if (window.getSelection()?.toString()) return;
+    const href = row.dataset.href!;
+    if (event.metaKey || event.ctrlKey) window.open(href, '_blank');
+    else window.location.href = href;
+  });
+
+  // Dialogs: see FormDialog.astro.
+  for (const opener of document.querySelectorAll<HTMLElement>('[data-open-dialog]')) {
+    opener.addEventListener('click', () => {
+      const dialog = document.getElementById(opener.dataset.openDialog ?? '') as HTMLDialogElement | null;
+      if (dialog && !dialog.open) dialog.showModal();
+    });
+  }
+  for (const closer of document.querySelectorAll<HTMLElement>('[data-close-dialog]')) {
+    closer.addEventListener('click', () => closer.closest('dialog')?.close());
+  }
+  document.querySelector<HTMLDialogElement>('dialog[data-open-on-load]')?.showModal();
+  // A tap on the backdrop closes a dialog, as it does a sheet in any app. The
+  // dialog element itself is only the target when the tap missed its content.
+  for (const dialog of document.querySelectorAll<HTMLDialogElement>('dialog')) {
+    dialog.addEventListener('click', (event) => {
+      if (event.target !== dialog) return;
+      const box = dialog.getBoundingClientRect();
+      const inside =
+        event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+      if (!inside) dialog.close();
+    });
+  }
+
+  // Lists: a search box (data-list-search), filter tiles (data-list-filter)
+  // and filter selects (data-list-select) narrow the rows of one table
+  // together, and a reset tile (data-list-reset) puts the whole list back. Tiles for a list are one at a time: pressing another moves the
+  // filter, pressing the same one again clears it. ?filter=<tag> in the URL
+  // starts with that filter on, so another page can link to "who's in no
+  // squad".
+  for (const table of document.querySelectorAll<HTMLTableElement>('table[id]')) {
+    const id = table.id;
+    const rows = [...table.querySelectorAll<HTMLTableRowElement>('tr[data-search]')];
+    if (rows.length === 0) continue;
+
+    const search = document.querySelector<HTMLInputElement>(`[data-list-search="${id}"]`);
+    const tiles = [...document.querySelectorAll<HTMLButtonElement>(`[data-list-filter][data-list-for="${id}"]`)];
+    const selects = [...document.querySelectorAll<HTMLSelectElement>(`select[data-list-select="${id}"]`)];
+    const resets = [...document.querySelectorAll<HTMLButtonElement>(`[data-list-reset="${id}"]`)];
+    const empty = document.querySelector<HTMLElement>(`[data-list-empty="${id}"]`);
+    const count = document.querySelector<HTMLElement>(`[data-list-count="${id}"]`);
+    const active = document.querySelector<HTMLElement>(`[data-list-active="${id}"]`);
+    const activeLabel = active?.querySelector<HTMLElement>('[data-list-active-label]');
+    const phoneCount = active?.querySelector<HTMLElement>('[data-list-count-phone]');
+    const clear = document.querySelector<HTMLButtonElement>(`[data-list-clear="${id}"]`);
+    const parsed = rows.map((row) => ({
+      row,
+      search: (row.dataset.search ?? '').toLowerCase(),
+      tags: (row.dataset.tags ?? '').split(' ').filter(Boolean),
+    }));
+
+    let tileFilter: string | null = null;
+
+    const apply = () => {
+      const filters = {
+        term: search?.value ?? '',
+        tags: [tileFilter, ...selects.map((select) => select.value)].filter((tag): tag is string => Boolean(tag)),
+      };
+      let shown = 0;
+      for (const entry of parsed) {
+        const visible = isShown(entry, filters);
+        entry.row.hidden = !visible;
+        if (visible) shown += 1;
+      }
+      for (const tile of tiles) tile.setAttribute('aria-pressed', String(tile.dataset.listFilter === tileFilter));
+      for (const reset of resets) reset.setAttribute('aria-pressed', String(shown === parsed.length));
+      if (empty) empty.hidden = shown > 0;
+      if (count) count.textContent = describeShown(shown, parsed.length);
+
+      const on = [
+        tiles.find((tile) => tile.dataset.listFilter === tileFilter)?.dataset.listLabel,
+        ...selects.filter((select) => select.value).map((select) => select.selectedOptions[0]?.textContent),
+      ].filter(Boolean);
+      if (active) active.hidden = on.length === 0;
+      if (activeLabel) activeLabel.textContent = on.join(' · ');
+      if (phoneCount) phoneCount.textContent = describeShown(shown, parsed.length);
+    };
+
+    clear?.addEventListener('click', () => {
+      tileFilter = null;
+      for (const select of selects) select.value = '';
+      apply();
+    });
+
+    search?.addEventListener('input', apply);
+    for (const select of selects) select.addEventListener('change', apply);
+    for (const tile of tiles) {
+      tile.addEventListener('click', () => {
+        tileFilter = tileFilter === tile.dataset.listFilter ? null : (tile.dataset.listFilter ?? null);
+        apply();
+      });
+    }
+
+    for (const reset of resets) {
+      reset.addEventListener('click', () => {
+        tileFilter = null;
+        if (search) search.value = '';
+        for (const select of selects) select.value = '';
+        apply();
+      });
+    }
+
+    const fromUrl = new URLSearchParams(window.location.search).get('filter');
+    if (fromUrl && tiles.some((tile) => tile.dataset.listFilter === fromUrl)) tileFilter = fromUrl;
+    for (const select of selects) {
+      if (fromUrl && [...select.options].some((option) => option.value === fromUrl)) select.value = fromUrl;
+    }
+    apply();
+  }
+</script>

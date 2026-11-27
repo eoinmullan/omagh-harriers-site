@@ -48,3 +48,14 @@ export function planRoleChange(request: {
 
   return { role };
 }
+
+/** What a login can do beyond seeing their own household, as shown beside their name. */
+export type Access = Exclude<PrincipalRole, 'member'>;
+
+// Only the volunteers have anything to show, so they stand out rather than
+// every household saying "member". Today a role is one rung of a ladder, so a
+// login has at most one; the list is for when registrar and coach become
+// privileges held alongside admin, and a login can show several.
+export function accessOf(role: PrincipalRole): Access[] {
+  return role === 'member' ? [] : [role];
+}

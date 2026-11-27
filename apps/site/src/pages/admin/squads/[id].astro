@@ -5,17 +5,38 @@ import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import {
   describeRegular,
+  planGroupRename,
+  planGroupRetirement,
+  planGroupReturn,
   REGULARS_WINDOW_WEEKS,
   regularsToPromote,
+  summariseSquads,
+  type ExistingGroup,
+  type GroupChange,
   type Regular,
 } from '../../../lib/training/groups';
+import { formatClubDate } from '../../../lib/training/club-time';
+import RecordHeader from '../../../components/admin/RecordHeader.astro';
+import Figure from '../../../components/admin/Figure.astro';
+import Flash from '../../../components/admin/Flash.astro';
+import Pill from '../../../components/admin/Pill.astro';
+import Section from '../../../components/admin/Section.astro';
+import SummaryList from '../../../components/admin/SummaryList.astro';
+import SummaryRow from '../../../components/admin/SummaryRow.astro';
+import ResourceTable from '../../../components/admin/ResourceTable.astro';
+import FormDialog from '../../../components/admin/FormDialog.astro';
+import DangerZone from '../../../components/admin/DangerZone.astro';
+import DangerAction from '../../../components/admin/DangerAction.astro';
 import { orThrow } from '../../../lib/supabase/or-throw';
 
-// Who trains with a squad. The page shows the squad's own members, then who
-// has been coming without being one, then a search for anybody else in the
-// club. Each change is one member at a time. It used to be a single form with
-// a tick box for every member of the club, three hundred rows to scroll past
-// to see a squad of fifteen.
+// One squad: its details, who trains with it, and retiring it. The squads
+// list only lists; everything that changes a squad happens here.
+//
+// Who trains with it: the squad's own members, then who has been coming
+// without being one, then a search for anybody else in the club. Each change
+// is one member at a time. It used to be a single form with a tick box for
+// every member of the club, three hundred rows to scroll past to see a squad
+// of fifteen.
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/squads');
@@ -36,34 +57,72 @@ async function loadMembers() {
   return data ?? [];
 }
 
+async function loadGroups(): Promise<ExistingGroup[]> {
+  const data = orThrow(await adminClient.from('groups').select('id, name, is_active').order('name'));
+  return (data ?? []).map((row) => ({ id: row.id, name: row.name, isActive: row.is_active }));
+}
+
 let error: string | null = null;
 let success: string | null = null;
+let failedAction: string | null = null;
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
-  const action = formData.get('action');
-  const member = (await loadMembers()).find((candidate) => candidate.id === formData.get('member_id'));
+  const action = (formData.get('action') ?? '').toString();
+  const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
 
-  if (!member) {
-    error = 'That member is no longer active.';
-  } else if (action === 'add') {
-    // The key is (member, squad), so adding twice is harmless.
-    const { error: insertError } = await adminClient
-      .from('member_groups')
-      .upsert({ member_id: member.id, group_id: id }, { onConflict: 'member_id,group_id', ignoreDuplicates: true });
-    if (insertError) error = insertError.message;
-    else success = `${member.first_name} ${member.surname} is now a member of this squad.`;
-  } else if (action === 'remove') {
-    const { error: deleteError } = await adminClient
-      .from('member_groups')
-      .delete()
-      .eq('group_id', id)
-      .eq('member_id', member.id);
-    if (deleteError) error = deleteError.message;
-    else success = `${member.first_name} ${member.surname} is no longer a member of this squad.`;
+  if (action === 'add' || action === 'remove') {
+    const member = (await loadMembers()).find((candidate) => candidate.id === formData.get('member_id'));
+
+    if (!member) {
+      error = 'That member is no longer active.';
+    } else if (action === 'add') {
+      // The key is (member, squad), so adding twice is harmless.
+      const { error: insertError } = await adminClient
+        .from('member_groups')
+        .upsert({ member_id: member.id, group_id: id }, { onConflict: 'member_id,group_id', ignoreDuplicates: true });
+      if (insertError) error = insertError.message;
+      else success = `${member.first_name} ${member.surname} is now a member of this squad.`;
+    } else {
+      const { error: deleteError } = await adminClient
+        .from('member_groups')
+        .delete()
+        .eq('group_id', id)
+        .eq('member_id', member.id);
+      if (deleteError) error = deleteError.message;
+      else success = `${member.first_name} ${member.surname} is no longer a member of this squad.`;
+    }
   } else {
-    error = 'Unknown action.';
+    const existing = await loadGroups();
+    const current = existing.find((candidate) => candidate.id === id);
+    let plan: GroupChange | undefined;
+    let confirmation = '';
+
+    if (!current) {
+      plan = { problem: 'That squad no longer exists.' };
+    } else if (action === 'rename') {
+      plan = planGroupRename({ group: current, name: field('name'), existing });
+      confirmation = `Renamed to ${field('name').trim()}.`;
+    } else if (action === 'retire') {
+      plan = planGroupRetirement(current);
+      confirmation = `${current.name} retired. Its sessions and their attendance are untouched.`;
+    } else if (action === 'return') {
+      plan = planGroupReturn(current);
+      confirmation = `${current.name} is active again.`;
+    }
+
+    if (!plan) {
+      error = 'Unknown action.';
+    } else if ('problem' in plan) {
+      error = plan.problem;
+    } else {
+      const { error: updateError } = await adminClient.from('groups').update(plan.update).eq('id', id);
+      if (updateError) error = updateError.message;
+      else success = confirmation;
+    }
   }
+
+  if (error) failedAction = action;
 }
 
 // Succeeded: send the browser back here as a GET, so a reload can't
@@ -84,6 +143,12 @@ const group = orThrow(await adminClient
 if (!group) return Astro.redirect('/admin/squads');
 
 const members = await loadMembers();
+
+const squadSessions = orThrow(await adminClient
+  .from('training_sessions')
+  .select('starts_at, is_cancelled')
+  .eq('group_id', id));
+
 
 const memberships = orThrow(await adminClient
   .from('member_groups')
@@ -123,10 +188,20 @@ const regulars = new Map<string, Regular>(
 const squadMembers = members.filter((member) => inGroup.has(member.id));
 const toPromote = regularsToPromote([...regulars.values()], inGroup);
 const promoting = new Set(toPromote.map((regular) => regular.memberId));
-// Anybody else in the club, for the search. Recent regulars are already
-// offered above, so they aren't repeated.
-const everyoneElse = members.filter((member) => !inGroup.has(member.id) && !promoting.has(member.id));
+// Everybody in the club, for the search, the squad's own members included.
+// With thirty in a squad and three hundred in the club, a name that's already
+// in it has to turn up as "In this squad", or a search for it finds nothing
+// and looks like the member is missing.
+const searchable = members;
 const memberById = new Map(members.map((member) => [member.id, member]));
+
+const [summary] = summariseSquads({
+  groups: [{ id: group.id, name: group.name, isActive: group.is_active }],
+  memberships: [...inGroup].map((memberId) => ({ memberId, groupId: group.id })),
+  activeMemberIds: new Set(members.map((member) => member.id)),
+  sessions: (squadSessions ?? []).map((row) => ({ groupId: group.id, startsAt: row.starts_at, isCancelled: row.is_cancelled })),
+  now: new Date(),
+});
 
 function others(memberId: string): string | undefined {
   return otherGroupNames.get(memberId)?.sort().join(' · ');
@@ -134,149 +209,203 @@ function others(memberId: string): string | undefined {
 ---
 
 <AdminLayout section="squads" title={group.name} breadcrumb={[{ label: 'Squads', href: '/admin/squads' }, { label: group.name }]}>
-  {
-    error && (
-      <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{error}</div>
-    )
-  }
-  {
-    success && (
-      <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">{success}</div>
-    )
-  }
+  <Flash success={success} error={failedAction === 'rename' ? null : error} />
 
-  <div class="mb-8">
-    <h1 class="text-3xl font-bold">{group.name}</h1>
-    <p class="text-gray-500 mt-1">
-      The registrar's Usuals list for this squad is its members, plus anybody who has trained with
-      it in the last {REGULARS_WINDOW_WEEKS} weeks.
+  <RecordHeader title={group.name}>
+    <Fragment slot="pills">
+      {group.is_active ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Retired</Pill>}
+    </Fragment>
+    <p>
+      The registrar's Usuals list for this squad is its members, plus anybody who has trained with it in the last
+      {' '}{REGULARS_WINDOW_WEEKS} weeks.
     </p>
-    {
-      !group.is_active && (
-        <p class="text-sm text-gray-500 mt-2">
-          This squad is retired. Its membership can still be corrected, but no new session can be
-          created for it.
-        </p>
-      )
-    }
-  </div>
+    <Fragment slot="figures">
+      <Figure label="Members" value={squadMembers.length} hint={toPromote.length > 0 ? `+ ${toPromote.length} trained here recently` : undefined} />
+      <Figure
+        label="Sessions run"
+        value={summary.sessionsRun}
+        hint={summary.lastRunAt ? `last ${formatClubDate(summary.lastRunAt)}` : 'none yet'}
+      />
+    </Fragment>
+    {!group.is_active && (
+      <p slot="footer" class="text-sm text-gray-500 mt-4">
+        This squad is retired. Its membership can still be corrected, but no new session can be created for it.
+      </p>
+    )}
+  </RecordHeader>
 
-  <section class="mb-10">
-    <h2 class="text-lg font-semibold mb-3">Add someone else</h2>
-    <label for="member-search" class="sr-only">Find a member to add to this squad</label>
-    <input
-      id="member-search"
-      type="search"
-      placeholder="Type part of a name…"
-      autocomplete="off"
-      class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-    />
-    <p id="search-hint" class="text-sm text-gray-500 mt-2" aria-live="polite">
-      Type at least two letters.
-    </p>
+  <Section title="Details">
+    <SummaryList>
+      <SummaryRow label="Name">
+        <span class="font-medium">{group.name}</span>
+        <button slot="action" type="button" data-open-dialog="rename-squad" class="btn-link text-sm">Change</button>
+      </SummaryRow>
+      <SummaryRow label="Status">
+        {group.is_active ? 'Active: sessions can be created for it' : 'Retired'}
+        {!group.is_active && (
+          <form slot="action" method="POST">
+            <input type="hidden" name="action" value="return" />
+            <button type="submit" class="btn btn-secondary btn-sm">Bring back</button>
+          </form>
+        )}
+      </SummaryRow>
+      <SummaryRow label="Next session">
+        {summary.nextAt ? formatClubDate(summary.nextAt) : 'None scheduled'}
+        <a slot="action" href="/admin/sessions" class="btn-link text-sm">Sessions</a>
+      </SummaryRow>
+    </SummaryList>
+  </Section>
 
-    {/* Hidden until a name is typed, so the page doesn't open on the whole club. */}
-    <ul id="member-list" class="divide-y divide-gray-100 mt-2">
-      {
-        everyoneElse.map((member) => (
+  <Section title="Members" count={squadMembers.length}>
+    <div class="mb-3">
+      <label for="member-search" class="field-label">Add a member</label>
+      <input
+        id="member-search"
+        type="search"
+        placeholder="Type part of a name…"
+        autocomplete="off"
+        class="field sm:w-96"
+      />
+      <p id="search-hint" class="text-xs text-gray-500 mt-1" aria-live="polite">Type at least two letters.</p>
+
+      {/* Hidden until a name is typed, so the page doesn't open on the whole club. */}
+      <ul id="member-list" class="mt-2 border border-gray-200 rounded-lg bg-white divide-y divide-gray-200 sm:w-96" hidden>
+        {searchable.map((member) => (
           <li
             data-member-row
             data-first-name={member.first_name}
             data-surname={member.surname}
             hidden
-            class="flex flex-wrap items-center justify-between gap-3 py-2.5"
+            class="flex items-center justify-between gap-3 px-3 py-2"
           >
-            <div>
-              <p class="font-medium">{member.surname}, {member.first_name}</p>
-              {others(member.id) && <p class="text-sm text-gray-500">{others(member.id)}</p>}
+            <div class="min-w-0">
+              <p class="font-medium text-sm">{member.surname}, {member.first_name}</p>
+              {(promoting.has(member.id) || others(member.id)) && (
+                <p class="text-xs text-gray-500">
+                  {[promoting.has(member.id) && 'Trained here recently', others(member.id) && `Also ${others(member.id)}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
             </div>
-            <form method="POST">
-              <input type="hidden" name="action" value="add" />
-              <input type="hidden" name="member_id" value={member.id} />
-              <button
-                type="submit"
-                class="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-              >
-                Add
-              </button>
-            </form>
+            {inGroup.has(member.id) ? (
+              <span class="shrink-0 inline-flex items-center min-h-8"><Pill tone="green">In this squad</Pill></span>
+            ) : (
+              <form method="POST" class="shrink-0">
+                <input type="hidden" name="action" value="add" />
+                <input type="hidden" name="member_id" value={member.id} />
+                <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+              </form>
+            )}
           </li>
-        ))
-      }
-    </ul>
-  </section>
+        ))}
+      </ul>
+    </div>
 
-  {
-    toPromote.length > 0 && (
-      <section class="mb-10">
-        <h2 class="text-lg font-semibold">Trained here recently</h2>
-        <p class="text-sm text-gray-500 mt-1 mb-3">
-          Not members of this squad, but on the Usuals list because they've trained with it in the
-          last {REGULARS_WINDOW_WEEKS} weeks. They drop off {REGULARS_WINDOW_WEEKS} weeks after they
-          stop coming. Add them to keep them on it.
-        </p>
-        <ul class="divide-y divide-gray-100 border-y border-gray-100">
+    {squadMembers.length > 0 ? (
+      <ResourceTable>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Recent training</th>
+            <th>Also in</th>
+            <th><span class="sr-only">Remove</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {squadMembers.map((member) => (
+            <tr data-href={`/admin/members/${member.id}`}>
+              <td class="cell-primary"><a href={`/admin/members/${member.id}`} class="row-link">{member.surname}, {member.first_name}</a></td>
+              <td class="mobile-only cell-secondary">
+                {[regulars.get(member.id) && describeRegular(regulars.get(member.id)!), others(member.id) && `Also ${others(member.id)}`]
+                  .filter(Boolean)
+                  .join(' · ') || 'Not trained here lately'}
+              </td>
+              <td class="text-gray-600">{regulars.get(member.id) ? describeRegular(regulars.get(member.id)!) : '—'}</td>
+              <td class="text-gray-600">{others(member.id) ?? '—'}</td>
+              <td class="cell-trailing text-right">
+                <form method="POST">
+                  <input type="hidden" name="action" value="remove" />
+                  <input type="hidden" name="member_id" value={member.id} />
+                  <button type="submit" class="btn btn-secondary btn-sm">Remove</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </ResourceTable>
+    ) : (
+      <p class="text-sm text-gray-500">Nobody yet. Find someone above to add them.</p>
+    )}
+  </Section>
+
+  {toPromote.length > 0 && (
+    <Section
+      title="Trained here recently"
+      count={toPromote.length}
+      description={`Not members of this squad, but on the Usuals list because they've trained with it in the last ${REGULARS_WINDOW_WEEKS} weeks. They drop off ${REGULARS_WINDOW_WEEKS} weeks after they stop coming. Add them to keep them on it.`}
+    >
+      <ResourceTable>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Recent training</th>
+            <th><span class="sr-only">Add</span></th>
+          </tr>
+        </thead>
+        <tbody>
           {toPromote.map((regular) => {
             const member = memberById.get(regular.memberId)!;
             return (
-              <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                <div>
-                  <p class="font-medium">{member.surname}, {member.first_name}</p>
-                  <p class="text-sm text-gray-500">{describeRegular(regular)}</p>
-                </div>
-                <form method="POST">
-                  <input type="hidden" name="action" value="add" />
-                  <input type="hidden" name="member_id" value={member.id} />
-                  <button
-                    type="submit"
-                    class="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                  >
-                    Add to squad
-                  </button>
-                </form>
-              </li>
+              <tr data-href={`/admin/members/${member.id}`}>
+                <td class="cell-primary"><a href={`/admin/members/${member.id}`} class="row-link">{member.surname}, {member.first_name}</a></td>
+                <td class="cell-secondary text-gray-600">{describeRegular(regular)}</td>
+                <td class="cell-trailing text-right">
+                  <form method="POST">
+                    <input type="hidden" name="action" value="add" />
+                    <input type="hidden" name="member_id" value={member.id} />
+                    <button type="submit" class="btn btn-secondary btn-sm">Add to squad</button>
+                  </form>
+                </td>
+              </tr>
             );
           })}
-        </ul>
-      </section>
-    )
-  }
+        </tbody>
+      </ResourceTable>
+    </Section>
+  )}
 
-  <section class="mb-10">
-    <h2 class="text-lg font-semibold mb-3">Members ({squadMembers.length})</h2>
-    {
-      squadMembers.length > 0 ? (
-        <ul class="divide-y divide-gray-100 border-y border-gray-100">
-          {squadMembers.map((member) => (
-            <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
-              <div>
-                <p class="font-medium">{member.surname}, {member.first_name}</p>
-                {(regulars.get(member.id) || others(member.id)) && (
-                  <p class="text-sm text-gray-500">
-                    {[regulars.get(member.id) && describeRegular(regulars.get(member.id)!), others(member.id) && `Also ${others(member.id)}`]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                )}
-              </div>
-              <form method="POST">
-                <input type="hidden" name="action" value="remove" />
-                <input type="hidden" name="member_id" value={member.id} />
-                <button
-                  type="submit"
-                  class="border border-gray-300 text-gray-600 rounded px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                >
-                  Remove
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p class="text-sm text-gray-500">Nobody yet. Add members above.</p>
-      )
-    }
-  </section>
+  {group.is_active && (
+    <DangerZone>
+      <DangerAction
+        title="Retire this squad"
+        description="No new session can be created for it. Its sessions, the attendance against them and its members stay as they are, and it can be brought back."
+      >
+        <form method="POST">
+          <input type="hidden" name="action" value="retire" />
+          <button
+            type="submit"
+            class="btn btn-danger"
+            onclick="return confirm('Retire this squad? Nothing recorded against it is removed.')"
+          >Retire squad</button>
+        </form>
+      </DangerAction>
+    </DangerZone>
+  )}
+
+  <FormDialog
+    id="rename-squad"
+    title="Rename squad"
+    submitLabel="Save name"
+    error={error}
+    reopen={failedAction === 'rename'}
+  >
+    <input type="hidden" name="action" value="rename" />
+    <div>
+      <label class="field-label" for="squad-name">Name</label>
+      <input id="squad-name" type="text" name="name" value={group.name} required class="field" />
+    </div>
+  </FormDialog>
 </AdminLayout>
 
 <script>
@@ -284,6 +413,7 @@ function others(memberId: string): string | undefined {
 
   const search = document.getElementById('member-search') as HTMLInputElement | null;
   const hint = document.getElementById('search-hint');
+  const list = document.getElementById('member-list');
   const rows = [...document.querySelectorAll<HTMLLIElement>('#member-list li[data-member-row]')];
 
   // Two letters before anything shows: one letter matches most of the club.
@@ -303,9 +433,10 @@ function others(memberId: string): string | undefined {
       if (matches) matched += 1;
     }
 
+    if (list) list.hidden = matched === 0;
     if (!hint) return;
     if (term.length < MIN_LETTERS) hint.textContent = 'Type at least two letters.';
-    else if (matched === 0) hint.textContent = 'Nobody else matches that name.';
+    else if (matched === 0) hint.textContent = 'Nobody in the club matches that name.';
     else if (matched === MAX_SHOWN) hint.textContent = `The first ${MAX_SHOWN} matches. Type more of the name to narrow it.`;
     else hint.textContent = '';
   }

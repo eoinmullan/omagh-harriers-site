@@ -1,0 +1,19 @@
+---
+// A key figure in a record's header.
+
+interface Props {
+  label: string;
+  value: string | number;
+  hint?: string;
+  tone?: 'default' | 'danger';
+}
+
+const { label, value, hint, tone = 'default' } = Astro.props;
+---
+
+<div>
+  <p class="text-xs font-medium text-gray-500">{label}</p>
+  <p class:list={['text-2xl sm:text-3xl font-bold tabular-nums', tone === 'danger' && 'text-red-600']}>{value}</p>
+  {hint && <p class="text-xs text-gray-500">{hint}</p>}
+  <slot />
+</div>

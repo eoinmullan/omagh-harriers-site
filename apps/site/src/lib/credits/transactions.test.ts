@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeEntry, type LedgerEntry } from './transactions';
+import { describeEntry, summariseEntry, summariseFreeSession, type LedgerEntry } from './transactions';
 
 function entry(overrides: Partial<LedgerEntry> = {}): LedgerEntry {
   return {
@@ -197,5 +197,60 @@ describe('a line tied to a session names the night', () => {
     );
 
     expect(description).toBe('£5.00 deducted — refunded on Tue 17 Nov');
+  });
+});
+
+describe('summariseEntry', () => {
+  it('names a session by its squad, with whose it was underneath', () => {
+    expect(
+      summariseEntry({ type: 'session', amountPence: -200, sessionSquad: 'Middle Distance', memberName: 'Jack Kelly' }),
+    ).toEqual({ title: 'Middle Distance session', detail: 'Jack Kelly' });
+  });
+
+  it('calls a session with no squad a training session', () => {
+    expect(summariseEntry({ type: 'session', amountPence: -200 }).title).toBe('Training session');
+  });
+
+  it('says who took cash at training', () => {
+    expect(summariseEntry({ type: 'top_up_cash', amountPence: 1000, recordedBy: 'Eoin Mullan' })).toEqual({
+      title: 'Cash paid at training',
+      detail: 'recorded by Eoin Mullan',
+    });
+  });
+
+  it('calls a Stripe top-up a card payment', () => {
+    expect(summariseEntry({ type: 'top_up_stripe', amountPence: 1000 })).toEqual({ title: 'Card payment', detail: '' });
+  });
+
+  it('uses the note as the title of an adjustment, then whose and who made it', () => {
+    expect(
+      summariseEntry({
+        type: 'manual_adjustment',
+        amountPence: 200,
+        notes: 'Refund for a cancelled session',
+        memberName: 'Jack Kelly',
+        recordedBy: 'Eoin Mullan',
+      }),
+    ).toEqual({ title: 'Refund for a cancelled session', detail: 'Jack Kelly · recorded by Eoin Mullan' });
+  });
+
+  it('falls back to a plain title for an adjustment with no note', () => {
+    expect(summariseEntry({ type: 'manual_adjustment', amountPence: 200, notes: '  ' }).title).toBe('Adjusted by the club');
+  });
+
+  it('names the other household on a transfer', () => {
+    expect(summariseEntry({ type: 'transfer_in', amountPence: 500, counterpartyName: 'Anne Allen' }).title).toBe(
+      'Transferred in from Anne Allen',
+    );
+    expect(summariseEntry({ type: 'transfer_out', amountPence: -500 }).title).toBe('Transferred out to another account');
+  });
+});
+
+describe('summariseFreeSession', () => {
+  it('names the session and says it cost nothing', () => {
+    expect(summariseFreeSession({ squad: 'Sprints', memberName: 'Noah Kelly' })).toEqual({
+      title: 'Sprints session',
+      detail: 'Noah Kelly · no charge',
+    });
   });
 });

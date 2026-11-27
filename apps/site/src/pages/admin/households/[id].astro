@@ -6,7 +6,8 @@ import { planDisplayName } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS } from '../../../lib/auth/roles';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
-import { describeEntry, isCredit } from '../../../lib/credits/transactions';
+import { householdHistory } from '../../../lib/credits/history';
+import Statement from '../../../components/Statement.astro';
 import {
   planAdjustment,
   planCashTopUp,
@@ -16,6 +17,18 @@ import {
 import type { CreditTransactionType } from '../../../lib/supabase/types';
 import { orThrow } from '../../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../../lib/auth/signed-in';
+import RecordHeader from '../../../components/admin/RecordHeader.astro';
+import Figure from '../../../components/admin/Figure.astro';
+import Flash from '../../../components/admin/Flash.astro';
+import Pill from '../../../components/admin/Pill.astro';
+import AccessPills from '../../../components/admin/AccessPills.astro';
+import Section from '../../../components/admin/Section.astro';
+import SummaryList from '../../../components/admin/SummaryList.astro';
+import SummaryRow from '../../../components/admin/SummaryRow.astro';
+import ResourceTable from '../../../components/admin/ResourceTable.astro';
+import FormDialog from '../../../components/admin/FormDialog.astro';
+import DangerZone from '../../../components/admin/DangerZone.astro';
+import DangerAction from '../../../components/admin/DangerAction.astro';
 
 // One page per household, because a household is one thing an admin holds in
 // their head: a name, the people in it, a role and a balance. It used to be
@@ -204,16 +217,16 @@ async function recordLedgerEntry(action: string, field: Field): Promise<Outcome>
 }
 
 let outcome: Outcome | undefined;
-// So a failed identity change reopens the section it came from.
-let editingIdentity = false;
+// So a failed form reopens the dialog it came from.
+let postedAction = '';
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const field: Field = (name) => ((formData.get(name) as string) ?? '').toString();
   const action = field('action');
+  postedAction = action;
 
-  editingIdentity = IDENTITY_ACTIONS.includes(action);
-  outcome = editingIdentity
+  outcome = IDENTITY_ACTIONS.includes(action)
     ? await changeIdentity(action, field)
     : await recordLedgerEntry(action, field);
 }
@@ -267,32 +280,25 @@ type LedgerRow = {
   counterparty: { display_name: string } | null;
 };
 
-const history = ((rows ?? []) satisfies LedgerRow[]).map((row) => {
-  const entry = {
-    type: row.type,
-    amountPence: row.amount_pence,
-    notes: row.notes,
-    recordedBy: row.recorder?.display_name ?? null,
-    memberName: row.member ? `${row.member.first_name} ${row.member.surname}` : null,
-    sessionStartsAt: row.session?.starts_at ?? null,
-    sessionSquad: row.session?.group?.name ?? null,
-    // An admin may see who the money went to or came from. A member's own
-    // statement leaves this out and reads "another account".
-    counterpartyName: row.counterparty?.display_name ?? null,
-  };
-  return {
+// The same statement the household sees on its own credit page, with the
+// other household on a transfer named, which a member's own page leaves out.
+const history = householdHistory({
+  ledger: ((rows ?? []) satisfies LedgerRow[]).map((row) => ({
     id: row.id,
-    description: describeEntry(entry),
-    isCredit: isCredit(entry),
-    notes: row.notes,
-    at: new Date(row.created_at).toLocaleString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-  };
+    createdAt: row.created_at,
+    memberId: null,
+    entry: {
+      type: row.type,
+      amountPence: row.amount_pence,
+      notes: row.notes,
+      recordedBy: row.recorder?.display_name ?? null,
+      memberName: row.member ? `${row.member.first_name} ${row.member.surname}` : null,
+      sessionStartsAt: row.session?.starts_at ?? null,
+      sessionSquad: row.session?.group?.name ?? null,
+      counterpartyName: row.counterparty?.display_name ?? null,
+    },
+  })),
+  freeSessions: [],
 });
 
 // A fresh key per render. Resubmitting the same form — a refresh, a double
@@ -307,436 +313,240 @@ function formatDob(dob: string): string {
   });
 }
 
-const roleBadge: Record<string, string> = {
-  superuser: 'bg-purple-100 text-purple-700',
-  admin: 'bg-blue-100 text-blue-700',
-  registrar: 'bg-amber-100 text-amber-700',
+// Which dialog a failed form came from, so it opens again with the reason.
+const DIALOG_FOR_ACTION: Record<string, string> = {
+  update_name: 'rename-household',
+  set_role: 'change-access',
+  cash: 'record-cash',
+  adjust: 'adjust-balance',
+  transfer: 'transfer-balance',
 };
+const reopenDialog = error ? DIALOG_FOR_ACTION[postedAction] : undefined;
 ---
 
 <AdminLayout section="households" title={principal.display_name} breadcrumb={[{ label: 'Households', href: '/admin/households' }, { label: principal.display_name }]}>
+  <Flash success={success} error={reopenDialog ? null : error} />
 
-    {
-      error && (
-        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
-          {error}
-        </div>
-      )
-    }
-    {
-      success && (
-        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
-          {success}
-        </div>
-      )
-    }
-
-    <div class="bg-gray-50 border border-gray-200 rounded-lg px-6 py-5 mb-8">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-bold">{principal.display_name}</h1>
-          <p class="text-gray-500 mt-1">{principal.email}</p>
-        </div>
-        <div class="text-right shrink-0">
-          <div class="flex justify-end gap-2">
-            <span
-              class={`text-xs font-medium px-2 py-1 rounded-full ${
-                roleBadge[principal.role] ?? 'bg-gray-100 text-gray-600'
-              }`}>{principal.role}</span
-            >
-            <span
-              class={`text-xs font-medium px-2 py-1 rounded-full ${
-                principal.is_active
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-500'
-              }`}>{principal.is_active ? 'Active' : 'Inactive'}</span
-            >
-          </div>
-          <p class="text-sm text-gray-500 mt-3">Balance</p>
-          <p
-            class:list={[
-              'text-3xl font-bold',
-              balancePence < 0 ? 'text-red-600' : 'text-gray-900',
-            ]}
-          >
-            {formatBalance(balancePence)}
-          </p>
-          <a href="#credit" class="text-xs underline hover:text-gray-600">Statement &darr;</a>
-        </div>
-      </div>
-      <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        <div>
-          <dt class="text-gray-500">Source</dt>
-          <dd>{principal.source}</dd>
-        </div>
-        <div>
-          <dt class="text-gray-500">Terms accepted</dt>
-          <dd>
-            {
-              principal.terms_accepted_at
-                ? new Date(principal.terms_accepted_at).toLocaleDateString(
-                    'en-GB',
-                  )
-                : 'Not yet'
-            }
-          </dd>
-        </div>
-      </dl>
-      {
-        !principal.is_active && (
-          <p class="text-sm text-gray-500 mt-4">
-            This household is inactive and cannot sign in. Its balance can still
-            be transferred.
-          </p>
-        )
-      }
-    </div>
-
-    {/* Changed rarely, and only by a superuser, so it waits folded up rather
-        than standing between an admin and the household's credit. */}
-    {isSuperuser && (
-      <details class="mb-10 border border-gray-200 rounded-lg" open={editingIdentity && Boolean(error)}>
-        <summary class="px-5 py-3 font-medium cursor-pointer select-none">Edit household</summary>
-        <div class="px-5 pb-5 pt-2">
-        <!-- Edit display name -->
-        <section class="mb-8">
-          <h2 class="text-lg font-semibold mb-3">Display name</h2>
-          <form method="POST" class="flex gap-3">
-            <input type="hidden" name="action" value="update_name" />
-            <input
-              type="text"
-              name="display_name"
-              value={principal.display_name}
-              required
-              class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-              >Save</button
-            >
-          </form>
-        </section>
-
-        <!-- Role -->
-        <section class="mb-8">
-          <h2 class="text-lg font-semibold mb-3">Role</h2>
-          <form method="POST" class="flex gap-3 items-center">
-            <input type="hidden" name="action" value="set_role" />
-            <select
-              name="role"
-              class="border border-gray-300 rounded px-3 py-2 text-sm"
-            >
-              {offeredRoles.map((role) => (
-                <option value={role} selected={principal.role === role}>{role}</option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-              >Update</button
-            >
-          </form>
-          <dl class="mt-3 text-xs text-gray-500 space-y-1">
-            {offeredRoles.map((role) => (
-              <div class="flex gap-2">
-                <dt class="font-medium w-20 shrink-0">{role}</dt>
-                <dd>{ROLE_DESCRIPTIONS[role]}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        <!-- Deactivate / Reactivate -->
-        <section>
-          <h2 class="text-lg font-semibold mb-3">Account status</h2>
-          {
-            principal.is_active ? (
-              <form method="POST">
-                <input type="hidden" name="action" value="deactivate" />
-                <button
-                  type="submit"
-                  class="border border-red-300 text-red-600 rounded px-4 py-2 text-sm hover:bg-red-50 transition-colors"
-                  onclick="return confirm('Deactivate this household? They will no longer be able to sign in.')"
-                >
-                  Deactivate
-                </button>
-              </form>
-            ) : (
-              <form method="POST">
-                <input type="hidden" name="action" value="reactivate" />
-                <button
-                  type="submit"
-                  class="border border-green-300 text-green-700 rounded px-4 py-2 text-sm hover:bg-green-50 transition-colors"
-                >
-                  Reactivate
-                </button>
-              </form>
-            )
-          }
-        </section>
-        </div>
-      </details>
+  <RecordHeader title={principal.display_name}>
+    <Fragment slot="pills">
+      <AccessPills role={principal.role} />
+      {principal.is_active ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Inactive</Pill>}
+    </Fragment>
+    <p>{principal.email}</p>
+    <Fragment slot="actions">
+      <button type="button" data-open-dialog="record-cash" class="btn btn-primary btn-sm">Record cash</button>
+      <a href="#credit" class="btn btn-secondary btn-sm">Statement</a>
+    </Fragment>
+    <Fragment slot="figures">
+      <Figure label="Members" value={members.filter((m) => m.is_active).length} />
+      <Figure label="Balance" value={formatBalance(balancePence)} tone={balancePence < 0 ? 'danger' : 'default'} />
+    </Fragment>
+    {!principal.is_active && (
+      <p slot="footer" class="text-sm text-gray-500 mt-4">
+        This household is inactive and cannot sign in. Its balance can still be transferred.
+      </p>
     )}
+  </RecordHeader>
 
-    <!-- Members -->
-    <section class="mb-10">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">
-          Members ({members.length})
-        </h2>
-      </div>
+  <Section title="Details">
+    <SummaryList>
+      <SummaryRow label="Display name">
+        <span class="font-medium">{principal.display_name}</span>
+        {isSuperuser && (
+          <button slot="action" type="button" data-open-dialog="rename-household" class="btn-link text-sm">Change</button>
+        )}
+      </SummaryRow>
+      <SummaryRow label="Email">{principal.email}</SummaryRow>
+      <SummaryRow label="Access">
+        <span class="inline-flex flex-wrap items-center gap-2">
+          <AccessPills role={principal.role} />
+          <span class="text-gray-600">{ROLE_DESCRIPTIONS[principal.role]}</span>
+        </span>
+        {isSuperuser && (
+          <button slot="action" type="button" data-open-dialog="change-access" class="btn-link text-sm">Change</button>
+        )}
+      </SummaryRow>
+      <SummaryRow label="Source">{principal.source}</SummaryRow>
+      <SummaryRow label="Terms accepted">
+        {principal.terms_accepted_at ? new Date(principal.terms_accepted_at).toLocaleDateString('en-GB') : 'Not yet'}
+      </SummaryRow>
+      <SummaryRow label="Status">
+        {principal.is_active ? 'Active: can sign in' : 'Inactive: cannot sign in'}
+        {isSuperuser && !principal.is_active && (
+          <form slot="action" method="POST">
+            <input type="hidden" name="action" value="reactivate" />
+            <button type="submit" class="btn btn-secondary btn-sm">Reactivate</button>
+          </form>
+        )}
+      </SummaryRow>
+    </SummaryList>
+  </Section>
 
-      {
-        members.length > 0 ? (
-          <ul class="space-y-2">
-            {members.map((m) => (
-              <li
-                class={`border border-gray-200 rounded-lg px-5 py-3 flex items-center justify-between ${!m.is_active ? 'opacity-50' : ''}`}
-              >
-                <div>
-                  <p class="font-medium">
-                    {m.first_name} {m.surname}
-                  </p>
-                  <p class="text-sm text-gray-500">
-                    {formatDob(m.date_of_birth)}
-                    {m.gender ? ` · ${m.gender}` : ''}
-                  </p>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span
-                    class={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      m.status === 'paid'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {m.status === 'paid' ? 'Active' : 'Lapsed'}
-                  </span>
-                  <a
-                    href={`/admin/members/${m.id}`}
-                    class="text-xs underline hover:text-gray-600"
-                  >
-                    {isSuperuser ? 'Edit →' : 'View →'}
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p class="text-gray-500 text-sm">No members linked to this household.</p>
-        )
-      }
-    </section>
+  <Section title="Members" count={members.length}>
+    {members.length > 0 ? (
+      <ResourceTable>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Date of birth</th>
+            <th>Gender</th>
+            <th>Status</th>
+            <th><span class="sr-only">Open</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {members.map((m) => (
+            <tr data-href={`/admin/members/${m.id}`} class:list={[!m.is_active && 'is-muted']}>
+              <td class="cell-primary"><a href={`/admin/members/${m.id}`} class="row-link">{m.first_name} {m.surname}</a></td>
+              <td class="mobile-only cell-secondary">{formatDob(m.date_of_birth)}{m.gender && ` · ${m.gender}`}</td>
+              <td class="mobile-only cell-trailing">{m.status !== 'paid' && <Pill tone="gray">Lapsed</Pill>}</td>
+              <td class="text-gray-600">{formatDob(m.date_of_birth)}</td>
+              <td class="text-gray-600">{m.gender ?? '—'}</td>
+              <td>{m.status === 'paid' ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Lapsed</Pill>}</td>
+              <td class="row-chevron" aria-hidden="true"></td>
+            </tr>
+          ))}
+        </tbody>
+      </ResourceTable>
+    ) : (
+      <p class="text-gray-500 text-sm">No members linked to this household.</p>
+    )}
+  </Section>
 
-    <!-- Training credit: the balance, what may be written to it, and the statement. -->
-    <h2 id="credit" class="text-xl font-bold mb-1 scroll-mt-6">Training credit</h2>
-    <p class="text-sm text-gray-500 mb-6">
-      {formatBalance(balancePence)} held. The balance is the sum of the lines below,
-      never a stored figure.
+  <!-- Training credit: the balance, what may be written to it, and the
+       statement. No "charge a session": a session is charged when a registrar
+       signs a runner in, and a missed night is put right from the registrar
+       app's Past sessions, which records the attendance too. A charge made here
+       would have no session behind it. Money outside that is an adjustment. -->
+  <Section
+    id="credit"
+    title="Training credit"
+    description={`${formatBalance(balancePence)} held. The balance is the sum of the statement below, never a stored figure.`}
+  >
+    <Fragment slot="actions">
+      <button type="button" data-open-dialog="record-cash" class="btn btn-primary btn-sm">Record cash</button>
+      <button type="button" data-open-dialog="adjust-balance" class="btn btn-secondary btn-sm">Adjust</button>
+      <button type="button" data-open-dialog="transfer-balance" class="btn btn-secondary btn-sm">Transfer</button>
+    </Fragment>
+
+    {history.length > 0 ? (
+      <Statement lines={history} />
+    ) : (
+      <p class="text-gray-500 text-sm">Nothing recorded for this household yet.</p>
+    )}
+    <p class="text-xs text-gray-400 mt-3">
+      The ledger is append-only. A mistake is corrected with an adjustment, not by editing a line.
     </p>
+  </Section>
 
-    <section class="mb-8">
-      <h3 class="text-lg font-semibold mb-3">Record a cash payment</h3>
-      <form method="POST" class="grid grid-cols-1 sm:grid-cols-[8rem_1fr_auto] gap-4">
-        <input type="hidden" name="action" value="cash" />
-        <input type="hidden" name="idempotency_key" value={`cash:${idempotencyKey}`} />
-        <div>
-          <label class="block text-sm font-medium mb-1" for="cash-amount">Amount</label>
-          <input
-            id="cash-amount"
-            type="text"
-            name="amount"
-            inputmode="decimal"
-            placeholder="10.00"
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1" for="cash-note">
-            Note <span class="text-gray-400 font-normal">(optional)</span>
-          </label>
-          <input
-            id="cash-note"
-            type="text"
-            name="note"
-            placeholder="Paid at Monday track"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div class="flex items-end">
-          <button
-            type="submit"
-            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-            >Record</button
-          >
-        </div>
-      </form>
-    </section>
-
-    <!-- No "charge a session" form: a session is charged when a registrar
-         signs a runner in, and a missed night is put right from the
-         registrar app's Past sessions, which records the attendance too. A
-         charge made here would have no session behind it. Money outside that
-         is an adjustment. -->
-
-    <details class="mb-8 border border-gray-200 rounded-lg">
-      <summary class="px-5 py-3 font-medium cursor-pointer select-none">
-        Adjust the balance
-      </summary>
-      <form
-        method="POST"
-        class="px-5 pb-5 pt-3 grid grid-cols-1 sm:grid-cols-[9rem_8rem_1fr_auto] gap-4"
+  {isSuperuser && principal.is_active && (
+    <DangerZone>
+      <DangerAction
+        title="Deactivate this household"
+        description="They can no longer sign in. Their members, balance and history are kept, and it can be reactivated."
       >
-        <input type="hidden" name="action" value="adjust" />
-        <input type="hidden" name="idempotency_key" value={`adjust:${idempotencyKey}`} />
-        <div>
-          <label class="block text-sm font-medium mb-1" for="adjust-direction">Direction</label>
-          <select
-            id="adjust-direction"
-            name="direction"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          >
-            <option value="add">Add credit</option>
-            <option value="remove">Remove credit</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1" for="adjust-amount">Amount</label>
-          <input
-            id="adjust-amount"
-            type="text"
-            name="amount"
-            inputmode="decimal"
-            placeholder="5.00"
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1" for="adjust-note">Note</label>
-          <input
-            id="adjust-note"
-            type="text"
-            name="note"
-            placeholder="Why this adjustment is being made"
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div class="flex items-end">
+        <form method="POST">
+          <input type="hidden" name="action" value="deactivate" />
           <button
             type="submit"
-            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-            >Adjust</button
-          >
-        </div>
-      </form>
-      <p class="px-5 pb-5 text-xs text-gray-500">
-        The member sees the note as the reason on their own credit page, so write
-        it for them.
-      </p>
-    </details>
+            class="btn btn-danger"
+            onclick="return confirm('Deactivate this household? They will no longer be able to sign in.')"
+          >Deactivate</button>
+        </form>
+      </DangerAction>
+    </DangerZone>
+  )}
 
-    <details class="mb-10 border border-gray-200 rounded-lg">
-      <summary class="px-5 py-3 font-medium cursor-pointer select-none">
-        Transfer the balance to another household
-      </summary>
-      <form method="POST" class="px-5 pb-5 pt-3 space-y-4">
-        <input type="hidden" name="action" value="transfer" />
-        <input type="hidden" name="idempotency_key" value={`transfer:${idempotencyKey}`} />
-        <div class="grid grid-cols-1 sm:grid-cols-[1fr_8rem] gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1" for="transfer-target">To</label>
-            <select
-              id="transfer-target"
-              name="target_id"
-              required
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-            >
-              <option value="">Choose a household…</option>
-              {
-                otherHouseholds?.map((other) => (
-                  <option value={other.id}>
-                    {other.display_name} ({other.email})
-                  </option>
-                ))
-              }
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1" for="transfer-amount">
-              Amount
-            </label>
-            <input
-              id="transfer-amount"
-              type="text"
-              name="amount"
-              inputmode="decimal"
-              placeholder={formatPounds(balancePence)}
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1" for="transfer-note">Note</label>
-          <input
-            id="transfer-note"
-            type="text"
-            name="note"
-            placeholder="Contact email changed in Klubfunder"
-            required
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <button
-          type="submit"
-          class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-          >Transfer</button
-        >
-        <p class="text-xs text-gray-500">
-          Leave the amount blank to move the whole balance. Both sides are written
-          together, so neither can land on its own.
-        </p>
-      </form>
-    </details>
+  <FormDialog id="record-cash" title="Record a cash payment" submitLabel="Record" error={error} reopen={reopenDialog === 'record-cash'}>
+    <input type="hidden" name="action" value="cash" />
+    <input type="hidden" name="idempotency_key" value={`cash:${idempotencyKey}`} />
+    <div class="grid grid-cols-[8rem_1fr] gap-4">
+      <div>
+        <label class="field-label" for="cash-amount">Amount</label>
+        <input id="cash-amount" type="text" name="amount" inputmode="decimal" placeholder="10.00" required class="field" />
+      </div>
+      <div>
+        <label class="field-label" for="cash-note">Note <span class="text-gray-400 font-normal">(optional)</span></label>
+        <input id="cash-note" type="text" name="note" placeholder="Paid at Monday track" class="field" />
+      </div>
+    </div>
+  </FormDialog>
 
-    <section>
-      <h3 class="text-lg font-semibold mb-4">
-        Statement ({history.length})
-      </h3>
+  <FormDialog id="adjust-balance" title="Adjust the balance" submitLabel="Adjust" error={error} reopen={reopenDialog === 'adjust-balance'}>
+    <input type="hidden" name="action" value="adjust" />
+    <input type="hidden" name="idempotency_key" value={`adjust:${idempotencyKey}`} />
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="field-label" for="adjust-direction">Direction</label>
+        <select id="adjust-direction" name="direction" class="field">
+          <option value="add">Add credit</option>
+          <option value="remove">Remove credit</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="adjust-amount">Amount</label>
+        <input id="adjust-amount" type="text" name="amount" inputmode="decimal" placeholder="5.00" required class="field" />
+      </div>
+    </div>
+    <div>
+      <label class="field-label" for="adjust-note">Note</label>
+      <input id="adjust-note" type="text" name="note" placeholder="Why this adjustment is being made" required class="field" />
+      <p class="text-xs text-gray-500 mt-1">The member sees the note as the reason on their own credit page, so write it for them.</p>
+    </div>
+  </FormDialog>
 
-      {
-        history.length > 0 ? (
-          <ul class="divide-y divide-gray-200 border-t border-b border-gray-200">
-            {history.map((line) => (
-              <li class="py-3 flex items-baseline justify-between gap-4">
-                <div>
-                  <p class="font-medium">{line.description}</p>
-                  <p class="text-xs text-gray-500 mt-0.5">
-                    {line.at}
-                    {line.notes ? ` · ${line.notes}` : ''}
-                  </p>
-                </div>
-                <span
-                  class:list={[
-                    'text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap',
-                    line.isCredit ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600',
-                  ]}
-                >
-                  {line.isCredit ? 'Credit' : 'Debit'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p class="text-gray-500 text-sm">Nothing recorded for this household yet.</p>
-        )
-      }
-      <p class="text-xs text-gray-400 mt-4">
-        The ledger is append-only. A mistake is corrected with an adjustment, not
-        by editing a line.
-      </p>
-    </section>
+  <FormDialog id="transfer-balance" title="Transfer the balance to another household" submitLabel="Transfer" error={error} reopen={reopenDialog === 'transfer-balance'} wide>
+    <input type="hidden" name="action" value="transfer" />
+    <input type="hidden" name="idempotency_key" value={`transfer:${idempotencyKey}`} />
+    <div class="grid grid-cols-1 sm:grid-cols-[1fr_8rem] gap-4">
+      <div>
+        <label class="field-label" for="transfer-target">To</label>
+        <select id="transfer-target" name="target_id" required class="field">
+          <option value="">Choose a household…</option>
+          {otherHouseholds?.map((other) => (
+            <option value={other.id}>{other.display_name} ({other.email})</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="transfer-amount">Amount</label>
+        <input id="transfer-amount" type="text" name="amount" inputmode="decimal" placeholder={formatPounds(balancePence)} class="field" />
+      </div>
+    </div>
+    <div>
+      <label class="field-label" for="transfer-note">Note</label>
+      <input id="transfer-note" type="text" name="note" placeholder="Contact email changed in Klubfunder" required class="field" />
+    </div>
+    <p class="text-xs text-gray-500">
+      Leave the amount blank to move the whole balance. Both sides are written together, so neither can land on its own.
+    </p>
+  </FormDialog>
+
+  {isSuperuser && (
+    <FormDialog id="rename-household" title="Change display name" submitLabel="Save" error={error} reopen={reopenDialog === 'rename-household'}>
+      <input type="hidden" name="action" value="update_name" />
+      <div>
+        <label class="field-label" for="household-display-name">Display name</label>
+        <input id="household-display-name" type="text" name="display_name" value={principal.display_name} required class="field" />
+      </div>
+    </FormDialog>
+  )}
+
+  {isSuperuser && (
+    <FormDialog id="change-access" title="Change access" submitLabel="Save access" error={error} reopen={reopenDialog === 'change-access'} wide>
+      <input type="hidden" name="action" value="set_role" />
+      <fieldset class="space-y-2">
+        <legend class="field-label">What can {principal.display_name} do?</legend>
+        {offeredRoles.map((role) => (
+          <label class="flex items-start gap-3 border border-gray-200 rounded-md px-3 py-2.5 cursor-pointer has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+            <input type="radio" name="role" value={role} checked={principal.role === role} class="mt-1" />
+            <span>
+              <span class="block font-medium capitalize">{role}</span>
+              <span class="block text-sm text-gray-500">{ROLE_DESCRIPTIONS[role]}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+    </FormDialog>
+  )}
 </AdminLayout>

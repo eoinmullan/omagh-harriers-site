@@ -110,3 +110,10 @@ export function rollUpSessions(sessions: { heads: Headcount; cash: SessionCash }
     },
   };
 }
+
+/** Runners a session, on average, to the nearest whole runner. Nothing ran is no average. */
+export function averageTurnout(sessions: { heads: Headcount }[]): number | undefined {
+  if (sessions.length === 0) return undefined;
+  const total = sessions.reduce((sum, session) => sum + session.heads.total, 0);
+  return Math.round(total / sessions.length);
+}

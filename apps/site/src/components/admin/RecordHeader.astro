@@ -1,0 +1,38 @@
+---
+// The top of every admin detail page: what this is, its status, and the one
+// or two figures that matter about it. Actions that change it live below, in
+// its Details and, for the drastic ones, its danger zone.
+
+interface Props {
+  title: string;
+  /** A cancelled session, say: still here, but crossed out. */
+  struck?: boolean;
+}
+
+const { title, struck = false } = Astro.props;
+---
+
+<div class="bg-white border border-gray-200 rounded-lg px-4 py-4 sm:px-6 sm:py-5 mb-6 sm:mb-8 shadow-[inset_0_4px_0_var(--color-amber)]">
+  <div class="flex flex-wrap items-start justify-between gap-4 sm:gap-6">
+    <div class="min-w-0 flex-1 basis-full sm:basis-72">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class:list={['text-xl sm:text-2xl font-bold', struck && 'line-through text-gray-500']}>{title}</h1>
+        <slot name="pills" />
+      </div>
+      <div class="text-gray-500 mt-1 space-y-0.5">
+        <slot />
+      </div>
+      {Astro.slots.has('actions') && (
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 mt-4">
+          <slot name="actions" />
+        </div>
+      )}
+    </div>
+    {Astro.slots.has('figures') && (
+      <div class="grid grid-cols-2 gap-4 w-full border-t border-gray-100 pt-3 sm:flex sm:w-auto sm:shrink-0 sm:gap-8 sm:text-right sm:border-0 sm:pt-0">
+        <slot name="figures" />
+      </div>
+    )}
+  </div>
+  <slot name="footer" />
+</div>

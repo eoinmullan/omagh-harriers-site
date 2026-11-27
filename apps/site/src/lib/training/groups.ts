@@ -105,3 +105,68 @@ export function describeRegular(regular: Regular): string {
   const sessions = regular.sessionsAttended === 1 ? '1 session' : `${regular.sessionsAttended} sessions`;
   return `${sessions} in the last ${REGULARS_WINDOW_WEEKS} weeks, most recently ${formatClubNight(regular.lastAttendedAt)}`;
 }
+
+// ── The squads list ─────────────────────────────────────────────────────────
+
+export interface Membership {
+  memberId: string;
+  groupId: string;
+}
+
+export interface SquadSession {
+  groupId: string;
+  startsAt: string;
+  isCancelled: boolean;
+}
+
+export interface SquadSummary extends ExistingGroup {
+  /** Active members only, the same people the squad's own page lists. */
+  members: number;
+  /** Sessions that have started and weren't called off. */
+  sessionsRun: number;
+  lastRunAt?: string;
+  nextAt?: string;
+}
+
+export function summariseSquads(input: {
+  groups: ExistingGroup[];
+  memberships: Membership[];
+  activeMemberIds: Set<string>;
+  sessions: SquadSession[];
+  now: Date;
+}): SquadSummary[] {
+  const nowIso = input.now.toISOString();
+
+  return input.groups.map((group) => {
+    const ran = input.sessions.filter(
+      (session) => session.groupId === group.id && !session.isCancelled && session.startsAt <= nowIso,
+    );
+    const coming = input.sessions.filter(
+      (session) => session.groupId === group.id && !session.isCancelled && session.startsAt > nowIso,
+    );
+
+    return {
+      ...group,
+      members: input.memberships.filter(
+        (membership) => membership.groupId === group.id && input.activeMemberIds.has(membership.memberId),
+      ).length,
+      sessionsRun: ran.length,
+      lastRunAt: ran.map((session) => session.startsAt).sort().at(-1),
+      nextAt: coming.map((session) => session.startsAt).sort().at(0),
+    };
+  });
+}
+
+/** Active members who belong to no running squad, so no registrar expects them. */
+export function membersInNoSquad(input: {
+  activeMemberIds: Set<string>;
+  memberships: Membership[];
+  runningGroupIds: Set<string>;
+}): Set<string> {
+  const inASquad = new Set(
+    input.memberships
+      .filter((membership) => input.runningGroupIds.has(membership.groupId))
+      .map((membership) => membership.memberId),
+  );
+  return new Set([...input.activeMemberIds].filter((id) => !inASquad.has(id)));
+}

@@ -114,3 +114,19 @@ function dateOfBirthProblem(dateOfBirth: string, today: string): string | undefi
   if (dateOfBirth < EARLIEST_BIRTH) return 'That date of birth is before 1900. Check the year.';
   return undefined;
 }
+
+// ── Who is a junior ─────────────────────────────────────────────────────────
+
+/** Under this age on the day, a member is a junior. */
+export const ADULT_AGE = 18;
+
+/** Whole years old on `today`. Both dates are YYYY-MM-DD. */
+export function ageOn(dateOfBirth: string, today: string): number {
+  const [birthYear, birthMonthDay] = [Number(dateOfBirth.slice(0, 4)), dateOfBirth.slice(5)];
+  const [year, monthDay] = [Number(today.slice(0, 4)), today.slice(5)];
+  return year - birthYear - (monthDay < birthMonthDay ? 1 : 0);
+}
+
+export function isJunior(dateOfBirth: string, today: string): boolean {
+  return ageOn(dateOfBirth, today) < ADULT_AGE;
+}

@@ -95,3 +95,48 @@ function attributed(reason: string, recordedBy?: string | null): string {
   return recordedBy ? `${reason}, recorded by ${recordedBy}` : reason;
 }
 
+
+/**
+ * A line of a statement as a phone shows it, like a bank's: what it was in a
+ * few words, who and who recorded it under that, and the amount on its own
+ * on the right where it can be scanned. The night a session or cash belongs
+ * to is the line's date, so it isn't repeated here. describeEntry is the same
+ * line as one sentence, for screen readers and the admin's export.
+ */
+export interface EntrySummary {
+  title: string;
+  detail: string;
+}
+
+export function summariseEntry(entry: LedgerEntry): EntrySummary {
+  const by = entry.recordedBy ? `recorded by ${entry.recordedBy}` : null;
+
+  switch (entry.type) {
+    case 'top_up_stripe':
+      return summary('Card payment', []);
+    case 'top_up_cash':
+      return summary('Cash paid at training', [by]);
+    case 'session':
+      return summary(capitalised(sessionName(entry.sessionSquad)), [entry.memberName]);
+    case 'refund':
+      return summary(noteOr(entry.notes, 'Refund'), [by]);
+    case 'manual_adjustment':
+      return summary(noteOr(entry.notes, 'Adjusted by the club'), [entry.memberName, by]);
+    case 'transfer_in':
+      return summary(`Transferred in from ${entry.counterpartyName ?? 'another account'}`, [by]);
+    case 'transfer_out':
+      return summary(`Transferred out to ${entry.counterpartyName ?? 'another account'}`, [by]);
+  }
+}
+
+export function summariseFreeSession(session: { squad: string | null; memberName: string }): EntrySummary {
+  return summary(capitalised(sessionName(session.squad)), [session.memberName, 'no charge']);
+}
+
+function summary(title: string, details: (string | null | undefined)[]): EntrySummary {
+  return { title, detail: details.filter(Boolean).join(' · ') };
+}
+
+function capitalised(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}

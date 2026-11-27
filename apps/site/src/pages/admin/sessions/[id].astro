@@ -6,6 +6,17 @@ import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
 import { formatClubDateTime } from '../../../lib/training/club-time';
 import { orThrow } from '../../../lib/supabase/or-throw';
+import RecordHeader from '../../../components/admin/RecordHeader.astro';
+import Figure from '../../../components/admin/Figure.astro';
+import Flash from '../../../components/admin/Flash.astro';
+import Pill from '../../../components/admin/Pill.astro';
+import Section from '../../../components/admin/Section.astro';
+import SummaryList from '../../../components/admin/SummaryList.astro';
+import SummaryRow from '../../../components/admin/SummaryRow.astro';
+import ResourceTable from '../../../components/admin/ResourceTable.astro';
+import FormDialog from '../../../components/admin/FormDialog.astro';
+import DangerZone from '../../../components/admin/DangerZone.astro';
+import DangerAction from '../../../components/admin/DangerAction.astro';
 import {
   planCancellation,
   planReinstatement,
@@ -62,6 +73,7 @@ async function countAttendance(sessionId: string): Promise<number> {
 
 let error: string | null = null;
 let success: string | null = null;
+let failedAction: string | null = null;
 
 // This session, so its own day's phones are told whatever day it falls on.
 let changedSession: { id?: string; startsAt: string } | undefined;
@@ -70,6 +82,7 @@ if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
   const session = await loadSession(id);
+  const postedAction = field('action');
 
   if (!session) {
     error = 'That session no longer exists.';
@@ -119,6 +132,7 @@ if (Astro.request.method === 'POST') {
       }
     }
   }
+  if (error) failedAction = postedAction;
 }
 
 // Succeeded: send the browser back here as a GET, so a reload can't
@@ -208,6 +222,7 @@ for (const row of ledgerDetail) {
 const signedIn = attendanceDetail
   .map((row) => ({
     id: row.id,
+    memberId: row.member_id,
     name: row.member
       ? `${row.member.surname}, ${row.member.first_name}`
       : row.guest
@@ -234,252 +249,241 @@ const money = ledgerDetail
   }));
 
 const hasAttendance = attendanceDetail.length > 0;
+const hasStarted = session.starts_at <= new Date().toISOString();
 ---
 
 <AdminLayout section="sessions" title={session.group?.name ?? 'Session'} breadcrumb={[{ label: 'Sessions', href: '/admin/sessions' }, { label: session.group?.name ?? 'Session' }]}>
+  <Flash success={success} error={failedAction === 'edit' ? null : error} />
 
-    <p class="mb-6">
-      <a href={`/admin/sessions/${id}/sheet`} class="text-sm underline hover:text-gray-600">
-        Printable sign-in sheet &rarr;
-      </a>
-      <span class="ml-2 text-sm text-gray-500">
-        for the night a phone dies, or no phone turns up at all
-      </span>
+  <RecordHeader title={session.group?.name ?? 'Session'} struck={session.isCancelled}>
+    <Fragment slot="pills">
+      {session.isCancelled ? (
+        <Pill tone="gray">Cancelled</Pill>
+      ) : hasStarted ? (
+        <Pill tone="green">Ran</Pill>
+      ) : (
+        <Pill tone="blue">Scheduled</Pill>
+      )}
+    </Fragment>
+    <p>{formatClubDateTime(session.starts_at)}</p>
+    {session.note && <p class="text-gray-700">{session.note}</p>}
+    <Fragment slot="actions">
+      <a href={`/admin/sessions/${id}/sheet`} class="btn btn-secondary btn-sm">Printable sign-in sheet</a>
+      <span class="text-xs text-gray-500">for the night a phone dies, or no phone turns up at all</span>
+    </Fragment>
+    <Fragment slot="figures">
+      <Figure
+        label="Attended"
+        value={heads.total}
+        hint={`${heads.members} member${heads.members === 1 ? '' : 's'} · ${heads.guests} guest${heads.guests === 1 ? '' : 's'}`}
+      />
+      <Figure
+        label="Money collected"
+        value={formatBalance(cash.totalPence)}
+        hint={session.pricePence === 0 ? 'a free session' : `at ${formatPounds(session.pricePence)} a session`}
+      />
+    </Fragment>
+    {session.isCancelled && (
+      <p slot="footer" class="text-sm text-gray-500 mt-4">
+        This session is cancelled. Nothing recorded against it has been removed.
+      </p>
+    )}
+  </RecordHeader>
+
+  <Section title="Details">
+    <SummaryList>
+      <SummaryRow label="Squad">
+        <span class="font-medium">{session.group?.name}</span>
+      </SummaryRow>
+      <SummaryRow label="Starts">{formatClubDateTime(session.starts_at)}</SummaryRow>
+      <SummaryRow label="Price">
+        {session.pricePence === 0 ? 'Free' : formatPounds(session.pricePence)}
+        {!hasAttendance && (
+          <button slot="action" type="button" data-open-dialog="edit-session" class="btn-link text-sm">Change</button>
+        )}
+      </SummaryRow>
+      <SummaryRow label="Note">
+        {session.note ?? <span class="text-gray-400">None</span>}
+        <button slot="action" type="button" data-open-dialog="edit-session" class="btn-link text-sm">Change</button>
+      </SummaryRow>
+      <SummaryRow label="Status">
+        {session.isCancelled ? 'Cancelled' : hasStarted ? 'Ran' : 'Scheduled'}
+        {session.isCancelled && (
+          <form slot="action" method="POST">
+            <input type="hidden" name="action" value="reinstate" />
+            <button type="submit" class="btn btn-secondary btn-sm">Put it back on</button>
+          </form>
+        )}
+      </SummaryRow>
+    </SummaryList>
+    <p class="text-xs text-gray-500 mt-2">
+      {hasAttendance
+        ? `The price is settled: ${heads.total} ${heads.total === 1 ? 'runner has' : 'runners have'} signed in at ${formatPounds(session.pricePence)}, and the ledger records what they were charged. Cancel this session and create another if the price was wrong.`
+        : 'The squad and the start time are fixed once a session exists — cancel it and create another if either was wrong.'}
     </p>
+  </Section>
 
-    {
-      error && (
-        <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
-          {error}
-        </div>
-      )
-    }
-    {
-      success && (
-        <div class="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
-          {success}
-        </div>
-      )
-    }
+  {cash.byRecorder.length > 1 && (
+    <Section
+      title="Who took it"
+      description="Two phones were open on this session. This is the figure each of them should be able to account for."
+    >
+      <ResourceTable>
+        <thead>
+          <tr>
+            <th>Recorded by</th>
+            <th class="num">Money collected</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cash.byRecorder.map((recorder) => (
+            <tr>
+              <td class="cell-primary">{recorder.recordedBy}</td>
+              <td class="num cell-trailing font-medium">{formatBalance(recorder.totalPence)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </ResourceTable>
+    </Section>
+  )}
 
-    <div class="bg-gray-50 border border-gray-200 rounded-lg px-6 py-5 mb-8">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 class:list={['text-2xl font-bold', session.isCancelled && 'line-through']}>
-            {session.group?.name}
-          </h1>
-          <p class="text-gray-500 mt-1">{formatClubDateTime(session.starts_at)}</p>
-          {session.note && <p class="text-gray-700 mt-1">{session.note}</p>}
-        </div>
-        <div class="flex gap-6 text-right">
-          <div>
-            <p class="text-sm text-gray-500">Here</p>
-            <p class="text-3xl font-bold">{heads.total}</p>
-            <p class="text-xs text-gray-500">
-              {heads.members} member{heads.members === 1 ? '' : 's'} · {heads.guests} guest
-              {heads.guests === 1 ? '' : 's'}
-            </p>
-          </div>
-          <div>
-            <p class="text-sm text-gray-500">Money collected</p>
-            <p class="text-3xl font-bold">{formatBalance(cash.totalPence)}</p>
-            <p class="text-xs text-gray-500">{session.pricePence === 0 ? 'a free session' : `at ${formatPounds(session.pricePence)} a session`}</p>
-          </div>
-        </div>
-      </div>
-      {
-        session.isCancelled && (
-          <p class="text-sm text-gray-500 mt-4">
-            This session is cancelled. Nothing recorded against it has been removed.
-          </p>
-        )
-      }
-    </div>
+  <Section title="Who was here" count={signedIn.length}>
+    {signedIn.length > 0 ? (
+      <ResourceTable>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Household</th>
+            <th class="num">Charged</th>
+            <th>Recorded by</th>
+            <th>At</th>
+            <th><span class="sr-only">Open</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {signedIn.map((line) => (
+            <tr data-href={line.memberId ? `/admin/members/${line.memberId}` : undefined}>
+              <td class="cell-primary">
+                {line.memberId ? (
+                  <a href={`/admin/members/${line.memberId}`} class="row-link">{line.name}</a>
+                ) : (
+                  <span class="font-semibold">{line.name}</span>
+                )}
+                {line.isGuest && <span class="ml-2"><Pill tone="amber">Guest</Pill></span>}
+              </td>
+              <td class="mobile-only cell-secondary">
+                {[line.household, line.recordedBy && `by ${line.recordedBy}`, line.at].filter(Boolean).join(' · ')}
+              </td>
+              <td class="text-gray-600">{line.household ?? '—'}</td>
+              <td class="num cell-trailing text-sm">
+                {line.isGuest
+                  ? line.paidPence
+                    ? `${formatPounds(line.paidPence)} cash`
+                    : '—'
+                  : line.chargedPence
+                    ? `${formatPounds(line.chargedPence)} credit`
+                    : 'not charged'}
+              </td>
+              <td class="text-gray-600">{line.recordedBy}</td>
+              <td class="text-gray-500 text-xs whitespace-nowrap">{line.at}</td>
+              <td class:list={[line.memberId && 'row-chevron']} aria-hidden="true"></td>
+            </tr>
+          ))}
+        </tbody>
+      </ResourceTable>
+    ) : (
+      <p class="text-gray-500 text-sm">Nobody has been signed in to this session yet.</p>
+    )}
+  </Section>
 
-    {
-      cash.byRecorder.length > 1 && (
-        <section class="mb-8">
-          <h2 class="text-lg font-semibold mb-3">Who took it</h2>
-          <ul class="divide-y divide-gray-100 border-t border-b border-gray-200">
-            {cash.byRecorder.map((recorder) => (
-              <li class="py-2.5 flex items-baseline justify-between gap-4">
-                <span>{recorder.recordedBy}</span>
-                <span class="font-medium">{formatBalance(recorder.totalPence)}</span>
-              </li>
-            ))}
-          </ul>
-          <p class="text-xs text-gray-500 mt-2">
-            Two phones were open on this session. This is the figure each of them
-            should be able to account for.
-          </p>
-        </section>
-      )
-    }
+  <Section
+    title="Cash taken"
+    count={money.length}
+    description="A guest's payment is on their own row above rather than here: they hold no credit for it to go into."
+  >
+    {money.length > 0 ? (
+      <ResourceTable>
+        <thead>
+          <tr>
+            <th>Household</th>
+            <th class="num">Amount</th>
+            <th>Recorded by</th>
+            <th>At</th>
+            <th><span class="sr-only">Direction</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {money.map((line) => (
+            <tr>
+              <td class="cell-primary">
+                <span class="font-semibold">{line.household}</span>
+                {line.notes && <p class="text-xs text-gray-500">{line.notes}</p>}
+              </td>
+              <td class="mobile-only cell-secondary">
+                {line.amountPence > 0 ? 'Taken in' : 'Handed back'} · by {line.recordedBy} · {line.at}
+              </td>
+              <td class="num cell-trailing font-medium">{formatBalance(line.amountPence)}</td>
+              <td class="text-gray-600">{line.recordedBy}</td>
+              <td class="text-gray-500 text-xs whitespace-nowrap">{line.at}</td>
+              <td class="text-right">
+                {line.amountPence > 0 ? <Pill tone="green">Taken in</Pill> : <Pill tone="gray">Handed back</Pill>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </ResourceTable>
+    ) : (
+      <p class="text-gray-500 text-sm">No cash was recorded at this session.</p>
+    )}
+    <p class="text-xs text-gray-400 mt-3">
+      Session charges are left out of the total, since they move credit out of a household's pot rather than money into
+      the tin.
+    </p>
+  </Section>
 
-    <section class="mb-8">
-      <h2 class="text-lg font-semibold mb-3">Details</h2>
-      <form method="POST" class="grid grid-cols-1 sm:grid-cols-[1fr_8rem_auto] gap-4">
-        <input type="hidden" name="action" value="edit" />
-        <div>
-          <label class="block text-sm font-medium mb-1" for="edit-note">
-            Note <span class="text-gray-400 font-normal">(optional)</span>
-          </label>
-          <input
-            id="edit-note"
-            type="text"
-            name="note"
-            value={session.note ?? ''}
-            placeholder="Meet at the top car park"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1" for="edit-price">Price</label>
-          <input
-            id="edit-price"
-            type="text"
-            name="price"
-            inputmode="decimal"
-            value={formatPounds(session.pricePence)}
-            disabled={hasAttendance}
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
-          />
-        </div>
-        <div class="flex items-end">
+  {!session.isCancelled && (
+    <DangerZone>
+      <DangerAction
+        title="Cancel this session"
+        description="It comes off the registrar app's list. Nothing already recorded against it is removed, and it can be put back on."
+      >
+        <form method="POST">
+          <input type="hidden" name="action" value="cancel" />
           <button
             type="submit"
-            class="w-full bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
-            >Save</button
-          >
-        </div>
-      </form>
-      <p class="text-xs text-gray-500 mt-2">
-        {
-          hasAttendance
-            ? `The price is settled: ${heads.total} ${heads.total === 1 ? 'runner has' : 'runners have'} signed in at ${formatPounds(session.pricePence)}, and the ledger records what they were charged. Cancel this session and create another if the price was wrong.`
-            : 'The squad and the start time are fixed once a session exists — cancel it and create another if either was wrong.'
-        }
-      </p>
-    </section>
+            class="btn btn-danger"
+            onclick="return confirm('Cancel this session? Nothing already recorded against it is removed.')"
+          >Cancel session</button>
+        </form>
+      </DangerAction>
+    </DangerZone>
+  )}
 
-    <section class="mb-10">
-      <h2 class="text-lg font-semibold mb-3">Status</h2>
-      {
-        session.isCancelled ? (
-          <form method="POST">
-            <input type="hidden" name="action" value="reinstate" />
-            <button
-              type="submit"
-              class="border border-green-300 text-green-700 rounded px-4 py-2 text-sm hover:bg-green-50 transition-colors"
-            >
-              Put it back on
-            </button>
-          </form>
-        ) : (
-          <form method="POST">
-            <input type="hidden" name="action" value="cancel" />
-            <button
-              type="submit"
-              class="border border-red-300 text-red-600 rounded px-4 py-2 text-sm hover:bg-red-50 transition-colors"
-              onclick="return confirm('Cancel this session? Nothing already recorded against it is removed.')"
-            >
-              Cancel session
-            </button>
-          </form>
-        )
-      }
-    </section>
-
-    <section class="mb-10">
-      <h2 class="text-lg font-semibold mb-4">Who was here ({signedIn.length})</h2>
-
-      {
-        signedIn.length > 0 ? (
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b border-gray-200 text-left">
-                  <th class="pb-3 pr-4 font-semibold">Name</th>
-                  <th class="pb-3 pr-4 font-semibold">Household</th>
-                  <th class="pb-3 pr-8 font-semibold text-right">Charged</th>
-                  <th class="pb-3 pr-4 font-semibold">Recorded by</th>
-                  <th class="pb-3 font-semibold">At</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                {signedIn.map((line) => (
-                  <tr>
-                    <td class="py-3 pr-4 font-medium">
-                      {line.name}
-                      {line.isGuest && (
-                        <span class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                          guest
-                        </span>
-                      )}
-                    </td>
-                    <td class="py-3 pr-4 text-gray-600">{line.household ?? '—'}</td>
-                    <td class="py-3 pr-8 text-right whitespace-nowrap">
-                      {line.isGuest
-                        ? line.paidPence
-                          ? `${formatPounds(line.paidPence)} cash`
-                          : '—'
-                        : line.chargedPence
-                          ? `${formatPounds(line.chargedPence)} credit`
-                          : 'not charged'}
-                    </td>
-                    <td class="py-3 pr-4 text-gray-600">{line.recordedBy}</td>
-                    <td class="py-3 text-gray-500 text-xs">{line.at}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p class="text-gray-500 text-sm">
-            Nobody has been signed in to this session yet.
-          </p>
-        )
-      }
-    </section>
-
-    <section>
-      <h2 class="text-lg font-semibold mb-4">Cash taken ({money.length})</h2>
-
-      {
-        money.length > 0 ? (
-          <ul class="divide-y divide-gray-100 border-t border-b border-gray-200">
-            {money.map((line) => (
-              <li class="py-3 flex flex-wrap items-baseline justify-between gap-4">
-                <div>
-                  <p class="font-medium">
-                    {formatBalance(line.amountPence)} · {line.household}
-                  </p>
-                  <p class="text-xs text-gray-500 mt-0.5">
-                    {line.at} · recorded by {line.recordedBy}
-                    {line.notes ? ` · ${line.notes}` : ''}
-                  </p>
-                </div>
-                <span
-                  class:list={[
-                    'text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap',
-                    line.amountPence > 0
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-600',
-                  ]}
-                >
-                  {line.amountPence > 0 ? 'Taken in' : 'Handed back'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p class="text-gray-500 text-sm">No cash was recorded at this session.</p>
-        )
-      }
-      <p class="text-xs text-gray-400 mt-4">
-        A guest's payment is on their own row above rather than here: they hold no
-        credit for it to go into. Session charges are left out of the total, since
-        they move credit out of a household's pot rather than money into the tin.
-      </p>
-    </section>
+  <FormDialog id="edit-session" title="Edit session" submitLabel="Save" error={error} reopen={failedAction === 'edit'}>
+    <input type="hidden" name="action" value="edit" />
+    <div>
+      <label class="field-label" for="edit-note">Note <span class="text-gray-400 font-normal">(optional)</span></label>
+      <input
+        id="edit-note"
+        type="text"
+        name="note"
+        value={session.note ?? ''}
+        placeholder="Meet at the top car park"
+        class="field"
+      />
+    </div>
+    <div>
+      <label class="field-label" for="edit-price">Price</label>
+      <input
+        id="edit-price"
+        type="text"
+        name="price"
+        inputmode="decimal"
+        value={formatPounds(session.pricePence)}
+        disabled={hasAttendance}
+        class="field sm:w-32"
+      />
+      {hasAttendance && <p class="text-xs text-gray-500 mt-1">Settled once runners have signed in.</p>}
+    </div>
+  </FormDialog>
 </AdminLayout>

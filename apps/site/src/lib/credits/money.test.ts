@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cashLabel } from './cash-label';
-import { formatBalance, formatPounds, parsePounds } from './money';
+import { formatBalance, formatMovement, formatPounds, parsePounds } from './money';
 
 describe('formatPounds', () => {
   it('writes whole pounds with pence', () => {
@@ -101,5 +101,19 @@ describe('cashLabel', () => {
 
   it('is nothing at all, not an empty string', () => {
     expect(cashLabel(0)).toBe('£0');
+  });
+});
+
+describe('formatMovement', () => {
+  it('marks money in with a plus', () => {
+    expect(formatMovement(1000)).toBe('+£10.00');
+  });
+
+  it('marks money out with a minus', () => {
+    expect(formatMovement(-200)).toBe('−£2.00');
+  });
+
+  it('says a session that cost nothing was no charge', () => {
+    expect(formatMovement(0)).toBe('No charge');
   });
 });

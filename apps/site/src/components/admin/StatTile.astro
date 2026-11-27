@@ -1,0 +1,83 @@
+---
+// One headline figure. A tile is either a plain figure, a filter on the list
+// below it (pressed shows it's on, pressing again clears it), a view of the
+// list below it (pressed while it's the one showing), the whole list
+// (pressed while nothing narrows it, pressing it clears every filter), or a
+// link to somewhere else that answers the question it raises. The ▾, ↺ and →
+// say which.
+
+interface Props {
+  label: string;
+  value: string | number;
+  hint?: string;
+  tone?: 'default' | 'danger';
+  /** Makes the tile a filter: rows tagged with this narrow the list. */
+  filter?: string;
+  /** The id of the list a filter tile narrows. */
+  list?: string;
+  /** Makes the tile the way back to the whole list: clears the search and every filter. */
+  reset?: boolean;
+  /**
+   * Makes the tile one view of the list below it, as a link: the list shows
+   * what the tile counts. Pressed while it's the view on screen. For lists
+   * the server draws, such as sessions coming up or already run.
+   */
+  view?: { href: string; current: boolean };
+  href?: string;
+}
+
+const { label, value, hint, tone = 'default', filter, list, view, href, reset = false } = Astro.props;
+
+const valueClass = ['block text-lg sm:text-xl font-bold mt-0.5 tabular-nums', tone === 'danger' && Number(value) !== 0 && 'text-red-600'];
+const tileClass =
+  'block w-full min-w-0 text-left bg-white border border-gray-200 rounded-lg px-3 py-2.5 sm:px-4 sm:py-3 shadow-[inset_0_3px_0_var(--color-amber)]';
+const interactive = 'hover:border-gray-400 active:bg-gray-50 transition-colors';
+---
+
+{reset ? (
+  <button
+    type="button"
+    data-list-reset={list}
+    aria-pressed="true"
+    class:list={[tileClass, interactive, 'aria-pressed:border-gray-900 aria-pressed:ring-1 aria-pressed:ring-gray-900']}
+  >
+    <span class="block text-xs leading-tight font-medium text-gray-500">{label}<span aria-hidden="true" class="ml-1">↺</span></span>
+    <span class:list={valueClass}>{value}</span>
+    {hint && <span class="hidden sm:block text-xs text-gray-400 mt-0.5">{hint}</span>}
+  </button>
+) : filter ? (
+  <button
+    type="button"
+    data-list-filter={filter}
+    data-list-label={label}
+    data-list-for={list}
+    aria-pressed="false"
+    class:list={[tileClass, interactive, 'aria-pressed:border-gray-900 aria-pressed:ring-1 aria-pressed:ring-gray-900']}
+  >
+    <span class="block text-xs leading-tight font-medium text-gray-500">{label}<span aria-hidden="true" class="ml-1">▾</span></span>
+    <span class:list={valueClass}>{value}</span>
+    {hint && <span class="hidden sm:block text-xs text-gray-400 mt-0.5">{hint}</span>}
+  </button>
+) : view ? (
+  <a
+    href={view.href}
+    aria-current={view.current ? 'page' : undefined}
+    class:list={[tileClass, interactive, 'aria-[current=page]:border-gray-900 aria-[current=page]:ring-1 aria-[current=page]:ring-gray-900']}
+  >
+    <span class="block text-xs leading-tight font-medium text-gray-500">{label}<span aria-hidden="true" class="ml-1">▾</span></span>
+    <span class:list={valueClass}>{value}</span>
+    {hint && <span class="hidden sm:block text-xs text-gray-400 mt-0.5">{hint}</span>}
+  </a>
+) : href ? (
+  <a href={href} class:list={[tileClass, interactive]}>
+    <span class="block text-xs leading-tight font-medium text-gray-500">{label}<span aria-hidden="true" class="ml-1">→</span></span>
+    <span class:list={valueClass}>{value}</span>
+    {hint && <span class="hidden sm:block text-xs text-gray-400 mt-0.5">{hint}</span>}
+  </a>
+) : (
+  <div class={tileClass}>
+    <span class="block text-xs leading-tight font-medium text-gray-500">{label}</span>
+    <span class:list={valueClass}>{value}</span>
+    {hint && <span class="hidden sm:block text-xs text-gray-400 mt-0.5">{hint}</span>}
+  </div>
+)}

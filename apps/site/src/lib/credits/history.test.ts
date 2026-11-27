@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { householdHistory, linesFor, membersWithLines, type FreeSession, type LedgerLine } from './history';
+import { byMonth, householdHistory, linesFor, membersWithLines, type FreeSession, type LedgerLine } from './history';
 
 const charge: LedgerLine = {
   id: 'charge',
@@ -71,5 +71,51 @@ describe('linesFor', () => {
 
   it("keeps only one member's lines, leaving out the household's own money", () => {
     expect(linesFor(lines, 'jack').map((line) => line.id)).toEqual(['charge']);
+  });
+});
+
+describe('a statement line as a phone shows it', () => {
+  it('carries the amount on its own, signed, and dates a session by its night', () => {
+    const [line] = householdHistory({ ledger: [charge], freeSessions: [] });
+
+    expect(line.title).toBe('Middle Distance session');
+    expect(line.detail).toBe('Jack Kelly');
+    expect(line.amountPence).toBe(-200);
+    expect(line.on).toBe('2026-11-17T18:00:00Z');
+  });
+
+  it('dates money with no session by when it was recorded', () => {
+    const [line] = householdHistory({ ledger: [topUp], freeSessions: [] });
+
+    expect(line.on).toBe('2026-11-10T18:05:00Z');
+  });
+
+  it('shows a free session as nothing taken', () => {
+    const [line] = householdHistory({ ledger: [], freeSessions: [free] });
+
+    expect(line.amountPence).toBe(0);
+    expect(line.detail).toBe('Noah Kelly · no charge');
+  });
+});
+
+describe('byMonth', () => {
+  it('groups lines by the month they were recorded, keeping their order', () => {
+    const lines = householdHistory({
+      ledger: [charge, topUp, { ...topUp, id: 'october', createdAt: '2026-10-31T23:30:00Z' }],
+      freeSessions: [],
+    });
+
+    const months = byMonth(lines);
+
+    expect(months.map((month) => month.month)).toEqual(['November 2026', 'October 2026']);
+    expect(months[0].lines.map((line) => line.id)).toEqual(['charge', 'cash']);
+  });
+
+  it('puts a line in the month it was in Omagh, not in UTC', () => {
+    const lateOnTheLastNight = { ...topUp, id: 'late', createdAt: '2026-06-30T23:30:00Z' };
+
+    const [month] = byMonth(householdHistory({ ledger: [lateOnTheLastNight], freeSessions: [] }));
+
+    expect(month.month).toBe('July 2026');
   });
 });

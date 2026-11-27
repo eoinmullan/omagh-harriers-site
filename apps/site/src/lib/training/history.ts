@@ -19,3 +19,10 @@ export function recentAttendance(
   const newestFirst = [...sessions].sort((a, b) => b.startsAt.localeCompare(a.startsAt));
   return { shown: newestFirst.slice(0, limit), total: sessions.length };
 }
+
+/** How far back "trained recently" looks on the members list. */
+export const RECENT_TRAINING_DAYS = 28;
+
+export function recentTrainingSince(now: Date, days: number = RECENT_TRAINING_DAYS): Date {
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+}

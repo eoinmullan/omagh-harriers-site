@@ -1,0 +1,26 @@
+---
+// One colour per meaning, on every page: green is active or money in, grey is
+// retired, inactive or lapsed, red is owing, amber is a guest or a volunteer,
+// blue is upcoming or an admin, purple is a superuser.
+
+import type { PillTone } from './tones';
+
+interface Props {
+  tone: PillTone;
+}
+
+const { tone } = Astro.props;
+
+const tones: Record<PillTone, string> = {
+  green: 'bg-green-100 text-green-800',
+  gray: 'bg-gray-100 text-gray-600',
+  red: 'bg-red-100 text-red-700',
+  amber: 'bg-amber-100 text-amber-800',
+  blue: 'bg-blue-100 text-blue-700',
+  purple: 'bg-purple-100 text-purple-700',
+};
+---
+
+<span class:list={['inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap', tones[tone]]}>
+  <slot />
+</span>

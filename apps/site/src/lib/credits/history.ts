@@ -1,4 +1,11 @@
-import { describeEntry, describeFreeSession, isCredit, type LedgerEntry } from './transactions';
+import {
+  describeEntry,
+  describeFreeSession,
+  isCredit,
+  summariseEntry,
+  summariseFreeSession,
+  type LedgerEntry,
+} from './transactions';
 
 // A household's history: every payment, correction and session, newest first.
 //
@@ -12,7 +19,16 @@ export type HistoryKind = 'credit' | 'debit' | 'free';
 
 export interface HistoryLine {
   id: string;
+  /** The whole line as one sentence, for screen readers. */
   description: string;
+  /** What it was, in a few words. */
+  title: string;
+  /** Who, and who recorded it. */
+  detail: string;
+  /** Signed: money in is positive. Zero for a session that cost nothing. */
+  amountPence: number;
+  /** The day it belongs to: the session's night, or when it was recorded. */
+  on: string;
   kind: HistoryKind;
   /** When it happened, for ordering and for the date shown under the line. */
   at: string;
@@ -40,6 +56,9 @@ export function householdHistory(sources: { ledger: LedgerLine[]; freeSessions: 
     ...sources.ledger.map((line) => ({
       id: line.id,
       description: describeEntry(line.entry),
+      ...summariseEntry(line.entry),
+      amountPence: line.entry.amountPence,
+      on: line.entry.sessionStartsAt ?? line.createdAt,
       kind: (isCredit(line.entry) ? 'credit' : 'debit') as HistoryKind,
       at: line.createdAt,
       memberId: line.memberId,
@@ -47,6 +66,9 @@ export function householdHistory(sources: { ledger: LedgerLine[]; freeSessions: 
     ...sources.freeSessions.map((session) => ({
       id: session.attendanceId,
       description: describeFreeSession(session),
+      ...summariseFreeSession(session),
+      amountPence: 0,
+      on: session.startsAt,
       kind: 'free' as const,
       at: session.startsAt,
       memberId: session.memberId,
@@ -76,4 +98,23 @@ export function membersWithLines(
 /** One member's lines: their sessions and anything corrected for them. */
 export function linesFor(lines: HistoryLine[], memberId: string | null): HistoryLine[] {
   return memberId ? lines.filter((line) => line.memberId === memberId) : lines;
+}
+
+/**
+ * Lines grouped by the month they were recorded in, newest first, the way a
+ * bank statement reads on a phone. Keeps the order the lines came in.
+ */
+export function byMonth(lines: HistoryLine[]): { month: string; lines: HistoryLine[] }[] {
+  const months: { month: string; lines: HistoryLine[] }[] = [];
+  for (const line of lines) {
+    const month = new Date(line.at).toLocaleDateString('en-GB', {
+      timeZone: 'Europe/London',
+      month: 'long',
+      year: 'numeric',
+    });
+    const last = months[months.length - 1];
+    if (last?.month === month) last.lines.push(line);
+    else months.push({ month, lines: [line] });
+  }
+  return months;
 }

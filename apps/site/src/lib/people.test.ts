@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planDisplayName, planHousehold, planMember, planMemberEdit } from './people';
+import { ageOn, isJunior, planDisplayName, planHousehold, planMember, planMemberEdit } from './people';
 
 const TODAY = '2026-11-20';
 
@@ -139,5 +139,30 @@ describe('planDisplayName', () => {
 
   it('refuses a blank one', () => {
     expect(planDisplayName('   ')).toEqual({ problem: 'Display name is required.' });
+  });
+});
+
+describe('ageOn', () => {
+  it('counts whole years, the day of the birthday included', () => {
+    expect(ageOn('2008-11-20', TODAY)).toBe(18);
+  });
+
+  it('is a year younger the day before the birthday', () => {
+    expect(ageOn('2008-11-21', TODAY)).toBe(17);
+  });
+
+  it('handles a birthday on the 29th of February', () => {
+    expect(ageOn('2008-02-29', '2026-02-28')).toBe(17);
+    expect(ageOn('2008-02-29', '2026-03-01')).toBe(18);
+  });
+});
+
+describe('isJunior', () => {
+  it('counts a member under eighteen as a junior', () => {
+    expect(isJunior('2014-03-09', TODAY)).toBe(true);
+  });
+
+  it('counts a member as an adult from their eighteenth birthday', () => {
+    expect(isJunior('2008-11-20', TODAY)).toBe(false);
   });
 });

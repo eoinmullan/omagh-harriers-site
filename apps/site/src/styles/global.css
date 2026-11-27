@@ -51,3 +51,310 @@
   top: 8px;
   transform: rotate(-45deg);
 }
+@layer components {
+  /* ── Admin area ───────────────────────────────────────────────────────────
+     The few pieces every admin page shares, so a button, a field or a table
+     row looks and behaves the same on every tab. Components in
+     components/admin/ use these; a page should never restyle them. */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 0.375rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color 150ms, border-color 150ms, color 150ms;
+    cursor: pointer;
+  }
+
+  .btn-sm {
+    padding: 0.3125rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .btn-primary {
+    background: var(--color-gray-900);
+    color: var(--color-white);
+  }
+  .btn-primary:hover {
+    background: var(--color-gray-700);
+  }
+
+  .btn-secondary {
+    border: 1px solid var(--color-gray-300);
+    background: var(--color-white);
+    color: var(--color-gray-800);
+  }
+  .btn-secondary:hover {
+    background: var(--color-gray-50);
+    border-color: var(--color-gray-400);
+  }
+
+  .btn-danger {
+    border: 1px solid var(--color-red-300);
+    background: var(--color-white);
+    color: var(--color-red-700);
+  }
+  .btn-danger:hover {
+    background: var(--color-red-50);
+  }
+
+  .btn-link {
+    padding: 0;
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    color: var(--color-gray-900);
+  }
+  .btn-link:hover {
+    color: var(--color-gray-600);
+  }
+
+  .field {
+    width: 100%;
+    border: 1px solid var(--color-gray-300);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    background: var(--color-white);
+  }
+  .field:disabled {
+    background: var(--color-gray-100);
+    color: var(--color-gray-500);
+  }
+
+  .field-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+
+  /* Every list in the admin area is one of these. A row with data-href opens
+     that item when clicked anywhere; its name cell holds the real link, so the
+     keyboard and screen readers get one link per row. */
+  .admin-table {
+    width: 100%;
+    font-size: 0.875rem;
+    border-collapse: collapse;
+  }
+
+  .admin-table thead th {
+    background: var(--color-gray-50);
+    border-bottom: 1px solid var(--color-gray-200);
+    padding: 0.625rem 1rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+    color: var(--color-gray-500);
+    white-space: nowrap;
+  }
+
+  .admin-table td {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--color-gray-200);
+    vertical-align: middle;
+  }
+
+  .admin-table tbody:first-of-type tr:first-child > td {
+    border-top: 0;
+  }
+
+  .admin-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .admin-table th.num {
+    text-align: right;
+  }
+
+  .admin-table tr[data-href] {
+    cursor: pointer;
+  }
+  .admin-table tr[data-href]:hover > td {
+    background: var(--color-amber-50);
+  }
+
+  .admin-table .row-link {
+    font-weight: 600;
+    color: var(--color-gray-900);
+  }
+  .admin-table .row-link:hover,
+  .admin-table .row-link:focus-visible {
+    text-decoration: underline;
+  }
+
+  .admin-table .row-chevron {
+    width: 1.5rem;
+    padding-left: 0;
+    text-align: right;
+    color: var(--color-gray-300);
+  }
+  .admin-table .row-chevron::after {
+    content: '\203A';
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+  .admin-table tr[data-href]:hover .row-chevron {
+    color: var(--color-gray-900);
+  }
+
+  .admin-table tr.is-muted > td {
+    opacity: 0.55;
+  }
+
+  /* A total under the rows it adds up, such as a day that ran two
+     sessions: a summary, not something to open. */
+  .admin-table tr.subtotal > td {
+    background: var(--color-gray-50);
+    font-weight: 600;
+  }
+
+  /* ── Phones ──────────────────────────────────────────────────────────────
+     Below the sm breakpoint every admin and members' page is a phone screen,
+     and is designed as one: see "Mobile is first-class" in CLAUDE.md. */
+
+  .admin-table .mobile-only {
+    display: none;
+  }
+
+  @media (max-width: 639.98px) {
+    /* 16px, or iOS zooms the page when a field is focused. */
+    .field {
+      font-size: 1rem;
+      padding: 0.625rem 0.75rem;
+    }
+
+    /* 44px, the smallest a thumb hits reliably. */
+    .btn,
+    .btn-sm {
+      min-height: 2.75rem;
+    }
+    .btn-link {
+      min-height: 2.75rem;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    /* A table becomes a list: each row the name, one line of detail under
+       it, and the figure that matters on the right. Cells say which they are
+       with cell-primary, cell-secondary and cell-trailing; the rest are for
+       the desktop table only. mobile-only cells are composed for the phone. */
+    .admin-table,
+    .admin-table tbody {
+      display: block;
+    }
+    .admin-table thead {
+      display: none;
+    }
+    .admin-table tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-areas:
+        'primary trailing chevron'
+        'secondary trailing chevron';
+      column-gap: 0.75rem;
+      align-items: center;
+      min-height: 3.75rem;
+      padding: 0.625rem 1rem;
+      border-top: 1px solid var(--color-gray-200);
+    }
+    .admin-table tbody:first-of-type tr:first-child {
+      border-top: 0;
+    }
+    .admin-table tr[hidden] {
+      display: none;
+    }
+    .admin-table td {
+      display: none;
+      padding: 0;
+      border: 0;
+    }
+    .admin-table td.cell-primary {
+      display: block;
+      grid-area: primary;
+      min-width: 0;
+    }
+    .admin-table td.cell-secondary {
+      display: block;
+      grid-area: secondary;
+      min-width: 0;
+      font-size: 0.8125rem;
+      color: var(--color-gray-500);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .admin-table td.cell-trailing {
+      display: block;
+      grid-area: trailing;
+      text-align: right;
+    }
+    .admin-table td.row-chevron {
+      display: block;
+      grid-area: chevron;
+      width: auto;
+    }
+    .admin-table tr[data-href]:hover > td {
+      background: transparent;
+    }
+    .admin-table tr[data-href]:active {
+      background: var(--color-amber-50);
+    }
+    .admin-table tr.subtotal {
+      background: var(--color-gray-50);
+      min-height: 3rem;
+    }
+  }
+}
+
+/* A dialog on a phone is a sheet from the bottom of the screen, its buttons
+   in reach of a thumb. Outside the components layer so it wins over the
+   utilities that centre it on a desktop. */
+@media (max-width: 639.98px) {
+  dialog.sheet {
+    margin: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 92dvh;
+    border-radius: 1rem 1rem 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  dialog.sheet::before {
+    content: '';
+    display: block;
+    width: 2.5rem;
+    height: 0.25rem;
+    margin: 0.5rem auto 0;
+    border-radius: 9999px;
+    background: var(--color-gray-300);
+  }
+  dialog.sheet .sheet-actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--color-white);
+    padding-top: 0.75rem;
+  }
+  dialog.sheet .sheet-actions > * {
+    flex: 1;
+  }
+
+  /* Room under the page for the admin tab bar and the iPhone's home bar. */
+  body:has(.admin-tabbar) {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  /* Long emails and names wrap rather than widen the page. */
+  main {
+    overflow-wrap: anywhere;
+  }
+}

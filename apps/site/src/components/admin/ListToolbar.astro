@@ -1,0 +1,39 @@
+---
+// The search box above a list, with room beside it for a filter. On a phone
+// it stays at the top of the screen as the list scrolls, since finding one
+// name among hundreds is most of what a list is for. Under it, the filter
+// that's on, with a cross to clear it, for when its tile has scrolled away.
+
+interface Props {
+  list: string;
+  placeholder: string;
+  label: string;
+}
+
+const { list, placeholder, label } = Astro.props;
+---
+
+<div class="sticky top-0 z-20 -mx-4 px-4 py-2 bg-white/95 backdrop-blur sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none mb-2 sm:mb-3">
+  <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+    <label for={`${list}-search`} class="sr-only">{label}</label>
+    <input
+      id={`${list}-search`}
+      type="search"
+      data-list-search={list}
+      placeholder={placeholder}
+      autocomplete="off"
+      class="field flex-1 min-w-0 basis-full sm:basis-auto sm:flex-none sm:w-80"
+    />
+    <slot />
+    <p data-list-count={list} aria-live="polite" class="hidden sm:block text-xs text-gray-500 ml-auto"></p>
+  </div>
+  <div data-list-active={list} hidden class="mt-2 flex items-center gap-2 text-sm">
+    <span class="text-gray-500">Showing</span>
+    <button type="button" data-list-clear={list} class="inline-flex items-center gap-1.5 rounded-full bg-gray-900 text-white pl-3 pr-2 min-h-8">
+      <span data-list-active-label></span>
+      <span aria-hidden="true" class="text-gray-400">✕</span>
+      <span class="sr-only">Clear this filter</span>
+    </button>
+    <span data-list-count-phone class="text-xs text-gray-500 ml-auto"></span>
+  </div>
+</div>

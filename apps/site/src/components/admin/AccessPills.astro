@@ -1,0 +1,24 @@
+---
+import Pill from './Pill.astro';
+import type { PillTone } from './tones';
+import { accessOf, type Access } from '../../lib/auth/roles';
+import type { PrincipalRole } from '../../lib/supabase/types';
+
+// What a login can do, as pills. The one place a role becomes a label and a
+// colour, so moving from one role to a set of privileges changes accessOf and
+// this map, not every page that shows somebody's access.
+
+interface Props {
+  role: PrincipalRole;
+}
+
+const { role } = Astro.props;
+
+const tones: Record<Access, PillTone> = {
+  registrar: 'amber',
+  admin: 'blue',
+  superuser: 'purple',
+};
+---
+
+{accessOf(role).map((access) => <Pill tone={tones[access]}>{access.charAt(0).toUpperCase() + access.slice(1)}</Pill>)}

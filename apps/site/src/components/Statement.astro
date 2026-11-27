@@ -1,0 +1,59 @@
+---
+import { byMonth, type HistoryLine } from '../lib/credits/history';
+import { formatMovement } from '../lib/credits/money';
+
+// A household's training credit statement, as a bank shows one on a phone:
+// month headings, then each line's title and detail on the left and its
+// amount on the right, money in in green. The same on a desktop, where it
+// reads just as well. Used by the member's own credit page and the admin's
+// household page, so both read the same.
+
+interface Props {
+  lines: Pick<HistoryLine, 'id' | 'description' | 'title' | 'detail' | 'amountPence' | 'on' | 'at'>[];
+}
+
+const { lines } = Astro.props;
+
+function day(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' });
+}
+---
+
+<div class="-mx-4 sm:mx-0 border-y border-gray-200 sm:border sm:rounded-lg bg-white">
+  {byMonth(lines as HistoryLine[]).map(({ month, lines: inMonth }, index) => (
+    <section aria-label={month}>
+      <h3 class:list={[
+        'sticky top-0 z-[1] bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-200',
+        index > 0 && 'border-t',
+        index === 0 && 'sm:rounded-t-lg',
+      ]}>
+        {month}
+      </h3>
+      <ul class="divide-y divide-gray-200">
+        {inMonth.map((line) => (
+          <li class="flex items-start justify-between gap-4 px-4 py-3 min-h-15">
+            <div class="min-w-0">
+              <p class="font-medium">
+                <span class="sr-only">{line.description}. </span>
+                <span aria-hidden="true">{line.title}</span>
+              </p>
+              <p aria-hidden="true" class="text-sm text-gray-500">
+                {day(line.on)}{line.detail && ` · ${line.detail}`}
+              </p>
+            </div>
+            <p
+              aria-hidden="true"
+              class:list={[
+                'shrink-0 text-right font-semibold tabular-nums',
+                line.amountPence > 0 && 'text-green-700',
+                line.amountPence === 0 && 'text-sm font-normal text-gray-400',
+              ]}
+            >
+              {formatMovement(line.amountPence)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</div>

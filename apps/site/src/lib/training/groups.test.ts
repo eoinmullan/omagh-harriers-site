@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   describeRegular,
+  membersInNoSquad,
+  summariseSquads,
   regularsToPromote,
   planGroupRename,
   planGroupRetirement,
@@ -151,5 +153,80 @@ describe('describeRegular', () => {
     expect(describeRegular({ memberId: 'jack', sessionsAttended: 1, lastAttendedAt: '2026-11-17T18:00:00Z' })).toMatch(
       /^1 session in/,
     );
+  });
+});
+
+describe('summariseSquads', () => {
+  const now = new Date('2026-11-27T12:00:00Z');
+
+  function summaryOf(sessions: Parameters<typeof summariseSquads>[0]['sessions'], memberships = []) {
+    return summariseSquads({
+      groups: [group()],
+      memberships,
+      activeMemberIds: new Set(['ann', 'bob']),
+      sessions,
+      now,
+    })[0];
+  }
+
+  it('counts the active members of a squad, not the ones who have left the club', () => {
+    const summary = summariseSquads({
+      groups: [group()],
+      memberships: [
+        { memberId: 'ann', groupId: 'group-a' },
+        { memberId: 'left', groupId: 'group-a' },
+        { memberId: 'bob', groupId: 'group-b' },
+      ],
+      activeMemberIds: new Set(['ann', 'bob']),
+      sessions: [],
+      now,
+    })[0];
+
+    expect(summary.members).toBe(1);
+  });
+
+  it('counts only the sessions that have run, leaving out the called-off ones', () => {
+    const summary = summaryOf([
+      { groupId: 'group-a', startsAt: '2026-11-20T18:00:00Z', isCancelled: false },
+      { groupId: 'group-a', startsAt: '2026-11-24T18:00:00Z', isCancelled: false },
+      { groupId: 'group-a', startsAt: '2026-11-25T18:00:00Z', isCancelled: true },
+      { groupId: 'group-a', startsAt: '2026-12-01T18:00:00Z', isCancelled: false },
+    ]);
+
+    expect(summary.sessionsRun).toBe(2);
+    expect(summary.lastRunAt).toBe('2026-11-24T18:00:00Z');
+  });
+
+  it('finds the next session that is still on', () => {
+    const summary = summaryOf([
+      { groupId: 'group-a', startsAt: '2026-12-01T18:00:00Z', isCancelled: true },
+      { groupId: 'group-a', startsAt: '2026-12-03T18:00:00Z', isCancelled: false },
+      { groupId: 'group-a', startsAt: '2026-12-08T18:00:00Z', isCancelled: false },
+    ]);
+
+    expect(summary.nextAt).toBe('2026-12-03T18:00:00Z');
+  });
+
+  it('leaves the dates empty for a squad that has never trained', () => {
+    const summary = summaryOf([]);
+
+    expect(summary.sessionsRun).toBe(0);
+    expect(summary.lastRunAt).toBeUndefined();
+    expect(summary.nextAt).toBeUndefined();
+  });
+});
+
+describe('membersInNoSquad', () => {
+  it('finds the active members no running squad expects', () => {
+    const nobody = membersInNoSquad({
+      activeMemberIds: new Set(['ann', 'bob', 'cat']),
+      memberships: [
+        { memberId: 'ann', groupId: 'running' },
+        { memberId: 'bob', groupId: 'retired' },
+      ],
+      runningGroupIds: new Set(['running']),
+    });
+
+    expect([...nobody].sort()).toEqual(['bob', 'cat']);
   });
 });

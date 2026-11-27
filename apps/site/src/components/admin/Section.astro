@@ -1,0 +1,30 @@
+---
+// A titled part of a detail page, with its own actions on the right.
+
+interface Props {
+  title: string;
+  count?: number;
+  description?: string;
+  id?: string;
+}
+
+const { title, count, description, id } = Astro.props;
+---
+
+<section id={id} class="mb-8 sm:mb-10 scroll-mt-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 mb-3">
+    <div>
+      <h2 class="text-lg font-semibold">
+        {title}
+        {count !== undefined && <span class="text-gray-400 font-normal tabular-nums"> {count}</span>}
+      </h2>
+      {description && <p class="text-sm text-gray-500 mt-0.5">{description}</p>}
+    </div>
+    {Astro.slots.has('actions') && (
+      <div class="flex flex-wrap items-center gap-2">
+        <slot name="actions" />
+      </div>
+    )}
+  </div>
+  <slot />
+</section>

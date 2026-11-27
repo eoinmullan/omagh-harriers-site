@@ -1,0 +1,19 @@
+---
+// One detail of a record. On a desktop: label, value, Change in a row. On a
+// phone the label and its Change share a line and the value has the width
+// under them, so a long email wraps instead of widening the page.
+
+interface Props {
+  label: string;
+}
+
+const { label } = Astro.props;
+---
+
+<div class="grid grid-cols-[1fr_auto] sm:grid-cols-[12rem_1fr_auto] items-center gap-x-4 gap-y-0.5 px-4 py-2.5 sm:py-3">
+  <dt class="text-xs sm:text-sm text-gray-500 col-start-1 row-start-1">{label}</dt>
+  <dd class="min-w-0 col-span-2 row-start-2 sm:col-span-1 sm:col-start-2 sm:row-start-1 [overflow-wrap:anywhere]"><slot /></dd>
+  <dd class="text-right col-start-2 row-start-1 sm:col-start-3">
+    <slot name="action" />
+  </dd>
+</div>

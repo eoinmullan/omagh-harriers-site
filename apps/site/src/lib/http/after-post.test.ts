@@ -47,6 +47,14 @@ describe('redirectAfterPost', () => {
     expect(p.redirects[0][0]).toBe('/admin/households?sort=balance');
   });
 
+  it('goes to the page of something the form made, when given one', () => {
+    const p = page('/admin/squads');
+
+    redirectAfterPost(p.astro, 'Sprints added.', '/admin/squads/new-squad-id');
+
+    expect(p.redirects).toEqual([['/admin/squads/new-squad-id', 303]]);
+  });
+
   it('carries the confirmation in a cookie rather than the URL', () => {
     const p = page('/admin/members');
 

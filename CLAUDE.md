@@ -22,11 +22,28 @@ and the map; this file has the decisions.
   `pnpm --filter @omagh/site supabase:types` and `astro check` (see
   *Database types* below)
 - **Verify in the browser.** `.claude/launch.json` has the dev server
-  (`localhost:4321`). The registrar app is best checked at phone size
-  (375 × 812). Test data in the live database is fine before go-live; it is
+  (`localhost:4321`). Check every change at phone size (375 × 812) as well as
+  desktop: see *Mobile is first-class* below. Test data in the live database
+  is fine before go-live; it is
   cleared with `supabase/scripts/clear-training-data.sql`
 - **Reviews are in `roadmap/reviews/`**, one file per review, findings
   numbered, with what was done about each
+
+## Mobile is first-class
+
+Many people use the site only on a phone: registrars at the track, admins
+between jobs, and members checking their training credit (and, with Phase 4,
+topping it up). **Every screen must be fully usable at 375 × 812, at least as
+well as on desktop.** That covers the members' area and the admin area, not
+just the registrar app. A change isn't done until it has been looked at on both.
+
+- **No sideways page scroll.** Long values (emails, names, notes) wrap or
+  truncate; nothing makes the page wider than the screen
+- **Inputs are 16px or larger**, or iOS zooms the page when one is focused
+- **Tap targets are at least 44px tall**, and nothing depends on hover
+- **Lists are lists on a phone**, not tables to scroll sideways: the name, one
+  line of detail, and the figure that matters on the right
+- **Dialogs fit the screen**, with their buttons in reach
 
 ## Tooling
 
@@ -1045,3 +1062,40 @@ sign-in for good. **A test starts failing 60 days before the date**
 (`microsoft-oauth.test.ts`) and CI runs it on every push, so the reminder
 comes on its own. Its failure message carries the renewal steps, which are
 also in `OPERATIONS.md`.
+
+## Admin UI patterns
+
+Every admin tab is a **list page** and a **detail page**, built from
+`src/components/admin/`, with styles in `global.css` (`.btn`, `.field`,
+`.admin-table`) and behaviour in `AdminLayout`'s one shared script.
+
+- **List page**: `PageHeader` (one primary action, top right, opening a
+  `FormDialog`), `StatTiles` (a tile is a plain figure, a filter with `filter`,
+  or a link with `href`), `ListToolbar`, `ResourceTable`. Rows carry
+  `data-href` and open anywhere on click; the name cell holds the real link.
+  Searchable rows carry `data-search` and `data-tags`; `?filter=<tag>` starts
+  a list filtered. **Nothing is edited on a list page.**
+- **Detail page**: `RecordHeader` (pills, key `Figure`s), a Details
+  `SummaryList` whose rows each have their own Change, related lists as
+  `ResourceTable`s inside `Section`s, and `DangerZone` at the bottom for
+  retire, cancel and deactivate.
+- **On a phone** (below Tailwind's `sm`) the same pages change shape:
+  - a black **tab bar** along the bottom (Sessions, Squads, Households,
+    Members, More) replaces the tabs, and a detail page leads with
+    **‹ its list** instead of a breadcrumb
+  - every `ResourceTable` is a **list**: cells marked `cell-primary`,
+    `cell-secondary` and `cell-trailing` make a two-line row with the figure
+    on the right; other cells are desktop-only, and `mobile-only` cells are
+    composed for the phone. Rows run edge to edge, and day or month headings
+    stick to the top
+  - the page's `primary` action (a `PageHeader` prop) floats above the tab
+    bar in amber; the search bar sticks to the top with a clearable chip for
+    the filter that's on; KPI tiles go compact and lose their hints
+  - every `FormDialog` is a **sheet** from the bottom, closed by tapping
+    outside it; `SummaryRow` puts the label above the value
+- **Statements** (a household's credit history, for the member and the
+  admin alike) use `components/Statement.astro`: month headings, a short
+  title and detail, and the signed amount on the right (`summariseEntry`)
+- **Access** is shown only through `AccessPills`, which reads `accessOf` in
+  `lib/auth/roles.ts`. Moving from roles to privileges changes those two, not
+  the pages.

@@ -1,5 +1,7 @@
 ---
 import '../styles/global.css';
+import SectionSwitcher from '../components/app/SectionSwitcher.astro';
+import { sectionOfPath, sectionsFor, switcherIsWorthShowing } from '../lib/app/sections';
 
 interface Props {
   title: string;
@@ -13,10 +15,21 @@ interface Props {
 }
 
 const { title, description = "Omagh Harriers AC - Running Club in Omagh, County Tyrone", footer = 'always' } = Astro.props;
+
+// A signed-in page under /members or /admin is a section of the club app,
+// "Harriers". Only these pages link its manifest, so adding a public page to
+// the home screen stays an ordinary bookmark.
+const principal = Astro.locals.principal;
+const appSection = principal ? sectionOfPath(Astro.url.pathname) : undefined;
+const heldSections = appSection ? sectionsFor(principal?.role) : [];
 ---
 
 <!doctype html>
-<html lang="en-GB">
+<html
+  lang="en-GB"
+  data-app-section={appSection}
+  data-app-held={appSection ? heldSections.map((section) => section.key).join(' ') : undefined}
+>
   <head>
     <meta charset="UTF-8" />
     <meta name="description" content={description} />
@@ -26,6 +39,22 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
+    {appSection && (
+      <>
+        <link rel="manifest" href="/app/manifest.webmanifest" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/registrar/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Harriers" />
+      </>
+    )}
+    <script is:inline>
+      // Opened from the Harriers icon, the page is part of the app: see
+      // .app-only and .browser-only in global.css. iOS sets
+      // navigator.standalone instead of honouring the display-mode query.
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        document.documentElement.classList.add('in-app');
+      }
+    </script>
     <style is:global>
       html.wip-hidden [data-wip] { display: none; }
     </style>
@@ -69,13 +98,24 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           <div class="flex items-center">
-            <a href="/" class="flex items-center hover:opacity-80 transition-opacity">
+            <a href="/" class="browser-only flex items-center hover:opacity-80 transition-opacity">
               <img src="/omagh-harriers_white.jpg" alt="Omagh Harriers AC" class="h-12 logo-duotone" />
+            </a>
+            <!-- In the app the logo is the way Home, from any page, a public
+                 one included: an iPhone home-screen app has no back button. -->
+            <a href="/members" class="app-only flex items-center">
+              <img src="/omagh-harriers_white.jpg" alt="Omagh Harriers AC, Home" class="h-12 logo-duotone" />
             </a>
           </div>
 
+          {appSection && switcherIsWorthShowing(heldSections) && (
+            <div class="app-only">
+              <SectionSwitcher current={appSection} sections={heldSections} />
+            </div>
+          )}
+
           <!-- Desktop Navigation -->
-          <div class="hidden md:block">
+          <div class="browser-only hidden md:block">
             <div class="ml-10 flex items-baseline space-x-4">
               <a href="/" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Home</a>
               <a href="/half-marathon" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-900 text-yellow hover:text-amber transition-colors">Half Marathon</a>
@@ -87,7 +127,7 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
           </div>
 
           <!-- Mobile menu button -->
-          <div class="md:hidden">
+          <div class="browser-only md:hidden">
             <button
               id="mobile-menu-button"
               type="button"
@@ -107,7 +147,7 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
       </div>
 
       <!-- Mobile menu -->
-      <div class="md:hidden hidden" id="mobile-menu">
+      <div class="browser-only md:hidden hidden" id="mobile-menu">
         <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
           <a href="/" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Home</a>
           <a href="/half-marathon" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-900 hover:text-yellow transition-colors">Half Marathon</a>
@@ -123,7 +163,7 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
       <slot />
     </main>
 
-    <footer class:list={['bg-black text-white mt-8', footer === 'desktop' && 'hidden sm:block']}>
+    <footer class:list={['browser-only bg-black text-white mt-8', footer === 'desktop' && 'hidden sm:block']}>
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
@@ -156,6 +196,21 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
     </footer>
 
     <script>
+      import { phoneStore, rememberSection } from '../lib/app/launch';
+      import { sectionByKey, type SectionKey } from '../lib/app/sections';
+
+      // The icon opens the section used last (lib/app/launch.ts), so every
+      // section's page says which it is.
+      const root = document.documentElement;
+      const current = sectionByKey(root.dataset.appSection)?.key;
+      if (current) {
+        const held = (root.dataset.appHeld ?? '')
+          .split(' ')
+          .map((key) => sectionByKey(key)?.key)
+          .filter((key): key is SectionKey => key !== undefined);
+        rememberSection(phoneStore, current, held);
+      }
+
       // Mobile menu toggle
       const mobileMenuButton = document.getElementById('mobile-menu-button');
       const mobileMenu = document.getElementById('mobile-menu');

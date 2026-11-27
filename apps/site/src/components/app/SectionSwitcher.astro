@@ -1,0 +1,67 @@
+---
+import type { AppSection, SectionKey } from '../../lib/app/sections';
+
+// The club app's one way between sections, the same everywhere: the section's
+// name in the header, opening a sheet that lists Home and each tool held. The
+// registrar app draws its own, in SectionSwitcher.tsx, to the same pattern.
+
+interface Props {
+  current: SectionKey;
+  sections: AppSection[];
+}
+
+const { current, sections } = Astro.props;
+const currentLabel = sections.find((section) => section.key === current)?.label ?? 'Home';
+---
+
+<button
+  type="button"
+  data-open-switcher
+  aria-haspopup="dialog"
+  class="inline-flex items-center gap-1.5 min-h-11 px-2 -mr-2 text-base font-semibold text-amber"
+>
+  {currentLabel} <span aria-hidden="true" class="text-sm">▾</span>
+</button>
+
+<dialog
+  id="section-switcher"
+  aria-label="Switch section"
+  class="sheet m-auto w-[calc(100%-2rem)] max-w-sm rounded-lg p-0 shadow-xl backdrop:bg-black/40 text-gray-900"
+>
+  <ul class="px-2 py-3">
+    {sections.map((section) => (
+      <li>
+        <a
+          href={section.href}
+          aria-current={section.key === current ? 'page' : undefined}
+          class="flex items-center justify-between min-h-12 px-3 rounded-md text-base aria-[current=page]:font-semibold active:bg-gray-100"
+        >
+          {section.label}
+          {section.key === current ? (
+            <span aria-hidden="true" class="text-gray-900">✓</span>
+          ) : (
+            <span aria-hidden="true" class="text-gray-300 text-xl">›</span>
+          )}
+        </a>
+      </li>
+    ))}
+  </ul>
+  <div class="px-5 pb-4">
+    <button type="button" data-close-switcher class="btn btn-secondary w-full">Close</button>
+  </div>
+</dialog>
+
+<script>
+  const switcher = document.getElementById('section-switcher') as HTMLDialogElement | null;
+  document.querySelector('[data-open-switcher]')?.addEventListener('click', () => {
+    if (switcher && !switcher.open) switcher.showModal();
+  });
+  document.querySelector('[data-close-switcher]')?.addEventListener('click', () => switcher?.close());
+  switcher?.addEventListener('click', (event) => {
+    if (event.target !== switcher) return;
+    const box = switcher.getBoundingClientRect();
+    const inside =
+      event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+    if (!inside) switcher.close();
+  });
+</script>

@@ -364,3 +364,14 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* The club app is the same pages opened from the Harriers icon. Layout.astro
+   marks the page `in-app` before it paints, so these never flash. The public
+   site's nav and footer are for visitors, and inside the app their links
+   would turn it into a browser with no back button. */
+html:not(.in-app) .app-only {
+  display: none !important;
+}
+html.in-app .browser-only {
+  display: none !important;
+}

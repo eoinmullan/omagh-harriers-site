@@ -29,12 +29,12 @@ export const prerender = true;
     <meta name="description" content="Sign runners in at Omagh Harriers training." />
     <meta name="robots" content="noindex" />
 
-    <!-- Only this route links a manifest, so Add to Home Screen from anywhere
-         else on the site bookmarks an ordinary page instead of installing this.
-         The scope keeps the installed window on /registrar: tapping through to
-         the rest of the site opens the browser rather than turning the app into
-         a browser. -->
-    <link rel="manifest" href="/registrar/manifest-v2.webmanifest" />
+    <!-- The club app's manifest, "Harriers", which Registration is a section
+         of. Only the app's sections link it, so Add to Home Screen from a
+         public page bookmarks an ordinary page. manifest-v2.webmanifest, the
+         registrar's own, stays in public/registrar for the icons already
+         installed from it: they keep working until they're replaced. -->
+    <link rel="manifest" href="/app/manifest.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="/registrar/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/registrar/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/registrar/favicon-16.png" />

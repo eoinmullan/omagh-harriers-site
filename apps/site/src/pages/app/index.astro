@@ -1,0 +1,103 @@
+---
+import '../../styles/global.css';
+
+// Where the Harriers icon opens. Prerendered, and kept on the phone by its own
+// worker (public/app/sw.js), so it opens with no signal, which Home and Admin
+// can't. It sends the person on to the section they used last, or to
+// Registration when there's no signal. The rules are in lib/app/launch.ts.
+//
+// Nothing is gated here: the page holds nothing and only chooses a link.
+export const prerender = true;
+---
+
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="robots" content="noindex" />
+    <link rel="manifest" href="/app/manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/registrar/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Harriers" />
+    <title>Harriers</title>
+  </head>
+  <body class="bg-black text-white antialiased">
+    <main class="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-center gap-6 px-5 py-8">
+      <p class="text-3xl font-bold text-amber">Harriers</p>
+      <p data-opening class="text-lg text-neutral-400">Opening…</p>
+      <div data-offline hidden class="flex flex-col gap-6">
+        <p class="text-lg text-neutral-300">No signal. Home and Admin need a connection.</p>
+        <button
+          type="button"
+          data-try-again
+          class="flex min-h-14 w-full items-center justify-center rounded-xl bg-neutral-100 px-5 text-lg font-semibold text-black active:bg-neutral-300"
+        >
+          Try again
+        </button>
+      </div>
+      <noscript><p class="text-lg text-neutral-300">This needs JavaScript switched on.</p></noscript>
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+</style>
+
+<script>
+  import { phoneStore, readRemembered, whereToLaunch } from '../../lib/app/launch';
+
+  // navigator.onLine says true on a phone with bars and no data, so the page
+  // asks the site for something small. A captive wifi page answers with a
+  // redirect, which counts as no signal.
+  const SIGNAL_CHECK_MS = 4000;
+
+  async function hasSignal(): Promise<boolean> {
+    if (!navigator.onLine) return false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SIGNAL_CHECK_MS);
+    try {
+      const response = await fetch('/favicon.ico', { method: 'HEAD', cache: 'no-store', signal: controller.signal });
+      return response.ok && !response.redirected;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  const opening = document.querySelector<HTMLElement>('[data-opening]')!;
+  const offline = document.querySelector<HTMLElement>('[data-offline]')!;
+
+  async function launch() {
+    opening.hidden = false;
+    offline.hidden = true;
+    const where = whereToLaunch(readRemembered(phoneStore), await hasSignal());
+    if ('goTo' in where) {
+      // Replace, so back from the section closes the app rather than landing here.
+      window.location.replace(where.goTo);
+      return;
+    }
+    opening.hidden = true;
+    offline.hidden = false;
+  }
+
+  document.querySelector('[data-try-again]')!.addEventListener('click', () => void launch());
+
+  if ('serviceWorker' in navigator && !import.meta.env.DEV) {
+    navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' }).catch(() => {
+      // The page still works online without it.
+    });
+  }
+
+  void launch();
+</script>

@@ -1,16 +1,21 @@
 import type { ReactNode } from 'react';
+import { SectionSwitcher } from './SectionSwitcher';
 
 // One frame for every screen, so the gutters never shift as the app moves
 // between them. Deliberately not Layout.astro: this window must not offer the
-// site nav, because every one of those links is outside the manifest scope and
-// would throw the registrar out of the app and into a browser.
-export function Screen({ children, title }: { children: ReactNode; title?: string }) {
+// site nav, whose links are for visitors and would turn the app into a
+// browser. The way to the club app's other sections is the switcher, shown on
+// the main screen (`switcher`).
+export function Screen({ children, title, switcher = false }: { children: ReactNode; title?: string; switcher?: boolean }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-6 px-5 py-8">
       <header>
-        {/* Served from /registrar/, so the service worker keeps it for a
-            phone opened with no signal. */}
-        <img src="/registrar/logo.jpg" alt="Omagh Harriers" width={428} height={167} className="h-8 w-auto" />
+        <div className="flex items-center justify-between gap-4">
+          {/* Served from /registrar/, so the service worker keeps it for a
+              phone opened with no signal. */}
+          <img src="/registrar/logo.jpg" alt="Omagh Harriers" width={428} height={167} className="h-8 w-auto" />
+          {switcher && <SectionSwitcher />}
+        </div>
         {title && <h1 className="mt-4 text-3xl font-bold text-white">{title}</h1>}
       </header>
       {children}

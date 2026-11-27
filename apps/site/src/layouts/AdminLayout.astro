@@ -61,7 +61,7 @@ const icons: Record<string, string> = {
     <div class="hidden sm:flex flex-wrap items-baseline justify-between gap-3 mb-4">
       <p class="text-sm font-semibold tracking-wide text-gray-500 uppercase">Club admin</p>
       <!-- The one link that genuinely leaves the area, and says so. -->
-      <a href="/members" class="text-sm underline hover:text-gray-600">
+      <a href="/members" class="browser-only text-sm underline hover:text-gray-600">
         Your own account &rarr;
       </a>
     </div>
@@ -162,7 +162,8 @@ const icons: Record<string, string> = {
           </a>
         </li>
       ))}
-      <li class="border-t border-gray-100 mt-2 pt-2">
+      <!-- In the app the section switcher in the header is the way out. -->
+      <li class="browser-only border-t border-gray-100 mt-2 pt-2">
         <a href="/members" class="flex items-center justify-between min-h-12 px-3 rounded-md text-base active:bg-gray-100">
           Your own account <span aria-hidden="true" class="text-gray-300 text-xl">›</span>
         </a>

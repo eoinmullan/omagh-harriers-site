@@ -2,10 +2,12 @@
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { formatBalance } from '../../lib/credits/money';
-import { mayRunASession } from '../../lib/training/registrar';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import { orThrow } from '../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../lib/auth/signed-in';
+import { adminLine, registrationLine } from '../../lib/app/home-cards';
+import { sectionsFor } from '../../lib/app/sections';
+import { clubDayWindow } from '../../lib/training/tonight';
 
 // Middleware guarantees auth + active principal + terms accepted before we get here.
 // Defensive fallback only.
@@ -46,6 +48,35 @@ const members = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
   .eq('principal_id', principal.id)
   .eq('is_active', true)
   .order('first_name'));
+
+// Each tool's card carries a line worth reading. Registrars read sessions
+// through RLS; the overdrawn count is the admin pages' own read.
+const held = sectionsFor(principal.role).map((section) => section.key);
+const holdsRegistration = held.includes('registration');
+const holdsAdmin = held.includes('admin');
+
+let registrationSummary = '';
+if (holdsRegistration) {
+  const today = clubDayWindow();
+  const sessions = orThrow(await Astro.locals.supabase
+    .from('training_sessions')
+    .select('starts_at, is_cancelled, group:group_id(name)')
+    .gte('starts_at', today.from)
+    .lt('starts_at', today.until));
+  registrationSummary = registrationLine(
+    (sessions ?? []).map((session) => ({ groupName: session.group?.name ?? 'A session', startsAt: session.starts_at, isCancelled: session.is_cancelled })),
+  );
+}
+
+let adminSummary = '';
+if (holdsAdmin) {
+  const overdrawn = await createSupabaseAdminClientFromLocals(Astro.locals)
+    .from('principal_balances')
+    .select('principal_id', { count: 'exact', head: true })
+    .lt('balance_pence', 0);
+  orThrow(overdrawn);
+  adminSummary = adminLine(overdrawn.count ?? 0);
+}
 ---
 
 <Layout title="Members' Area — Omagh Harriers AC">
@@ -116,27 +147,39 @@ const members = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
       )}
     </section>
 
-    {(mayRunASession(principal.role) || principal.role === 'admin' || principal.role === 'superuser') && (
+    <section data-install-guide hidden class="mt-8 sm:mt-10 bg-white border border-gray-200 rounded-lg px-5 py-4">
+      <h2 class="font-semibold">Add Harriers to your home screen</h2>
+      <p data-install-share-sheet hidden class="text-gray-600 mt-1">
+        Tap the Share button, then <strong>Add to Home Screen</strong>. It opens straight to your account, already signed in.
+      </p>
+      <p data-install-prompt hidden class="text-gray-600 mt-1">Your balance, and the club's tools you help with, a tap away.</p>
+      <div class="flex flex-wrap gap-3 mt-3">
+        <button type="button" data-install-button hidden class="btn btn-primary">Add to home screen</button>
+        <button type="button" data-install-dismiss class="min-h-11 text-gray-500 underline">Don't show this again</button>
+      </div>
+    </section>
+
+    {(holdsRegistration || holdsAdmin) && (
       <section class="mt-8 sm:mt-10">
         <h2 class="text-lg font-semibold mb-3">Helping out</h2>
         <ul class="-mx-4 sm:mx-0 border-y border-gray-200 sm:border sm:rounded-lg divide-y divide-gray-200 bg-white">
-          {mayRunASession(principal.role) && (
+          {holdsRegistration && (
             <li>
               <a href="/registrar/" class="flex items-center justify-between gap-4 px-4 py-3 min-h-15 hover:bg-gray-50 active:bg-gray-100">
                 <span>
-                  <span class="block font-semibold">Registration app</span>
-                  <span class="block text-sm text-gray-500">Taking sign-ins. Add it to your home screen.</span>
+                  <span class="block font-semibold">Registration</span>
+                  <span class="block text-sm text-gray-500">{registrationSummary}</span>
                 </span>
                 <span aria-hidden="true" class="text-2xl text-gray-300">›</span>
               </a>
             </li>
           )}
-          {(principal.role === 'admin' || principal.role === 'superuser') && (
+          {holdsAdmin && (
             <li>
               <a href="/admin/sessions" class="flex items-center justify-between gap-4 px-4 py-3 min-h-15 hover:bg-gray-50 active:bg-gray-100">
                 <span>
-                  <span class="block font-semibold">Club admin</span>
-                  <span class="block text-sm text-gray-500">Sessions, squads, households, members and training credit.</span>
+                  <span class="block font-semibold">Admin</span>
+                  <span class="block text-sm text-gray-500">{adminSummary}</span>
                 </span>
                 <span aria-hidden="true" class="text-2xl text-gray-300">›</span>
               </a>
@@ -152,3 +195,62 @@ const members = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
     </form>
   </PageContainer>
 </Layout>
+
+<script>
+  import { INSTALL_GUIDE_DISMISSED_KEY, installGuide } from '../../lib/app/install';
+  import { phoneStore } from '../../lib/app/launch';
+  import { isApple, isStandalone } from '../../components/registrar/platform';
+
+  interface InstallPrompt extends Event {
+    prompt: () => Promise<void>;
+  }
+
+  const guide = document.querySelector<HTMLElement>('[data-install-guide]')!;
+  const shareSheet = guide.querySelector<HTMLElement>('[data-install-share-sheet]')!;
+  const promptText = guide.querySelector<HTMLElement>('[data-install-prompt]')!;
+  const button = guide.querySelector<HTMLButtonElement>('[data-install-button]')!;
+  let prompt: InstallPrompt | undefined;
+
+  function dismissed(): boolean {
+    try {
+      return phoneStore.getItem(INSTALL_GUIDE_DISMISSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  function show() {
+    const how = installGuide({
+      inApp: isStandalone(),
+      dismissed: dismissed(),
+      isApple: isApple(),
+      hasTouch: window.matchMedia('(pointer: coarse)').matches,
+      canPrompt: prompt !== undefined,
+    });
+    guide.hidden = how === 'none';
+    shareSheet.hidden = how !== 'share-sheet';
+    promptText.hidden = how !== 'prompt';
+    button.hidden = how !== 'prompt';
+  }
+
+  function dismiss() {
+    try {
+      phoneStore.setItem(INSTALL_GUIDE_DISMISSED_KEY, 'true');
+    } catch {
+      // Refused storage only means the guide comes back next time.
+    }
+    show();
+  }
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    prompt = event as InstallPrompt;
+    show();
+  });
+  button.addEventListener('click', () => {
+    void prompt?.prompt();
+    dismiss();
+  });
+  guide.querySelector('[data-install-dismiss]')!.addEventListener('click', dismiss);
+  show();
+</script>

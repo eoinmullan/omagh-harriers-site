@@ -802,7 +802,7 @@ had settled the code.
 
 ---
 
-## Phase 8 — Child Safeguarding & Coach PWA
+## Phase 8 — Child Safeguarding & Emergency Contacts
 
 Agreed with the committee on 26 Nov 2026. Guardians fill in a safeguarding form
 for each child; coaches and officers can see it when they need to; a second PWA
@@ -833,15 +833,21 @@ are to be settled in a later session.
 - [ ] Column grants so registrars can tell *whether* a child has a form, and nothing else (see *A login reads columns, not rows*)
 - [ ] Admin/officer screen to see a child's record and which children have none
 
-### Coach PWA (trackside incidents)
+### Emergency contacts section (trackside incidents)
 
-A second prerendered PWA on the site, beside `/registrar/`, for the same
-reasons the registrar app lives there (see *One origin, one sign-in*). Probably
-`/coach/` with its own worker scoped to it. **Built as a section of the one
-club app (Phase 10)**, reached from its section switcher, rather than as an
-app of its own.
+**It isn't a coaching app.** Coaches are who use it most, but what it does is
+put the emergency contacts from the safeguarding form in somebody's hand when
+something happens to a child at the track. Its name is still to be settled
+(27 Nov 2026), and so is who holds it. "Coach" below is shorthand for whoever
+that is.
 
-- [ ] Reached from a card in the members' area that only renders for a coach (or above)
+A prerendered section of the club app (Phase 10), beside `/registrar/`, for
+the same reasons the registrar app lives there (see *One origin, one
+sign-in*), with its own worker scoped to its own folder. Deferred out of
+Phase 10 with the rest of this phase; Phase 10 leaves room for it in the
+section switcher.
+
+- [ ] Reached from the club app's section switcher and a card on Home that only renders for whoever holds it
 - [ ] On opening: pick a session (the same session list the registrar sees)
 - [ ] The session shows every child signed in
 - [ ] Tapping a child opens their safeguarding information
@@ -876,8 +882,9 @@ app of its own.
 - **How roles are modelled.** Today `role` is one ladder: `member` / `registrar` / `admin` / `superuser`. With coaches the ladder stops fitting, since an admin or a member may or may not be a registrar and/or a coach. One option: keep `superuser` / `admin` / `member` as the role, with `is_registrar` and `is_coach` as booleans beside it. That touches the access-token hook (`app_role` plus new claims), every RLS policy that calls `can_run_a_session()`, `roles.ts`, the registrar app's `lib/training/registrar.ts`, the members' area cards and `/admin/households/[id]`. Decide before adding a `coach` role, so it isn't built twice
 - Should viewing a record be logged, so the welfare officer can see who looked at what?
 
-**The coach app**
-- ~~Does it need to be separate from the registrar app, or a second mode of it?~~ Settled 27 Nov 2026: one club app with a section for each job (Phase 10). Whether the sections share one worker is still open there
+**The emergency contacts section**
+- ~~Does it need to be separate from the registrar app, or a second mode of it?~~ Settled 27 Nov 2026: one club app with a section for each job (Phase 10), each offline section with its own worker
+- Its name, now that it's for emergency contacts rather than coaching, and whether holding it is a coach role, a flag, or a privilege of its own
 - Guests: children signed in as guests have no form. Should Add guest take an emergency contact?
 - What "present" means: everyone signed in, or children only?
 
@@ -931,14 +938,37 @@ and the dashboard changed to match. `SIGN_IN_CODE_LENGTH` in
 
 ## Phase 10 — One club app
 
-**Status: planned**, after Phase 9. Agreed 27 Nov 2026.
+**Status: built 27 Nov 2026**; device checks to come. Agreed 27 Nov 2026.
 
-One "Omagh Harriers" app on the home screen for everybody, instead of one app
-for each job. Members open it to see their household and training credit (and,
-with Phase 4, to top up). Volunteers see the tools they hold as well:
-Registration, Coach, Admin. One install and one sign-in, however many jobs
-somebody does. It also answers the Phase 8 question of whether the coach app is
-separate: it's a section of this one.
+One app called **Harriers** on the home screen for everybody, instead of one
+app for each job. Members open it to see their household and training credit
+(and, with Phase 4, to top up). Volunteers see the tools they hold as well:
+Registration and Admin now, and Phase 8's emergency contacts later. One
+install and one sign-in, however many jobs somebody does.
+
+**Admin is a section of the app from the start.** It's the same server-drawn
+pages, so in the app it needs signal just as it does in a browser. The
+emergency contacts section is deferred with the rest of Phase 8.
+
+### Decisions taken (27 Nov 2026)
+
+- **The name under the icon is "Harriers"**, as the registrar app is today.
+  It isn't tied to any one job, which suits an app that holds all of them
+- **One worker per offline section, not one for the site.** The launch page
+  gets a small worker of its own, and the registrar keeps the one it has,
+  untouched. A worker at `/` would stand in front of every page on the site,
+  public ones included, and only our own code would keep it from serving a
+  stale homepage. Per section, the browser enforces the boundary. The
+  manifest's scope and a worker's scope are separate settings, so the app can
+  cover the whole site while each worker stays in its own folder. The cost is
+  a version to bump per worker, and Registration opening offline only on a
+  phone that has opened it online once, which is already true
+- **Admin with no signal shows the phone's own error.** A worker under
+  `/admin/` that only says "Admin needs a connection" can come later if it's
+  wanted
+- **The last section used is kept on the phone, indefinitely.** Local
+  storage, never cleared by the app. Home on first launch and whenever
+  nothing is stored
 
 **Desktop doesn't change.** The app is the same site opened from an icon, at
 the same addresses. In a desktop browser the members' area and admin are what
@@ -947,7 +977,7 @@ they are today, and the registrar stays phone-shaped.
 ### How you move around it
 
 - **Each section keeps its own navigation**: admin its bottom tab bar, the
-  registrar its screens and ‹ back, the coach whatever suits a trackside phone.
+  registrar its screens and ‹ back, emergency contacts (Phase 8) whatever suits a trackside phone.
   A second bar on top of admin's would crowd the part that works best
 - **One section switcher, the same everywhere**: the title at the top of a
   section's main screen ("Admin ▾", "Registration ▾") opens a sheet listing
@@ -961,28 +991,29 @@ they are today, and the registrar stays phone-shaped.
 - **The icon opens the section you last used**, so a registrar lands on
   Registration and an admin on Admin. Home the first time
 - **Opening must work with no signal.** Home and admin are drawn by the server
-  and need a connection; the registrar and coach work offline. So the icon
+  and need a connection; the registrar works offline (and Phase 8's section will). So the icon
   opens a small prerendered launch page with its own worker, which sends you to
-  your last section when online, and to Registration or Coach when not, rather
+  your last section when online, and to Registration when not, rather
   than a blank screen at the track
 
 ### Work
 
-- [ ] Manifest with scope `/` and the club's icon, linked from the members' area, admin and the app's sections only, so adding a public page to the home screen stays an ordinary bookmark
-- [ ] Launch page (`/app/` or similar), prerendered, with its worker: last section used, the offline rule above, Home on first launch
-- [ ] In the app, hide the public site's header and footer (`display-mode: standalone`, and `navigator.standalone` on iOS): their links are for visitors
-- [ ] The section switcher, built from what the person holds (`accessOf` in `lib/auth/roles.ts`), hidden for a member with no tools
-- [ ] Home: balance and household first, then a card for each tool held
-- [ ] An "Add it to your home screen" guide in the members' area: Share → Add to Home Screen on an iPhone (reuse the registrar's `InstallHint`), the browser's own install prompt on Android
-- [ ] Fold the registrar in: the switcher in its header, and the move from its own manifest to the club app's. Icons already installed keep working until they're replaced
-- [ ] Build the coach app (Phase 8) as a section from the start
+- [x] Manifest with scope `/` and the club's icon, linked from the members' area, admin and the app's sections only, so adding a public page to the home screen stays an ordinary bookmark
+- [x] Launch page (`/app/`), prerendered, with its worker: last section used, the offline rule above, Home on first launch
+- [x] In the app, hide the public site's header and footer (`display-mode: standalone`, and `navigator.standalone` on iOS): their links are for visitors
+- [x] The section switcher, built from what the person holds (`accessOf` in `lib/auth/roles.ts`), hidden for a member with no tools
+- [x] Home: balance and household first, then a card for each tool held
+- [x] An "Add it to your home screen" guide in the members' area: Share → Add to Home Screen on an iPhone (reuse the registrar's `InstallHint`), the browser's own install prompt on Android
+- [x] Fold the registrar in: the switcher in its header, and the move from its own manifest to the club app's. Icons already installed keep working until they're replaced
+- [x] Admin as a section: the switcher on its main screens, in place of "Your own account" in More
 - [ ] Decide alongside the move from roles to privileges, since the switcher lists privileges
+- [ ] Check on an iPhone and an Android phone: install from Home, open from the icon, offline launch, switching sections. Built and checked in the dev server at phone and desktop sizes, with the app simulated. Not yet on real devices. Worth checking that iOS opens `/app/` (the manifest's `start_url`) rather than the page the icon was added from; if it doesn't, the icon opens Home, which still works
 
 ### Open questions
 
-- The name under the icon: the registrar app is "Harriers" today
-- One worker for the whole app, or one per offline section as now (the registrar has its own, scoped to `/registrar/`)
-- How long "the section you last used" lasts, and whether it should ever be Home for somebody who mostly registers
+- ~~The name under the icon~~ "Harriers"
+- ~~One worker for the whole app, or one per section~~ One per section
+- ~~How long "the section you last used" lasts~~ Kept on the phone indefinitely
 
 ---
 
@@ -1033,7 +1064,7 @@ free" rather than a figure.
 | 5 | Training sessions, groups, guests, attendance, registrar role, sign-in PWA | Phase 4 schema |
 | 6 | Admin reporting area | Phase 5 schema |
 | 7 | Review — data integrity, security, privacy, then the code, then behaviour | Phase 6, and before go-live |
-| 8 | Child safeguarding form, coach role, coach PWA, registrar warning, Ts&Cs update | Form contents (TBC), DPIA, committee approval of terms |
+| 8 | Child safeguarding form, emergency contacts section of the club app (name TBC), registrar warning, Ts&Cs update | Form contents (TBC), DPIA, committee approval of terms |
 | 9 | Sign in with a 6-digit code as well as the link, inside a home-screen app too (shipped; device checks to come) | Supabase email template |
-| 10 | One club app for everyone: section switcher, launch page that works offline, install guide | Phase 9 |
+| 10 | One club app, "Harriers", for everyone: Home, Registration and Admin sections, a switcher, a launch page that works offline, install guide (built; device checks to come) | Phase 9 |
 | 11 | Members who train free: a member setting with a reason; sign-ins recorded, nothing charged, ∞ in the registrar app (built) | — |

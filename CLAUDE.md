@@ -109,12 +109,55 @@ tests (`pnpm -r test`) on every push to `main` and every pull request, but run
 `pnpm --filter @omagh/site test` before pushing anyway: a fast-forward to `main` is checked
 only after it has landed.
 
+## The club app, "Harriers"
+
+One app on the home screen for everybody (Phase 10). It's the same site opened
+from an icon, at the same addresses: **Home** (`/members`), **Registration**
+(`/registrar/`) and **Admin** (`/admin`), as a person's role allows
+(`lib/app/sections.ts`). Desktop browsers see the site as it always was.
+
+- **Only the app's pages link its manifest**, `public/app/manifest.webmanifest`
+  (scope `/`, start `/app/`). `Layout.astro` links it on a signed-in page under
+  `/members` or `/admin`, and the registrar links it itself. Adding a public
+  page to the home screen stays an ordinary bookmark
+- **The icon opens `/app/`**, a prerendered launch page with its own worker. It
+  sends the person to the section they used last, kept on the phone for good,
+  or Home the first time. With no signal it sends a registrar to Registration,
+  the one section that opens offline, and tells anybody else Home and Admin
+  need a connection (`lib/app/launch.ts`). It checks for signal by fetching
+  something small, because `navigator.onLine` says yes on a phone with bars
+  and no data
+- **One worker per offline section, never one for the site.** `/app/sw.js`
+  covers only the launch page and `/registrar/sw.js` only the registrar. A
+  worker at `/` would stand in front of the public pages, and only our own
+  code would keep it from serving a stale homepage. The manifest's scope and a
+  worker's scope are separate settings, so the app covers the site while each
+  worker stays in its folder
+- **Inside the app the public nav and footer are hidden.** `Layout.astro` marks
+  the page `in-app` before it paints (`display-mode: standalone`, or
+  `navigator.standalone` on iOS), and `.app-only` / `.browser-only` in
+  `global.css` do the rest. Their links are for visitors, and an iPhone
+  home-screen app has no back button, so the logo leads Home instead
+- **The section switcher** is the section's name in the header ("Admin ▾"),
+  opening a sheet of Home and each tool held. It replaces admin's "Your own
+  account", and shows only in the app and only to somebody with a tool.
+  `components/app/SectionSwitcher.astro` draws it for the server pages,
+  `components/registrar/SectionSwitcher.tsx` on the registrar's today list
+- **Home's cards say something** (`lib/app/home-cards.ts`): today's sessions
+  for Registration, how many households are overdrawn for Admin. Home offers
+  to install the app on a phone (`lib/app/install.ts`), Share → Add to Home
+  Screen on an iPhone, the browser's own prompt elsewhere
+- **The registrar's old manifest stays** (`public/registrar/manifest-v2.webmanifest`)
+  for the icons already installed from it. They keep working, scoped to
+  `/registrar/`, until they're replaced
+
 ## The registrar app (`/registrar`)
 
 The sign-in PWA is a **prerendered route on this site**, not a separate app:
 `src/pages/registrar/index.astro` serving a single React island from
-`src/components/registrar/`. Reached from a **Registration app** card in the
-members' area that only renders for a registrar, admin or superuser.
+`src/components/registrar/`. The club app's Registration section, reached
+from the switcher or a **Registration** card on Home that only renders for a
+registrar, admin or superuser.
 
 **It shares the members' area session, and that is the reason it lives here.**
 iOS gives a home screen web app its own cookie container, but since 17.2 copies
@@ -143,8 +186,8 @@ real registrar they're only a member.
 
 Rules live in `lib/training/{registrar,tonight}.ts` and are unit tested without a
 database, like everything else. The island decides nothing. It deliberately does
-**not** use `Layout.astro` — every link in the site nav is outside the manifest
-scope and would throw the registrar out of the app and into a browser.
+**not** use `Layout.astro` — the site nav's links are for visitors, and would
+turn the app into a browser.
 
 **`@astrojs/react` is pinned to 4.4.x.** The 6.x line depends on Vite 8 and drags
 rolldown in beside Astro 5's Vite 6; it builds, then fails the dev server with
@@ -411,8 +454,8 @@ every other page on this origin is public.
 
 That is also why the app is canonically **`/registrar/` with the trailing
 slash**: a worker at `/registrar/sw.js` tops out at scope `/registrar/`, which
-does not cover a bare `/registrar`. The manifest's `start_url` and `scope` and
-the members' area card all use the slash.
+does not cover a bare `/registrar`. The old manifest's `start_url` and `scope`,
+the club app's sections list and the Home card all use the slash.
 
 Navigations are network-first so a deploy lands the moment there is signal, with
 the cached shell as the fallback. Hashed `/_astro/` assets are cache-first,
@@ -475,8 +518,9 @@ site went on serving the old icons from the edge. Give a changed image a new
 name (`icon-192-v2.png`, `favicon-v2.svg`) and update what links to it. HTML
 and the manifest aren't long-cached, so they pick up a new name at once.
 
-For the registrar app, rename the manifest too (`manifest-v2.webmanifest`) and
-bump the worker's `VERSION`. A phone keeps running its old worker until every
+For the club app, rename the manifest too (`manifest.webmanifest` in
+`public/app/`) and update every page that links it, and bump both workers'
+`VERSION`. A phone keeps running its old worker until every
 tab with the app is closed, and a worker older than `registrar-v3` serves the
 manifest from its cache.
 
@@ -784,9 +828,9 @@ three times.
 A page hands the layout a `section` (which tab is open), a `title`, an optional
 `breadcrumb` rooted inside the area, and `wide` for the one page that mirrors the
 public home page. The layout draws the section nav; the only link that leaves is
-the one that says it leaves — **Your own account →**. The members' area offers
-one door in reply, a single **Club admin** card, rather than five links into the
-deep end.
+the one that says it leaves — **Your own account →**, which inside the club app
+gives way to the section switcher. Home offers one door in reply, a single
+**Admin** card, rather than five links into the deep end.
 
 `/admin` redirects to `/admin/sessions`. **There is no dashboard on purpose** —
 the first screen is the job that actually recurs, not a page of figures standing

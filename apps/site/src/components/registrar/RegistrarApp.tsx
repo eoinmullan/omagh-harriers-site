@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { phoneStore, rememberSection } from '../../lib/app/launch';
+import { sectionsFor } from '../../lib/app/sections';
 import { mayRunASession, roleClaimIsMissing, roleFromAccessToken } from '../../lib/training/registrar';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
 import { NotForYou } from './NotForYou';
 import { RolesNotArriving } from './RolesNotArriving';
+import { HeldSections } from './SectionSwitcher';
 import { SessionPicker } from './SessionPicker';
 import { SignedOut } from './SignedOut';
 import { Screen } from './ui';
@@ -49,6 +52,16 @@ export function RegistrarApp() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const role = session ? roleFromAccessToken(session.access_token) : undefined;
+  const held = useMemo(() => sectionsFor(role), [role]);
+
+  // The Harriers icon opens the section used last (lib/app/launch.ts).
+  // Remembered once the app knows this login may register, so a member who
+  // wanders in isn't sent back here.
+  useEffect(() => {
+    if (mayRunASession(role)) rememberSection(phoneStore, 'registration', held.map((section) => section.key));
+  }, [role, held]);
+
   if (session === undefined) {
     return (
       <Screen>
@@ -59,7 +72,7 @@ export function RegistrarApp() {
 
   if (session === null) return <SignedOut />;
 
-  if (!mayRunASession(roleFromAccessToken(session.access_token))) {
+  if (!mayRunASession(role)) {
     // No role at all is a broken access-token hook, not a member. Saying
     // "you're a member" would send a real registrar to an admin who'd find
     // nothing wrong.
@@ -73,5 +86,9 @@ export function RegistrarApp() {
   // Passed down rather than re-fetched: any auth call inside the night's load
   // can hang on a token refresh when the network is dead, and take the whole
   // screen with it.
-  return <SessionPicker authUserId={session.user.id} outbox={outbox} />;
+  return (
+    <HeldSections.Provider value={held}>
+      <SessionPicker authUserId={session.user.id} outbox={outbox} />
+    </HeldSections.Provider>
+  );
 }

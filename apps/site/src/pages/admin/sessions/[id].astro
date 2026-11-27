@@ -399,7 +399,7 @@ const hasStarted = session.starts_at <= new Date().toISOString();
   <Section
     title="Cash taken"
     count={money.length}
-    description="A guest's payment is on their own row above rather than here: they hold no credit for it to go into."
+    description="Cash households paid in, or were handed back, at this session. A guest's cash is on their row in Who was here."
   >
     {money.length > 0 ? (
       <ResourceTable>
@@ -436,8 +436,8 @@ const hasStarted = session.starts_at <= new Date().toISOString();
       <p class="text-gray-500 text-sm">No cash was recorded at this session.</p>
     )}
     <p class="text-xs text-gray-400 mt-3">
-      Session charges are left out of the total, since they move credit out of a household's pot rather than money into
-      the tin.
+      Sessions paid for from a household's training credit aren't counted in Money collected, because no cash changes
+      hands for them.
     </p>
   </Section>
 

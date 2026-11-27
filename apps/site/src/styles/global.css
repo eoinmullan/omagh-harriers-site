@@ -348,6 +348,12 @@
     flex: 1;
   }
 
+  /* Room at the end of a page with a floating button, so the button never
+     sits over the last line of it. */
+  body:has(.admin-fab) main {
+    padding-bottom: 2.5rem;
+  }
+
   /* Room under the page for the admin tab bar and the iPhone's home bar. */
   body:has(.admin-tabbar) {
     padding-bottom: calc(4rem + env(safe-area-inset-bottom));

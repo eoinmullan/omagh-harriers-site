@@ -985,9 +985,10 @@ they are today, and the registrar stays phone-shaped.
   admin's "Your own account" in More
 - **What you see depends on what you hold.** A member with no tools sees no
   switcher at all. One tool: Home and that tool. Two or three: the same sheet,
-  longer. On Home each tool is also a card with a line worth reading
-  ("Registration: Tuesday Seniors at 18:00 tonight", "Admin: 7 households
-  overdrawn")
+  longer. In a browser, Home also shows each tool as a card with a line worth
+  reading ("Today: Middle Distance at 18:45.", "7 households are
+  overdrawn."). In the app the switcher already lists them, so the cards are
+  hidden there (27 Nov 2026)
 - **The icon opens the section you last used**, so a registrar lands on
   Registration and an admin on Admin. Home the first time
 - **Opening must work with no signal.** Home and admin are drawn by the server
@@ -1002,7 +1003,7 @@ they are today, and the registrar stays phone-shaped.
 - [x] Launch page (`/app/`), prerendered, with its worker: last section used, the offline rule above, Home on first launch
 - [x] In the app, hide the public site's header and footer (`display-mode: standalone`, and `navigator.standalone` on iOS): their links are for visitors
 - [x] The section switcher, built from what the person holds (`accessOf` in `lib/auth/roles.ts`), hidden for a member with no tools
-- [x] Home: balance and household first, then a card for each tool held
+- [x] Home: balance and household first, then a card for each tool held, in a browser only
 - [x] An "Add it to your home screen" guide in the members' area: Share → Add to Home Screen on an iPhone (reuse the registrar's `InstallHint`), the browser's own install prompt on Android
 - [x] Fold the registrar in: the switcher in its header, and the move from its own manifest to the club app's. Icons already installed keep working until they're replaced
 - [x] Admin as a section: the switcher on its main screens, in place of "Your own account" in More

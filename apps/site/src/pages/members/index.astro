@@ -159,8 +159,10 @@ if (holdsAdmin) {
       </div>
     </section>
 
+    {/* In the app the section switcher already lists the tools, so these cards
+        are for the browser only. */}
     {(holdsRegistration || holdsAdmin) && (
-      <section class="mt-8 sm:mt-10">
+      <section class="browser-only mt-8 sm:mt-10">
         <h2 class="text-lg font-semibold mb-3">Helping out</h2>
         <ul class="-mx-4 sm:mx-0 border-y border-gray-200 sm:border sm:rounded-lg divide-y divide-gray-200 bg-white">
           {holdsRegistration && (

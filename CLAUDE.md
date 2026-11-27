@@ -143,8 +143,10 @@ from an icon, at the same addresses: **Home** (`/members`), **Registration**
   account", and shows only in the app and only to somebody with a tool.
   `components/app/SectionSwitcher.astro` draws it for the server pages,
   `components/registrar/SectionSwitcher.tsx` on the registrar's today list
-- **Home's cards say something** (`lib/app/home-cards.ts`): today's sessions
-  for Registration, how many households are overdrawn for Admin. Home offers
+- **Home's tool cards are for the browser only.** In the app the switcher
+  already lists the tools, so the cards would say it twice. In a browser each
+  says something (`lib/app/home-cards.ts`): today's sessions for Registration,
+  how many households are overdrawn for Admin. Home offers
   to install the app on a phone (`lib/app/install.ts`), Share → Add to Home
   Screen on an iPhone, the browser's own prompt elsewhere
 - **The registrar's old manifest stays** (`public/registrar/manifest-v2.webmanifest`)

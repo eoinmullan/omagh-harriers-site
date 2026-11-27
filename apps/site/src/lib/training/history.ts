@@ -7,7 +7,20 @@ export interface AttendedSession {
   sessionId: string;
   startsAt: string;
   squad: string;
-  pricePence: number;
+  /** What the household was charged for it: 0 at a free session, or for a member who trains free. */
+  chargedPence: number;
+}
+
+/**
+ * What each sign-in cost, by attendance id, from the member's session debits.
+ * A sign-in with no debit cost nothing, so it's absent and reads as 0.
+ */
+export function chargesBySignIn(debits: { idempotency_key: string; amount_pence: number }[]): Map<string, number> {
+  return new Map(
+    debits
+      .filter((debit) => debit.idempotency_key.startsWith('session:'))
+      .map((debit) => [debit.idempotency_key.slice('session:'.length), -debit.amount_pence]),
+  );
 }
 
 export const HISTORY_SHOWN = 20;

@@ -753,6 +753,21 @@ branches on the price rather than inserting the pair unconditionally. Nothing wa
 taken, so an untick gives nothing back. A guest at a free session has
 `amount_paid_pence` NULL, not 0.
 
+**A member who trains free is the same, for one runner** (`members.trains_free`,
+migration `0025`). Coaches, life members, whoever the committee decides. It's a
+setting on the member, not the household, because siblings can differ, and it
+carries a short reason (`trains_free_reason`, allowed only while it's on).
+`sign_in_member` writes the attendance and no debit, so the untick and the
+`attendance_keeps_its_money` trigger need nothing new. Turning it off charges
+from the next sign-in. Any admin sets it on `/admin/members/[id]`
+(`planFreeTraining` in `people.ts`): it's a money decision like the ledger
+forms, not an identity edit. The registrar app shows **∞** where the balance
+would be, with no warning colour and no cash cell, and prices the tap at 0
+(`priceFor` in `usuals.ts`) so the household's balance doesn't move. The
+printed sheet shows ∞ too. A member's training history reads what each
+sign-in actually cost from its debit (`chargesBySignIn`), not the session's
+price.
+
 `groups` are the squads the club trains in, and `member_groups` is what makes
 the registrar's Usuals list useful before any attendance history exists.
 Retiring a group is `is_active = false`; nothing is ever deleted.
@@ -994,7 +1009,7 @@ rename a group or re-price a session.
 decide which columns, for every login alike. Through anything but the service
 role, `principals` exposes only `id, auth_user_id, display_name, role,
 is_active, terms_accepted_at`, and `members` only `id, principal_id,
-first_name, surname, is_active`. A registrar can read every name in the club
+first_name, surname, is_active, trains_free`. A registrar can read every name in the club
 and no date of birth, gender, Athletics NI number or email. A page that needs a
 hidden column reads it with the service role, scoped to the signed-in
 principal; `members/index.astro` does this for a member's own children.

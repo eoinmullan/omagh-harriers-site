@@ -12,6 +12,21 @@ export interface RosterMember {
   firstName: string;
   surname: string;
   principalId: string;
+  /**
+   * Signs in without being charged (migration 0025). Optional because a
+   * snapshot taken before it existed has no such field, and that reads as
+   * paying, which is what everybody was then.
+   */
+  trainsFree?: boolean;
+}
+
+/**
+ * What tonight costs this runner's household: the session's price, or
+ * nothing for somebody who trains free. The tick's optimistic balance moves by
+ * this, matching what `sign_in_member` will charge.
+ */
+export function priceFor(member: RosterMember, sessionPricePence: number): number {
+  return member.trainsFree ? 0 : sessionPricePence;
 }
 
 /**

@@ -66,6 +66,8 @@ export type MemberRow = {
   is_active: boolean;
   source: RecordSource;
   last_seen_in_klubfunder_at: string | null;
+  trains_free: boolean;
+  trains_free_reason: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -83,6 +85,8 @@ export type MemberInsert = {
   is_active?: boolean;
   source?: RecordSource;
   last_seen_in_klubfunder_at?: string | null;
+  trains_free?: boolean;
+  trains_free_reason?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -100,6 +104,8 @@ export type MemberUpdate = {
   is_active?: boolean;
   source?: RecordSource;
   last_seen_in_klubfunder_at?: string | null;
+  trains_free?: boolean;
+  trains_free_reason?: string | null;
   created_at?: string;
   updated_at?: string;
 };

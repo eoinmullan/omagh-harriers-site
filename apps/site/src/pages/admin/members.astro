@@ -73,7 +73,7 @@ success = takeFlash(Astro.cookies);
 
 const members = orThrow(await adminClient
   .from('members')
-  .select('id, first_name, surname, date_of_birth, status, is_active, principal_id')
+  .select('id, first_name, surname, date_of_birth, status, is_active, principal_id, trains_free')
   .order('surname'));
 
 const principals = orThrow(await adminClient
@@ -210,7 +210,10 @@ function tagsOf(m: { id: string; date_of_birth: string; is_active: boolean }): s
             data-tags={tagsOf(m)}
             class:list={[!m.is_active && 'is-muted']}
           >
-            <td class="cell-primary"><a href={`/admin/members/${m.id}`} class="row-link">{m.first_name} {m.surname}</a></td>
+            <td class="cell-primary">
+              <a href={`/admin/members/${m.id}`} class="row-link">{m.first_name} {m.surname}</a>
+              {m.trains_free && <Pill tone="amber">Trains free</Pill>}
+            </td>
             <td class="mobile-only cell-secondary">
               Age {ageOn(m.date_of_birth, today)}{p && ` · ${p.display_name}`}{squads.length > 0 && ` · ${squads.join(', ')}`}
             </td>

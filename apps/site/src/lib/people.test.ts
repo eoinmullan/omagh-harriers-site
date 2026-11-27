@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { ageOn, isJunior, planDisplayName, planHousehold, planMember, planMemberEdit } from './people';
+import {
+  ageOn,
+  FREE_TRAINING_REASON_MAX,
+  isJunior,
+  planDisplayName,
+  planFreeTraining,
+  planHousehold,
+  planMember,
+  planMemberEdit,
+} from './people';
 
 const TODAY = '2026-11-20';
 
@@ -139,6 +148,32 @@ describe('planDisplayName', () => {
 
   it('refuses a blank one', () => {
     expect(planDisplayName('   ')).toEqual({ problem: 'Display name is required.' });
+  });
+});
+
+describe('planFreeTraining', () => {
+  it('turns it on with the reason tidied', () => {
+    const plan = planFreeTraining({ trainsFree: 'yes', reason: '  Life   member ' });
+
+    expect(plan).toEqual({ update: { trains_free: true, trains_free_reason: 'Life member' } });
+  });
+
+  it('asks for a reason when it is turned on without one', () => {
+    const plan = planFreeTraining({ trainsFree: 'yes', reason: '  ' });
+
+    expect(plan).toEqual({ problem: 'Say why they train free, such as Coach or Life member.' });
+  });
+
+  it('refuses a reason too long to be a label', () => {
+    const plan = planFreeTraining({ trainsFree: 'yes', reason: 'x'.repeat(FREE_TRAINING_REASON_MAX + 1) });
+
+    expect(plan).toEqual({ problem: expect.stringContaining(`${FREE_TRAINING_REASON_MAX} characters`) });
+  });
+
+  it('turns it off and clears the reason, whatever was typed', () => {
+    const plan = planFreeTraining({ trainsFree: 'no', reason: 'Coach' });
+
+    expect(plan).toEqual({ update: { trains_free: false, trains_free_reason: null } });
   });
 });
 

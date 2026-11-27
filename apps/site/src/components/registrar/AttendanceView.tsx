@@ -10,6 +10,7 @@ import {
 } from '../../lib/training/cash';
 import {
   householdsThatPaid,
+  priceFor,
   rosterToShow,
   usualsFor,
   type RosterMember,
@@ -128,7 +129,7 @@ export function AttendanceView({
           Promise.all([
             supabase
               .from('members')
-              .select('id, first_name, surname, principal_id, principal:principal_id(display_name)')
+              .select('id, first_name, surname, principal_id, trains_free, principal:principal_id(display_name)')
               .eq('is_active', true),
             supabase.from('principal_balances').select('principal_id, balance_pence'),
             supabase.from('member_groups').select('member_id').eq('group_id', session.groupId),
@@ -177,6 +178,7 @@ export function AttendanceView({
         first_name: string;
         surname: string;
         principal_id: string;
+        trains_free: boolean;
         principal: { display_name: string } | null;
       };
 
@@ -196,6 +198,7 @@ export function AttendanceView({
           firstName: row.first_name,
           surname: row.surname,
           principalId: row.principal_id,
+          trainsFree: row.trains_free,
         });
         if (!households.has(row.principal_id)) {
           households.set(row.principal_id, {
@@ -515,7 +518,7 @@ export function AttendanceView({
       memberId: member.id,
       principalId: member.principalId,
       wasHere,
-      pricePence: session.pricePence,
+      pricePence: priceFor(member, session.pricePence),
     };
 
     setProblem(null);

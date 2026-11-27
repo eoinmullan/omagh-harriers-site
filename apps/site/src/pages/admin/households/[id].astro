@@ -80,7 +80,7 @@ async function loadLedgerHousehold(principalId: string) {
 async function loadMembers(principalId: string) {
   const data = orThrow(await adminClient
     .from('members')
-    .select('id, first_name, surname, date_of_birth, status, is_active, gender')
+    .select('id, first_name, surname, date_of_birth, status, is_active, gender, trains_free')
     .eq('principal_id', principalId)
     .order('surname')
     .order('first_name'));
@@ -397,7 +397,10 @@ const reopenDialog = error ? DIALOG_FOR_ACTION[postedAction] : undefined;
         <tbody>
           {members.map((m) => (
             <tr data-href={`/admin/members/${m.id}`} class:list={[!m.is_active && 'is-muted']}>
-              <td class="cell-primary"><a href={`/admin/members/${m.id}`} class="row-link">{m.first_name} {m.surname}</a></td>
+              <td class="cell-primary">
+                <a href={`/admin/members/${m.id}`} class="row-link">{m.first_name} {m.surname}</a>
+                {m.trains_free && <Pill tone="amber">Trains free</Pill>}
+              </td>
               <td class="mobile-only cell-secondary">{formatDob(m.date_of_birth)}{m.gender && ` · ${m.gender}`}</td>
               <td class="mobile-only cell-trailing">{m.status !== 'paid' && <Pill tone="gray">Lapsed</Pill>}</td>
               <td class="text-gray-600">{formatDob(m.date_of_birth)}</td>

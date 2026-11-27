@@ -31,7 +31,10 @@ export function RunnerRow({
   onToggle: () => void;
   onCash: () => void;
 }) {
-  const tone = household ? balanceTone(household.balancePence, pricePence) : 'credit';
+  // Somebody who trains free has no balance to watch: ∞ stands in for it, with
+  // no warning colour and no cash cell, so the registrar never asks them for
+  // money. A screen reader hears "trains free" instead of the symbol.
+  const tone = household && !member.trainsFree ? balanceTone(household.balancePence, pricePence) : 'credit';
   const spokenTone = toneWords(tone);
   const balanceId = useId();
 
@@ -84,7 +87,14 @@ export function RunnerRow({
           </span>
           {household && (
             <span id={balanceId} className={`block truncate text-sm ${tones[tone]}`}>
-              {formatBalance(household.balancePence)}
+              {member.trainsFree ? (
+                <>
+                  <span aria-hidden="true" className="text-base font-semibold text-neutral-200">∞</span>
+                  <span className="sr-only">trains free</span>
+                </>
+              ) : (
+                formatBalance(household.balancePence)
+              )}
               {spokenTone && <span className="sr-only"> {spokenTone}</span>}
               {householdNameToShow(member, household.name) && ` · ${household.name}`}
             </span>
@@ -92,29 +102,33 @@ export function RunnerRow({
         </span>
       </button>
 
-      <button
-        type="button"
-        onClick={onCash}
-        aria-label={
-          cashPence > 0
-            ? `Cash from ${household?.name ?? 'this household'}: ${cashLabel(cashPence)}`
-            : `Take cash from ${household?.name ?? 'this household'}`
-        }
-        className={`flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-neutral-800 leading-none active:bg-neutral-800 ${
-          cashPence > 0 ? 'bg-amber/10' : ''
-        }`}
-      >
-        {cashPence > 0 ? (
-          <>
-            <span className="text-base font-bold text-amber">{cashLabel(cashPence)}</span>
-            <span className="mt-1 block text-[11px] tracking-wider text-neutral-400 uppercase">
-              added
-            </span>
-          </>
-        ) : (
-          <span className="text-sm text-neutral-400">+&nbsp;£</span>
-        )}
-      </button>
+      {member.trainsFree ? (
+        <span aria-hidden="true" className="w-[72px] shrink-0 border-l border-neutral-800" />
+      ) : (
+        <button
+          type="button"
+          onClick={onCash}
+          aria-label={
+            cashPence > 0
+              ? `Cash from ${household?.name ?? 'this household'}: ${cashLabel(cashPence)}`
+              : `Take cash from ${household?.name ?? 'this household'}`
+          }
+          className={`flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-neutral-800 leading-none active:bg-neutral-800 ${
+            cashPence > 0 ? 'bg-amber/10' : ''
+          }`}
+        >
+          {cashPence > 0 ? (
+            <>
+              <span className="text-base font-bold text-amber">{cashLabel(cashPence)}</span>
+              <span className="mt-1 block text-[11px] tracking-wider text-neutral-400 uppercase">
+                added
+              </span>
+            </>
+          ) : (
+            <span className="text-sm text-neutral-400">+&nbsp;£</span>
+          )}
+        </button>
+      )}
     </li>
   );
 }

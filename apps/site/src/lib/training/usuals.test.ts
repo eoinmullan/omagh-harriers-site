@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { balanceTone, bySurname, rosterToShow, toneWords, usualsFor, type RosterMember,
+import { balanceTone, bySurname, priceFor, rosterToShow, toneWords, usualsFor, type RosterMember,
   householdNameToShow,
   householdsThatPaid,
 } from './usuals';
@@ -235,5 +235,27 @@ describe('householdNameToShow', () => {
 
   it('treats a different case as the same person', () => {
     expect(householdNameToShow(phil, 'phil adams')).toBeUndefined();
+  });
+});
+
+describe('priceFor', () => {
+  const runner = { id: 'm-1', firstName: 'Jack', surname: 'Kelly', principalId: 'p-1' };
+
+  it('charges the session price to somebody who pays', () => {
+    const price = priceFor({ ...runner, trainsFree: false }, 200);
+
+    expect(price).toBe(200);
+  });
+
+  it('charges nothing to somebody who trains free', () => {
+    const price = priceFor({ ...runner, trainsFree: true }, 200);
+
+    expect(price).toBe(0);
+  });
+
+  it('charges a runner from an older snapshot, which has no setting, as paying', () => {
+    const price = priceFor(runner, 200);
+
+    expect(price).toBe(200);
   });
 });

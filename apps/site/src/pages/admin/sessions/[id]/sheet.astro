@@ -40,7 +40,7 @@ const expected = new Set((membership ?? []).map((row) => row.member_id));
 
 const memberRows = orThrow(await admin
   .from('members')
-  .select('id, first_name, surname, principal_id, principal:principal_id(display_name)')
+  .select('id, first_name, surname, principal_id, trains_free, principal:principal_id(display_name)')
   .eq('is_active', true));
 
 type MemberRow = {
@@ -48,6 +48,7 @@ type MemberRow = {
   first_name: string;
   surname: string;
   principal_id: string;
+  trains_free: boolean;
   principal: { display_name: string } | null;
 };
 
@@ -68,6 +69,7 @@ const roster: (RosterMember & { householdName: string; balancePence: number })[]
     firstName: row.first_name,
     surname: row.surname,
     principalId: row.principal_id,
+    trainsFree: row.trains_free,
     householdName: row.principal?.display_name ?? '',
     balancePence: balances.get(row.principal_id) ?? 0,
   }))
@@ -96,6 +98,7 @@ const spareLines = Array.from({ length: 8 });
           {` · ${formatPounds(session.price_pence)} a runner`}
         </p>
         {session.note && <p class="session-note">{session.note}</p>}
+        {roster.some((member) => member.trainsFree) && <p class="key">∞ trains free: nothing to pay or collect.</p>}
         {session.is_cancelled && <p class="cancelled">This session is cancelled.</p>}
       </header>
 
@@ -124,8 +127,17 @@ const spareLines = Array.from({ length: 8 });
                   <strong>{member.surname.toUpperCase()}</strong>, {member.firstName}
                 </td>
                 <td class="household">{member.householdName}</td>
-                <td class="money">{formatPounds(member.balancePence)}</td>
-                <td class="money write" />
+                {member.trainsFree ? (
+                  <>
+                    <td class="money">∞</td>
+                    <td class="money" />
+                  </>
+                ) : (
+                  <>
+                    <td class="money">{formatPounds(member.balancePence)}</td>
+                    <td class="money write" />
+                  </>
+                )}
               </tr>
             ))
           }
@@ -167,6 +179,7 @@ const spareLines = Array.from({ length: 8 });
       .when { margin: 0.25rem 0 0; font-size: 0.95rem; }
       .cancelled { margin: 0.5rem 0 0; font-weight: 700; }
       .session-note { margin: 0.4rem 0 0; font-size: 0.95rem; font-weight: 600; }
+      .key { margin: 0.3rem 0 0; font-size: 0.85rem; }
 
       .note {
         margin: 1rem 0;

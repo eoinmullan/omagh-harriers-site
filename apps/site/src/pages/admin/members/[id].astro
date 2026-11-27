@@ -2,14 +2,14 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { nudgeTheRegistrarApp } from '../../../lib/training/admin-nudge';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
-import { ageOn, planMemberEdit } from '../../../lib/people';
+import { ageOn, FREE_TRAINING_REASON_MAX, planFreeTraining, planMemberEdit } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
 import { orThrow } from '../../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../../lib/auth/signed-in';
 import { everyRow } from '../../../lib/supabase/every-row';
 import { formatClubDateTime } from '../../../lib/training/club-time';
 import { formatPounds } from '../../../lib/credits/money';
-import { recentAttendance } from '../../../lib/training/history';
+import { chargesBySignIn, recentAttendance } from '../../../lib/training/history';
 import RecordHeader from '../../../components/admin/RecordHeader.astro';
 import Figure from '../../../components/admin/Figure.astro';
 import Flash from '../../../components/admin/Flash.astro';
@@ -35,13 +35,29 @@ const isSuperuser = actingPrincipal.role === 'superuser';
 let error: string | null = null;
 let success: string | null = null;
 let failedAction: string | null = null;
+let typedFreeTraining: { trainsFree: boolean; reason: string } | undefined;
 
-if (Astro.request.method === 'POST' && isSuperuser) {
+// Free training is a money decision, like the ledger forms on a household,
+// so any admin may make it. The rest of this page edits who the member is,
+// which is a superuser's.
+if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const action = formData.get('action') as string;
   const field = (name: string) => ((formData.get(name) as string) ?? '').toString();
 
-  if (action === 'update') {
+  if (action === 'free_training') {
+    typedFreeTraining = { trainsFree: field('trains_free') === 'yes', reason: field('trains_free_reason') };
+    const plan = planFreeTraining({ trainsFree: field('trains_free'), reason: field('trains_free_reason') });
+    if ('problem' in plan) {
+      error = plan.problem;
+    } else {
+      const { error: e } = await adminClient.from('members').update(plan.update).eq('id', id);
+      if (e) error = e.message;
+      else success = plan.update.trains_free ? 'They now train free.' : 'They now pay for sessions.';
+    }
+  } else if (!isSuperuser) {
+    error = 'Only a superuser can change that.';
+  } else if (action === 'update') {
     const plan = planMemberEdit(
       {
         firstName: field('first_name'),
@@ -114,6 +130,17 @@ const attendanceRows = await everyRow((from, to) =>
     .range(from, to),
 );
 
+const sessionDebits = await everyRow((from, to) =>
+  adminClient
+    .from('credit_transactions')
+    .select('idempotency_key, amount_pence')
+    .eq('member_id', member.id)
+    .eq('type', 'session')
+    .order('id')
+    .range(from, to),
+);
+const charges = chargesBySignIn(sessionDebits);
+
 const squadRows = orThrow(await adminClient
   .from('member_groups')
   .select('group:group_id(id, name, is_active)')
@@ -134,6 +161,12 @@ type AttendanceWithSession = {
   session: { id: string; starts_at: string; price_pence: number; group: { name: string } | null } | null;
 };
 
+// A refused form opens again with what was chosen, not what's stored.
+const freeTrainingForm = typedFreeTraining ?? {
+  trainsFree: member.trains_free,
+  reason: member.trains_free_reason ?? '',
+};
+
 const history = recentAttendance(
   (attendanceRows satisfies AttendanceWithSession[]).flatMap((row) =>
     row.session
@@ -141,7 +174,7 @@ const history = recentAttendance(
           sessionId: row.session.id,
           startsAt: row.session.starts_at,
           squad: row.session.group?.name ?? 'Session',
-          pricePence: row.session.price_pence,
+          chargedPence: charges.get(row.id) ?? 0,
         }]
       : [],
   ),
@@ -149,12 +182,13 @@ const history = recentAttendance(
 ---
 
 <AdminLayout section="members" title={`${member.first_name} ${member.surname}`} breadcrumb={[{ label: 'Members', href: '/admin/members' }, { label: `${member.first_name} ${member.surname}` }]}>
-  <Flash success={success} error={failedAction === 'update' ? null : error} />
+  <Flash success={success} error={failedAction === 'update' || failedAction === 'free_training' ? null : error} />
 
   <RecordHeader title={`${member.first_name} ${member.surname}`}>
     <Fragment slot="pills">
       {member.status === 'paid' ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Lapsed</Pill>}
       {!member.is_active && <Pill tone="gray">Inactive</Pill>}
+      {member.trains_free && <Pill tone="amber">Trains free</Pill>}
     </Fragment>
     {principal && (
       <p>
@@ -191,6 +225,14 @@ const history = recentAttendance(
         {principal && (
           <a slot="action" href={`/admin/households/${principal.id}#credit`} class="btn-link text-sm">Statement</a>
         )}
+      </SummaryRow>
+      <SummaryRow label="Sessions">
+        {member.trains_free ? (
+          <>Trains free <span class="text-gray-500">· {member.trains_free_reason}</span></>
+        ) : (
+          "Paid from the household's credit"
+        )}
+        <button slot="action" type="button" data-open-dialog="free-training" class="btn-link text-sm">Change</button>
       </SummaryRow>
       <SummaryRow label="Source">{member.source}</SummaryRow>
       <SummaryRow label="Status">
@@ -242,7 +284,7 @@ const history = recentAttendance(
             <tr>
               <th>Session</th>
               <th>When</th>
-              <th class="num">Price</th>
+              <th class="num">Charged</th>
               <th><span class="sr-only">Open</span></th>
             </tr>
           </thead>
@@ -251,7 +293,7 @@ const history = recentAttendance(
               <tr data-href={`/admin/sessions/${session.sessionId}`}>
                 <td class="cell-primary"><a href={`/admin/sessions/${session.sessionId}`} class="row-link">{session.squad}</a></td>
                 <td class="cell-secondary text-gray-600 whitespace-nowrap">{formatClubDateTime(session.startsAt)}</td>
-                <td class="num cell-trailing">{session.pricePence === 0 ? 'Free' : formatPounds(session.pricePence)}</td>
+                <td class="num cell-trailing">{session.chargedPence === 0 ? 'Free' : formatPounds(session.chargedPence)}</td>
                 <td class="row-chevron" aria-hidden="true"></td>
               </tr>
             ))}
@@ -277,6 +319,42 @@ const history = recentAttendance(
       </DangerAction>
     </DangerZone>
   )}
+
+  <FormDialog
+    id="free-training"
+    title="Sessions"
+    submitLabel="Save"
+    error={error}
+    reopen={failedAction === 'free_training'}
+  >
+    <input type="hidden" name="action" value="free_training" />
+    <fieldset class="space-y-1">
+      <legend class="sr-only">How their sessions are paid</legend>
+      <label class="flex items-center gap-3 min-h-11">
+        <input type="radio" name="trains_free" value="no" checked={!freeTrainingForm.trainsFree} class="h-5 w-5" />
+        <span>Paid from the household's credit</span>
+      </label>
+      <label class="flex items-center gap-3 min-h-11">
+        <input type="radio" name="trains_free" value="yes" checked={freeTrainingForm.trainsFree} class="h-5 w-5" />
+        <span>Trains free</span>
+      </label>
+    </fieldset>
+    <div>
+      <label class="field-label" for="trains-free-reason">Why they train free</label>
+      <input
+        id="trains-free-reason"
+        type="text"
+        name="trains_free_reason"
+        value={freeTrainingForm.reason}
+        maxlength={FREE_TRAINING_REASON_MAX}
+        placeholder="Coach, Life member…"
+        class="field"
+      />
+      <p class="text-xs text-gray-500 mt-1">
+        Their sign-ins are recorded and nothing is taken. Sessions already signed into keep what they cost.
+      </p>
+    </div>
+  </FormDialog>
 
   {isSuperuser && (
     <FormDialog id="edit-member" title="Edit details" submitLabel="Save changes" error={error} reopen={failedAction === 'update'} wide>

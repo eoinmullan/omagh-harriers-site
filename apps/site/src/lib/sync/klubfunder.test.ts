@@ -76,6 +76,8 @@ function member(overrides: Partial<MemberRow> = {}): MemberRow {
     is_active: true,
     source: 'klubfunder',
     last_seen_in_klubfunder_at: null,
+    trains_free: false,
+    trains_free_reason: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,

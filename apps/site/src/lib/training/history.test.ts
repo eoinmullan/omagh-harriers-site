@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { recentAttendance, type AttendedSession } from './history';
+import { chargesBySignIn, recentAttendance, type AttendedSession } from './history';
 
 function night(startsAt: string): AttendedSession {
-  return { sessionId: startsAt, startsAt, squad: 'Endurance', pricePence: 200 };
+  return { sessionId: startsAt, startsAt, squad: 'Endurance', chargedPence: 200 };
 }
 
 describe('recentAttendance', () => {
@@ -23,5 +23,25 @@ describe('recentAttendance', () => {
 
   it('is empty for somebody who has never trained', () => {
     expect(recentAttendance([])).toEqual({ shown: [], total: 0 });
+  });
+});
+
+describe('chargesBySignIn', () => {
+  it('reads what each sign-in cost from its session debit', () => {
+    const charges = chargesBySignIn([{ idempotency_key: 'session:att-1', amount_pence: -200 }]);
+
+    expect(charges.get('att-1')).toBe(200);
+  });
+
+  it('leaves out a sign-in nothing was taken for', () => {
+    const charges = chargesBySignIn([{ idempotency_key: 'session:att-1', amount_pence: -200 }]);
+
+    expect(charges.has('att-2')).toBe(false);
+  });
+
+  it('ignores rows that are not session debits', () => {
+    const charges = chargesBySignIn([{ idempotency_key: 'untick:att-1', amount_pence: 200 }]);
+
+    expect(charges.size).toBe(0);
   });
 });

@@ -986,6 +986,41 @@ they are today, and the registrar stays phone-shaped.
 
 ---
 
+## Phase 11 — Members who train free
+
+**Status: built 27 Nov 2026.** Agreed the same day.
+
+Some members don't pay for sessions: coaches, life members, whoever the
+committee decides. Today the only way to let somebody train free is a free
+session, which frees everybody in it, or an admin adjustment after every
+night.
+
+**It's a setting on the member, not the household.** Siblings in the same
+household can differ: one trains free, the other pays from the household's
+credit as before. It lasts until an admin turns it off, and it carries a short
+reason ("Coach", "Life member") so the next committee knows why.
+
+**A free member's sign-in is recorded and nothing is taken.** Their attendance
+counts like anybody's (the Usuals, the reports, their history), but no
+session debit is written, exactly as at a free session. So an untick has
+nothing to give back, and the `attendance_keeps_its_money` trigger lets the
+row go. Turning the setting off charges from the next sign-in; sessions
+already signed into stay free, because nothing was taken for them.
+
+**The registrar sees ∞ where the balance would be**, with no warning colour
+and no cash cell, so they never ask for money. A screen reader hears "trains
+free" rather than a figure.
+
+- [x] Migration (`0025`, applied): `members.trains_free` (default false) and `members.trains_free_reason`, a reason allowed only while it's on. `sign_in_member` writes no debit for a member who trains free. The registrar app reads `trains_free` (column grant), not the reason
+- [x] Rules in `lib/` (`planFreeTraining` in `people.ts`; `priceFor` in `usuals.ts` for the optimistic balance; `chargesBySignIn` in `training/history.ts`, so a member's history shows what each sign-in actually cost), unit tested
+- [x] Admin: a Change on the member's page to turn it on with a reason, or off. Any admin may: it's a money decision, like the ledger forms. Shown on the member's page, and as a badge in the Members list and on the household's members
+- [x] Registrar app: ∞ in place of the balance, no tone, no cash cell, "trains free" for a screen reader
+- [x] The printed sheet shows ∞ for them too, with a printed key
+- [x] The Klubfunder sync leaves both columns alone (it only writes the columns it names)
+- [x] Checked end to end in the dev server against the live database, with ZZ test data since removed: set on the admin page (and refused without a reason), ∞ in the app, a tick that wrote attendance and no ledger row, an untick the trigger allowed, the sheet and the history
+
+---
+
 ## Phase summary
 
 | Phase | What ships | Key dependency |
@@ -1001,3 +1036,4 @@ they are today, and the registrar stays phone-shaped.
 | 8 | Child safeguarding form, coach role, coach PWA, registrar warning, Ts&Cs update | Form contents (TBC), DPIA, committee approval of terms |
 | 9 | Sign in with a 6-digit code as well as the link, inside a home-screen app too (shipped; device checks to come) | Supabase email template |
 | 10 | One club app for everyone: section switcher, launch page that works offline, install guide | Phase 9 |
+| 11 | Members who train free: a member setting with a reason; sign-ins recorded, nothing charged, ∞ in the registrar app (built) | — |

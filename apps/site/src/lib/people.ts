@@ -65,6 +65,25 @@ export function planHousehold(request: {
   return { row: { email, display_name: name.displayName, source: 'manual', role: 'member' } };
 }
 
+export const FREE_TRAINING_REASON_MAX = 60;
+
+// Training free is a setting on the member, with a short reason so the next
+// committee knows why. Turning it off clears the reason, which the database
+// also insists on.
+export function planFreeTraining(request: {
+  trainsFree: string;
+  reason: string;
+}): Plan<'update', { trains_free: boolean; trains_free_reason: string | null }> {
+  if (request.trainsFree !== 'yes') return { update: { trains_free: false, trains_free_reason: null } };
+
+  const reason = request.reason.trim().replace(/\s+/g, ' ');
+  if (!reason) return { problem: 'Say why they train free, such as Coach or Life member.' };
+  if (reason.length > FREE_TRAINING_REASON_MAX) {
+    return { problem: `Keep the reason to ${FREE_TRAINING_REASON_MAX} characters. It's a label, not a note.` };
+  }
+  return { update: { trains_free: true, trains_free_reason: reason } };
+}
+
 export function planDisplayName(value: string): Plan<'displayName', string> {
   const displayName = value.trim();
   return displayName ? { displayName } : { problem: 'Display name is required.' };

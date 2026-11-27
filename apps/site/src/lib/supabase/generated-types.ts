@@ -313,6 +313,8 @@ export type Database = {
           source: string
           status: string
           surname: string
+          trains_free: boolean
+          trains_free_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -329,6 +331,8 @@ export type Database = {
           source?: string
           status?: string
           surname: string
+          trains_free?: boolean
+          trains_free_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -345,6 +349,8 @@ export type Database = {
           source?: string
           status?: string
           surname?: string
+          trains_free?: boolean
+          trains_free_reason?: string | null
           updated_at?: string
         }
         Relationships: [

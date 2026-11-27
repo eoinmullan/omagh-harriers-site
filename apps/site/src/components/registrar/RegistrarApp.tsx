@@ -13,10 +13,10 @@ import { useWriteQueue } from './useWriteQueue';
 
 // The whole route, as one island.
 //
-// There is no sign-in form here. The session is the site's own, in the same
-// cookies the members' area uses — which is the point of living on this origin
-// rather than a second one, and the only kind of session iOS copies into a home
-// screen app when it is added.
+// The session is the site's own, in the same cookies the members' area uses —
+// which is the point of living on this origin rather than a second one, and the
+// only kind of session iOS copies into a home screen app when it is added. If it
+// lapses, SignedOut signs the app back in with the code from the sign-in email.
 //
 // `undefined` is "we have not looked yet", which is a different screen from
 // `null`, "nobody is signed in". Collapsing the two flashes the signed-out

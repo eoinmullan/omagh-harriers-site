@@ -2,37 +2,55 @@
 import Layout from '../layouts/Layout.astro';
 import PageContainer from '../components/PageContainer.astro';
 import { providerForEmail, type OAuthProvider } from '../lib/auth/oauth-providers';
-import { createSupabaseAdminClientFromLocals } from '../lib/supabase/admin';
+import { whereToAfterSignIn } from '../lib/auth/after-sign-in';
+import { checkSignInCode, codeRefusedSentence, SIGN_IN_CODE_LENGTH } from '../lib/auth/sign-in-code';
+import { emailTheMember, sendSignInEmail, tidyEmail, whyNotThisMember } from '../lib/auth/sign-in-email';
+import { signInEmailSteps } from '../lib/auth/sign-in-email-steps';
 
 const INTENDED_EMAIL_COOKIE = 'oauth_intended_email';
 
-let linkSent = false;
+let codeEntryFor: string | undefined;
+let codeProblem: string | undefined;
 let enteredEmail = '';
 let errorMessage: string | undefined;
 let providerChoice: { email: string; provider: OAuthProvider } | undefined;
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
-  const email = formData.get('email')?.toString().trim().toLowerCase() ?? '';
-  const emailLinkRequested = formData.get('email_link') === 'true';
+  const email = tidyEmail(formData.get('email')?.toString() ?? '');
   const turnstileToken = formData.get('cf-turnstile-response')?.toString() ?? '';
+  const steps = signInEmailSteps(Astro);
   enteredEmail = email;
 
-  const captchaOk = await verifyCaptcha(turnstileToken);
-  if (!captchaOk) {
-    errorMessage = 'Please complete the security check and try again.';
+  if (formData.has('code')) {
+    codeEntryFor = email;
+    const check = checkSignInCode(formData.get('code')?.toString() ?? '');
+    if ('problem' in check) {
+      codeProblem = check.problem;
+    } else {
+      const { data, error } = await Astro.locals.supabase.auth.verifyOtp({
+        email,
+        token: check.code,
+        type: 'email',
+      });
+      if (error) console.error('[signin] verifyOtp failed:', error.status, error.code);
+      if (!error && data.user) return Astro.redirect(await whereToAfterSignIn(Astro.locals.supabase, data.user.id));
+      codeProblem = codeRefusedSentence({ status: error?.status, code: error?.code });
+    }
+  } else if (formData.get('email_link') === 'true') {
+    const outcome = await sendSignInEmail(steps, email, turnstileToken);
+    if (outcome.sent) codeEntryFor = outcome.email;
+    else errorMessage = outcome.problem;
   } else {
-    errorMessage = await membershipProblem(email);
+    errorMessage = await whyNotThisMember(steps, email, turnstileToken);
+    const provider = errorMessage ? undefined : providerForEmail(email, new Date());
 
-    if (!errorMessage) {
-      const provider = emailLinkRequested ? undefined : providerForEmail(email, new Date());
-
-      if (provider) {
-        providerChoice = { email, provider };
-      } else {
-        errorMessage = await sendSignInLink(email);
-        linkSent = !errorMessage;
-      }
+    if (provider) {
+      providerChoice = { email, provider };
+    } else if (!errorMessage) {
+      const outcome = await emailTheMember(steps, email);
+      if (outcome.sent) codeEntryFor = outcome.email;
+      else errorMessage = outcome.problem;
     }
   }
 }
@@ -47,61 +65,6 @@ if (providerChoice) {
   });
 } else {
   Astro.cookies.delete(INTENDED_EMAIL_COOKIE, { path: '/' });
-}
-
-async function membershipProblem(email: string): Promise<string | undefined> {
-  const admin = createSupabaseAdminClientFromLocals(Astro.locals);
-
-  const { data: principal, error } = await admin
-    .from('principals')
-    .select('id, is_active')
-    .eq('email', email)
-    .maybeSingle();
-
-  if (error) console.error('[signin] principals lookup failed:', error);
-  if (principal?.is_active) return undefined;
-
-  // Artificial delay so timing doesn't reveal whether the email exists.
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  return principal
-    ? 'Your membership is no longer active — please contact the committee.'
-    : "We couldn't find that email on our member list. Check it for typos, and check that it's the address you gave when you registered with the club on Klubfunder. If it still doesn't work, contact the committee.";
-}
-
-async function sendSignInLink(email: string): Promise<string | undefined> {
-  const { error } = await Astro.locals.supabase.auth.signInWithOtp({
-    email,
-    options: {
-      shouldCreateUser: false,
-      emailRedirectTo: new URL('/signin/callback', Astro.url).href,
-    },
-  });
-
-  if (!error) return undefined;
-
-  console.error('[signin] signInWithOtp failed:', error);
-  return error.status === 429
-    ? 'Too many sign-in attempts — please wait a few minutes and try again.'
-    : 'Something went wrong sending the sign-in link. Please try again.';
-}
-
-async function verifyCaptcha(token: string): Promise<boolean> {
-  if (import.meta.env.DEV) return true;
-  if (!import.meta.env.TURNSTILE_SECRET_KEY) return true;
-
-  const res = await fetch(
-    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        secret: import.meta.env.TURNSTILE_SECRET_KEY,
-        response: token,
-      }),
-    },
-  );
-  const { success } = (await res.json()) as { success: boolean };
-  return success;
 }
 
 const notRegisteredMessage =
@@ -132,14 +95,80 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
     </p>
 
     {
-      linkSent ? (
-        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-          <h2 class="font-semibold text-green-800 mb-1">Check your email</h2>
-          <p class="text-green-700 text-sm">
-            We've sent a sign-in link to your email address. Click the link in
-            the email to continue.
-          </p>
-        </div>
+      codeEntryFor ? (
+        <>
+          <div class="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+            <h2 class="font-semibold text-green-800 mb-1">Check your email</h2>
+            <p class="text-green-700 text-sm break-words">
+              We've sent an email to <strong>{codeEntryFor}</strong>. Click the link in it, or
+              type the {SIGN_IN_CODE_LENGTH}-digit code from it here.
+            </p>
+          </div>
+
+          {codeProblem && (
+            <div role="alert" class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm mb-6">
+              {codeProblem}
+            </div>
+          )}
+
+          <form method="POST" class="space-y-4" data-busy-button="code">
+            <input type="hidden" name="email" value={codeEntryFor} />
+            <div>
+              <label for="code" class="block text-sm font-medium text-gray-700 mb-1">
+                Sign-in code
+              </label>
+              <input
+                id="code"
+                name="code"
+                type="text"
+                required
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength={SIGN_IN_CODE_LENGTH + 3}
+                autofocus
+                class="w-full px-3 py-2 border border-gray-300 rounded-md text-2xl tracking-[0.3em] font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+
+            <button
+              id="code-btn"
+              type="submit"
+              data-idle-label="Sign in"
+              data-busy-label="Checking…"
+              class="w-full min-h-11 bg-black text-yellow font-semibold py-2 px-4 rounded-md hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <svg id="code-spinner" class="hidden animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              <span id="code-btn-label">Sign in</span>
+            </button>
+          </form>
+
+          <form method="POST" class="mt-6 space-y-3" data-busy-button="resend">
+            <input type="hidden" name="email" value={codeEntryFor} />
+            <input type="hidden" name="email_link" value="true" />
+
+            {siteKey && <div class="cf-turnstile" data-sitekey={siteKey} data-theme="light" />}
+
+            <button
+              id="resend-btn"
+              type="submit"
+              data-idle-label="Send another"
+              data-busy-label="Sending…"
+              class="w-full min-h-11 border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <svg id="resend-spinner" class="hidden animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              <span id="resend-btn-label">Send another</span>
+            </button>
+            <p class="text-sm text-gray-500">
+              Wrong address? <a href="/signin" class="underline hover:text-gray-800">Start again</a>.
+            </p>
+          </form>
+        </>
       ) : (
         <>
           {(errorMessage || urlErrorMessage) && (
@@ -198,7 +227,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
                 </div>
               </div>
 
-              <form method="POST" class="space-y-4">
+              <form method="POST" class="space-y-4" data-busy-button="signin">
                 <input type="hidden" name="email" value={providerChoice.email} />
                 <input type="hidden" name="email_link" value="true" />
 
@@ -220,7 +249,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
               </form>
             </>
           ) : (
-            <form method="POST" class="space-y-4">
+            <form method="POST" class="space-y-4" data-busy-button="signin">
               <div>
                 <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
                   Membership email address
@@ -284,7 +313,9 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
       if (label && text) label.textContent = text;
     }
 
-    document.querySelector('form')?.addEventListener('submit', () => setButtonBusy('signin', true));
+    for (const form of document.querySelectorAll<HTMLFormElement>('form[data-busy-button]')) {
+      form.addEventListener('submit', () => setButtonBusy(form.dataset.busyButton!, true));
+    }
 
     const providerButton = document.getElementById('provider-btn') as HTMLButtonElement | null;
 
@@ -310,8 +341,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
     // Coming back from the provider restores the page from the back/forward
     // cache mid-redirect, spinner and all, so settle the buttons on arrival.
     window.addEventListener('pageshow', () => {
-      setButtonBusy('signin', false);
-      setButtonBusy('provider', false);
+      for (const name of ['signin', 'code', 'resend', 'provider']) setButtonBusy(name, false);
     });
   </script>
 </Layout>

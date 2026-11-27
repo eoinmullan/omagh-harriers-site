@@ -191,8 +191,7 @@ neutrals for everything else.
 - **Back never leaves the app for the website** (`useStayInTheApp`). Opened
   from its icon the app is first in its window's history, so back from
   today's list closes it. But it can start with website pages behind it:
-  tapped from the members' area in a browser, or in the installed app after
-  **Go to sign in** took a lapsed registrar through the sign-in pages. So
+  tapped from the members' area in a browser. So
   when it starts on today's list with history behind it, the entry it
   arrived on becomes a guard under today's list, and back from today lands on
   the guard and steps forward again. With nothing behind, there's no guard
@@ -442,10 +441,13 @@ A screen restored from a snapshot says so in amber, naming the time it was
 taken rather than an age — "4 minutes ago" goes stale while it is being read.
 Coming back online reloads rather than leaving the registrar on a stale screen.
 
-Two platform facts the screens have to state out loud: a sign-in link tapped in
-Mail opens Safari rather than the installed iOS app, so a lapsed session there is
-recovered by deleting the icon and re-adding it; and Safari has no install
-prompt, so iOS gets a written hint where Chrome gets `beforeinstallprompt`.
+A sign-in link tapped in Mail opens Safari rather than the installed iOS app,
+so **a lapsed session is recovered inside the app, with the code from the
+sign-in email** (`SignedOut.tsx`, see *Sign-in flow*). The app sends the
+email itself and verifies the code through the browser client, so the
+session lands in the app's own cookies and nothing navigates out of
+`/registrar/`. Safari has no install prompt, so iOS gets a written hint where
+Chrome gets `beforeinstallprompt`.
 
 ## The paper fallback
 
@@ -1048,6 +1050,32 @@ round trip. `/signin/callback` refuses the sign-in if the provider returns a
 different address, which is what happens when a member's Klubfunder email is a
 secondary alias on their Microsoft account. Without that check they are quietly
 signed in as whichever principal owns the primary address.
+
+**The sign-in email carries a code as well as the link** (Phase 9). Either
+signs the person in. The code is for anybody reading their email somewhere
+else, and above all for an iPhone home-screen app, which the link can't reach.
+`/signin` shows a box for it once the email is sent, and the registrar app
+asks for it on its signed-out screen. The rules are in
+`lib/auth/sign-in-code.ts` and `lib/auth/sign-in-email.ts`. `POST
+/signin/send-email` is the app's way to send the email, behind the same checks
+as the page.
+
+- **The link and the code are one token.** Using either spends both, and
+  Supabase answers a spent code, a wrong one and an expired one with the
+  same `otp_expired`. So one refusal sentence covers all three: check it
+  again, and if you tapped the link, press Send another
+- **`SIGN_IN_CODE_LENGTH` must match the dashboard's Email OTP Length**
+  (6). The screens say how many digits to type and refuse any other length
+- **The Magic Link template must show `{{ .Token }}`.** It's a dashboard
+  setting, recorded in `OPERATIONS.md`. Without it both screens ask for a
+  code the email doesn't contain
+- **A limit on guesses of our own would stop nothing.** Supabase's
+  `/verify` takes a code from anyone with the public key, so a guesser goes
+  round the site. The code's length, its lifetime and Supabase's per-IP rate
+  limit are what protect it (`OPERATIONS.md`)
+- **A Turnstile token is good once.** `whyNotThisMember` is the only place
+  that checks it; `/signin` calls it before choosing between a provider and
+  the email, so the email isn't allowed a second check
 
 ## Microsoft sign-in expiry
 

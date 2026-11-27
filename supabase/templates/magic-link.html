@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#1a1a1a;padding:28px 32px;border-radius:8px 8px 0 0;text-align:center;">
+              <span style="font-size:20px;font-weight:700;color:#fcd03d;letter-spacing:0.5px;">
+                Omagh Harriers AC
+              </span>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background:#ffffff;padding:36px 32px;border-radius:0 0 8px 8px;">
+              <p style="margin:0 0 16px;font-size:16px;color:#111827;font-weight:600;">
+                Sign in to the Members Area
+              </p>
+              <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.6;">
+                Click the button below, or type the code where you asked to sign in.
+                Both expire in 60 minutes, and only one of them can be used.
+              </p>
+
+              <!-- CTA -->
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:#fcd03d;border-radius:6px;">
+                    <a href="{{ .ConfirmationURL }}"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#1a1a1a;text-decoration:none;">
+                      Sign in to Members Area
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Code -->
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">
+                Or type this code:
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:#f4f4f5;border:1px solid #e5e7eb;border-radius:6px;padding:12px 20px;">
+                    <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:28px;font-weight:700;color:#111827;letter-spacing:6px;">{{ .Token }}</span>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">
+                If the button doesn't work, copy and paste this link into your browser:
+              </p>
+              <p style="margin:0 0 28px;font-size:12px;color:#6b7280;word-break:break-all;">
+                {{ .ConfirmationURL }}
+              </p>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+
+              <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6;">
+                If you didn't request this, you can safely ignore this email.
+                Your account has not been affected.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 0;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                Omagh Harriers AC &mdash; Members Area
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

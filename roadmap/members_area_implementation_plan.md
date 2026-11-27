@@ -895,7 +895,7 @@ app of its own.
 
 ## Phase 9 — Sign in with a code
 
-**Status: next up.** Agreed 27 Nov 2026.
+**Status: shipped 27 Nov 2026; device checks and a security review to come.** Agreed 27 Nov 2026.
 
 The sign-in email carries a 6-digit code as well as the link, and the code can
 be typed wherever the person is signing in. Both keep working: the link for
@@ -905,20 +905,27 @@ everybody else.
 **Why: the iPhone home-screen trap.** An app added to an iPhone's home screen
 has its own cookies, copied from Safari once, when the icon is created. If its
 session ever lapses there's no way back in from inside it, because the link in
-the email opens Safari, not the app. Today the registrar app's signed-out
-screen tells people to delete the icon, sign in in Safari and add it again
+the email opens Safari, not the app. The registrar app's signed-out screen used
+to tell people to delete the icon, sign in in Safari and add it again
 (`SignedOut.tsx`). A code typed into the app signs the app itself in. Android
 and desktop share the browser's cookies, so the link already works there, but
 the code works everywhere. It also comes before the club app (Phase 10), which
 would otherwise put every member on an iPhone in the same trap.
 
-- [ ] Supabase email template: the link and the code (`{{ .Token }}`) in the one email, the code large enough to read at a glance. Set the code's lifetime, and record the template and the setting in `OPERATIONS.md`
-- [ ] `/signin`: after the email is sent, the "check your email" screen offers a box for the code (`inputmode="numeric"`, `autocomplete="one-time-code"`, so phones offer it from the email). `verifyOtp({ email, token, type: 'email' })`, then the same path as `/signin/callback`: terms, then where they were going
-- [ ] Rules in `lib/auth/` (what a code must look like, and one sentence for each way it can fail: wrong, expired, too many tries), unit tested like everything else
-- [ ] Registrar app: the signed-out screen asks for the email and then the code **inside the app**, through the browser client, instead of the delete-and-re-add instructions. It has to stay within `/registrar/`, the manifest's scope, or the page opens outside the app and the cookie lands in the wrong place
-- [ ] Guessing: six digits is a million codes, so check what Supabase limits on `verifyOtp` attempts, and add our own if it isn't enough. Turnstile already guards sending the email
-- [ ] Check on an iPhone home-screen app, Android, and desktop: signing in by link and by code, and a code used after it has expired
-- [ ] Security review of the new path (a Phase 7 style pass), and update the sign-in notes in `CLAUDE.md`
+**Six digits.** The project's *Email OTP Length* turned out to be 8 when the
+first code was generated. Six was chosen on 27 Nov 2026, as easier to type,
+and the dashboard changed to match. `SIGN_IN_CODE_LENGTH` in
+`lib/auth/sign-in-code.ts` has to match the setting.
+
+- [x] Supabase email template: the link and the code (`{{ .Token }}`) in the one email, the code large enough to read at a glance. The template is `supabase/templates/magic-link.html` (see *The sign-in email* in `OPERATIONS.md`), set in the dashboard on 27 Nov 2026 along with *Email OTP Length* 6
+- [x] `/signin`: after the email is sent, the "check your email" screen offers a box for the code (`inputmode="numeric"`, `autocomplete="one-time-code"`), with **Send another** under it. The page verifies the code itself (`verifyOtp({ email, token, type: 'email' })`) and lands where `/signin/callback` would: terms, then the members' area (`lib/auth/after-sign-in.ts`, now shared by both)
+- [x] Rules in `lib/auth/sign-in-code.ts` (what a code must look like, spaces and dashes ignored; a sentence for each refusal) and `lib/auth/sign-in-email.ts` (Turnstile, the member list, sending, moved out of `signin.astro` so the app can use them too), unit tested like everything else
+- [x] Registrar app: the signed-out screen asks for the email and then the code **inside the app**, instead of the delete-and-re-add instructions. It sends the email through `POST /signin/send-email`, which runs the same checks as `/signin` (Turnstile, then the member list), and verifies the code through the browser client, so the session lands in the app's own cookies. Nothing navigates, so it never leaves `/registrar/`
+- [x] The app's code screen says only *"Type the 6-digit code from the email here."* The email itself is not changed to explain this: tapping the link from a home-screen app is an iPhone problem, and the email is for everybody
+- [x] **Tapping the link spends the code.** Supabase issues one token per email, and the link and the code are two ways of presenting it, so whichever is used first wins. **Supabase answers a spent code, a wrong one and an expired one with the same error** (`otp_expired`), so they can't have a sentence each. One sentence covers all three: *"That code didn't work, please check it again. If you tapped the link in the email, that invalidates the code, so press Send another below to send another."* The **Send another** button sits under it, on `/signin` as well as in the app, so nobody has to leave the app
+- [x] Guessing: showing the code adds no exposure. Every magic link email already has a code behind it, and Supabase's `/verify` takes it from anyone with the public key, so a limit of our own would stop nothing: a guesser would go round it. The protection is Supabase's: 6 digits, the code's lifetime, and the per-IP token verification rate limit. All three are recorded in `OPERATIONS.md`, with the lifetime and limit still to confirm in the dashboard
+- [ ] Check on an iPhone home-screen app, Android, and desktop: signing in by link and by code, and a code used after it has expired. **Done in the dev server at phone and desktop sizes** with a test login and codes from `generateLink`: a code on `/signin`, a code in the app, a spent code, a malformed one, and a non-member. Not yet on real devices, and the real email hasn't been seen, since the template isn't set
+- [ ] Security review of the new path (a Phase 7 style pass). The sign-in notes in `CLAUDE.md` are updated
 
 ---
 
@@ -992,5 +999,5 @@ they are today, and the registrar stays phone-shaped.
 | 6 | Admin reporting area | Phase 5 schema |
 | 7 | Review — data integrity, security, privacy, then the code, then behaviour | Phase 6, and before go-live |
 | 8 | Child safeguarding form, coach role, coach PWA, registrar warning, Ts&Cs update | Form contents (TBC), DPIA, committee approval of terms |
-| 9 | Sign in with a 6-digit code as well as the link, inside a home-screen app too (next up) | Supabase email template |
+| 9 | Sign in with a 6-digit code as well as the link, inside a home-screen app too (shipped; device checks to come) | Supabase email template |
 | 10 | One club app for everyone: section switcher, launch page that works offline, install guide | Phase 9 |

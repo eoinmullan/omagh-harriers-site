@@ -26,10 +26,13 @@ export function BigButton({
   href,
   tone = 'primary',
   disabled,
+  submit = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   href?: string;
+  /** Submits the form it sits in, so the keyboard's Go key works too. */
+  submit?: boolean;
   /**
    * `outline` is for an action that sits beside things to pick, such as the
    * session list's "Create a new session": transparent, so the sessions are
@@ -54,7 +57,7 @@ export function BigButton({
   }
 
   return (
-    <button type="button" onClick={onClick} disabled={disabled} className={shared}>
+    <button type={submit ? 'submit' : 'button'} onClick={onClick} disabled={disabled} className={shared}>
       {children}
     </button>
   );

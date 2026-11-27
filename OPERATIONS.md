@@ -38,6 +38,10 @@ There is no `supabase/config.toml`, so none of this is in the repo.
 | **Access-token hook** | Authentication → Hooks → Customize Access Token (JWT) Claims | **Enabled**, Postgres function `public.custom_access_token_hook`. Defined in migrations `0003` and `0004`; registering it is manual. Without it no token carries `app_role`, RLS refuses every registrar write, and the registrar app shows *"Club roles aren't reaching this app"*. |
 | **New sign-ups** | Authentication → Sign In / Providers | **Off**. Confirmed: `disable_signup: true`. Only the Klubfunder sync and the admin area create logins. |
 | **Email provider** | Authentication → Sign In / Providers → Email | **On** (magic links). Confirmed. |
+| **Magic link email template** | Authentication → Emails → Templates → Magic Link | **Set** on 27 November 2026. It must show the code, `{{ .Token }}`, as well as the link. `/signin` and the registrar app both ask for the code, so without it they ask for something the email doesn't contain. The template is `supabase/templates/magic-link.html`; see *The sign-in email* below. |
+| **Email OTP length** | Authentication → Sign In / Providers → Email | **6.** Set on 27 November 2026; it was 8 before. `SIGN_IN_CODE_LENGTH` in `lib/auth/sign-in-code.ts` must match it, because the screens say how many digits to type and refuse any other length. |
+| **Email OTP expiration** | Authentication → Sign In / Providers → Email | **To confirm: 3600 seconds.** It covers the link and the code alike, and the email says *60 minutes*. Don't raise it: the longer a code lives, the longer it can be guessed at. |
+| **Token verification rate limit** | Authentication → Rate Limits | **To confirm.** It limits how many codes one IP address can try. Leave it at the default or lower. See *The sign-in email* below for why this matters. |
 | **SMTP** | Authentication → Emails → SMTP Settings | **Resend.** Confirmed by the user on 20 November 2026. Supabase's built-in sender only delivers to the project's team members, a few an hour, so a custom provider is required (OR1). |
 | **Email rate limit** | Authentication → Rate Limits | **To confirm.** Raise it to match the SMTP provider once one is set. |
 | **Site URL** | Authentication → URL Configuration | **To confirm.** Should be `https://omaghharriers.com`. |
@@ -53,6 +57,31 @@ the club trains, there's activity every week. **Reconsider before a long
 quiet spell, such as the summer**, or add a weekly keep-alive request. An
 occasional CSV export of `credit_transactions`, kept by the treasurer, is the
 backup that doesn't depend on the plan.
+
+### The sign-in email
+
+One email carries both the link and the code. The link is for whoever is
+reading their email on the device they're signing in on. The code is for
+everybody else, and above all for an iPhone home-screen app, which the link
+can't reach because it opens Safari. Supabase issues one token per email,
+so **using either spends both**. The email doesn't explain that. The app's
+refusal does.
+
+The template is kept in the repo, `supabase/templates/magic-link.html`:
+the club's existing design, with the code under the button. Paste the
+whole file as the Magic Link template's body. The subject can stay as it is.
+**Change the file first and paste it again**, so the repo and the dashboard
+don't drift. The email says both expire in 60 minutes, so a change to the
+OTP expiration means a change to the file as well.
+
+**Guessing a code.** Showing the code adds no exposure. Every
+magic link email already has a code behind it, whether the template shows it or
+not, and Supabase's `/verify` endpoint accepts it from anyone holding the
+public key. So a limit of our own in the site would stop nothing: a guesser
+calls Supabase directly. What protects a code is Supabase's: 6 digits (a
+million codes), its lifetime, a new email replacing the last code, and the
+per-IP token verification rate limit. With 6 digits those last two carry the
+weight, so don't lengthen the lifetime or raise that limit.
 
 ---
 

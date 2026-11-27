@@ -4,10 +4,8 @@ import { useEffect } from 'react';
 //
 // Opened from its icon, the app is the first thing in its window's history,
 // so back from today's list closes it, as an app's should. But it can also
-// start with website pages behind it: tapped from the members' area in a
-// browser, or inside the installed app after "Go to sign in" took a lapsed
-// registrar through the sign-in pages and back. Back from today's list then
-// walked out to the members' area, or to a sign-in page.
+// start with website pages behind it, when tapped from the members' area in
+// a browser. Back from today's list then walked out to the members' area.
 //
 // The app can't see what's behind it, only that something is. So when it
 // starts on today's list with history already behind it, it turns the entry

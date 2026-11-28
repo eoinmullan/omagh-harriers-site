@@ -918,6 +918,16 @@ origin, one sign-in*), with its own worker scoped to its own folder.
   export of the log held by somebody else, like the treasurer's ledger CSV
 - **Being a superuser doesn't open Emergency contacts.** Only the flag does,
   so the developer has it only if the committee ticks it
+- **Offline, the phone keeps whatever the section needs to work**
+  (28 Nov 2026). With the whole-club decision above, that's every member's
+  emergency details, whatever the safeguarding form ends up holding; the
+  form's contents decide the fields, not this decision
+- **It's kept for a year.** Each time the section opens online it refreshes
+  the copy, so a phone that keeps using it always has a current one. A copy
+  not refreshed for a year is deleted from the phone
+- **For the committee to sign off.** This is the proposal to take to them,
+  with the Ts&Cs and privacy notice changes below: who holds the flag, what
+  a phone keeps and for how long, and that every opening is logged
 - **Tonight's session comes first.** The screen opens on who's signed in;
   searching the whole club is there for the exceptions, and logged the same
 - **Everybody's contacts, adults included**, where an adult has given one.
@@ -952,7 +962,7 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 - [ ] Update the terms: guardians' responsibility to keep it current; coaches' and officers' obligations (as decision 8 does for registrars)
 - [ ] Card payments (Phase 4, Stripe) in the same revision
 - [ ] Re-acceptance: existing members accepted the old terms. Does `terms_accepted_at` need a version, so everyone is asked again?
-- [ ] Committee approval, as with `committee/privacy-and-terms.md`
+- [ ] Committee approval, as with `committee/privacy-and-terms.md`, including the Emergency contacts proposal: the flag and who holds it, the whole club on every holder's phone for up to a year, and the append-only log of every opening
 
 ### Open questions
 
@@ -976,9 +986,9 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 - ~~What "present" means~~ Everyone signed in, adults included (28 Nov 2026)
 
 **Offline mode**
-- The requirement means a coach's phone holds every child's safeguarding record. Is that proportionate, or is it limited to the coach's squads, or tonight's sessions?
-- How long the cache lives, and whether it's wiped on sign-out or after a period unused
-- What happens when a phone is lost: is revoking the login enough, given the data already on the device?
+- ~~How much a phone holds~~ Settled 28 Nov 2026: whatever the section needs to work, the whole club's details. Proportionality is part of what the committee signs off
+- ~~How long the cache lives~~ A year since it was last refreshed online (28 Nov 2026). Whether signing out also wipes it is still open
+- What happens when a phone is lost: is revoking the login enough, given the data already on the device? Removing the flag or lapsing the login stops new copies, but the copy already on the phone stays until it's a year old, unless the section deletes it when it next opens online and finds the flag gone
 - Encryption at rest beyond the phone's own lock
 
 **Retention**

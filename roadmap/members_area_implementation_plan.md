@@ -925,6 +925,14 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 - **It's kept for a year.** Each time the section opens online it refreshes
   the copy, so a phone that keeps using it always has a current one. A copy
   not refreshed for a year is deleted from the phone
+- **Losing the flag deletes the copy.** The next time the section opens
+  online and finds the login no longer holds the flag (taken away, or the
+  login lapsed), it deletes everything it kept. A lost phone that never
+  goes online again keeps its copy until the year is up; the phone's own
+  lock is what protects it meanwhile
+- **Signing out leaves the copy.** Signing out is routine, and the copy goes
+  anyway when the flag does, so signing back in needs no fresh download
+- **The phone's own encryption is enough.** No extra layer of our own
 - **For the committee to sign off.** This is the proposal to take to them,
   with the Ts&Cs and privacy notice changes below: who holds the flag, what
   a phone keeps and for how long, and that every opening is logged
@@ -948,7 +956,7 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 - [ ] Phone numbers are `tel:` links, so tapping one opens the phone's call screen
 - [ ] Search the whole club, for somebody not signed in or an incident away from training
 - [ ] Log every opening (who, which member, when) in an append-only table, offline ones through the write queue. No screen for now
-- [ ] **Offline**: the contacts are cached on the phone, so search and the session list work with no coverage
+- [ ] **Offline**: the contacts are cached on the phone, so search and the session list work with no coverage. Refreshed on every online open, deleted after a year without a refresh, and deleted when an online open finds the flag gone. Signing out leaves it
 - [ ] The header switcher's "Emergency ▾" below 360px, and the **Emergency** badge in admin
 
 ### Registrar app: missing form warning
@@ -987,9 +995,9 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 
 **Offline mode**
 - ~~How much a phone holds~~ Settled 28 Nov 2026: whatever the section needs to work, the whole club's details. Proportionality is part of what the committee signs off
-- ~~How long the cache lives~~ A year since it was last refreshed online (28 Nov 2026). Whether signing out also wipes it is still open
-- What happens when a phone is lost: is revoking the login enough, given the data already on the device? Removing the flag or lapsing the login stops new copies, but the copy already on the phone stays until it's a year old, unless the section deletes it when it next opens online and finds the flag gone
-- Encryption at rest beyond the phone's own lock
+- ~~How long the cache lives~~ A year since it was last refreshed online (28 Nov 2026). Signing out leaves it
+- ~~What happens when a phone is lost~~ Settled 28 Nov 2026: removing the flag or lapsing the login deletes the copy the next time the section opens online. A phone that never goes online again keeps it until the year is up, behind the phone's own lock
+- ~~Encryption at rest beyond the phone's own lock~~ Not needed: the phone's own encryption is enough (28 Nov 2026)
 
 **Retention**
 - Deleted when a child lapses, or after a period? Probably much shorter than the two years for membership data

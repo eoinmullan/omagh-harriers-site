@@ -889,6 +889,42 @@ origin, one sign-in*), with its own worker scoped to its own folder.
   switcher can reach the other with no signal, since each has its own worker.
   Home and Admin say *"needs signal"* there rather than leading to the
   phone's error page
+- **The whole club, not only a person's squads** (28 Nov 2026). Anybody with
+  the flag can open any member's contacts. Limiting it to squads fails at
+  the worst moment: a child from another squad at a joint session, siblings
+  in different squads, a coach covering, a race away. It would also need
+  flag holders linked to squads, a screen to keep that current, and RLS
+  checking it, against squads that blur anyway (the Usuals take in recent
+  regulars and anybody ticked tonight). **The flag is the restriction**, so
+  the committee keeps its list short
+- **Accountable rather than restricted: every opening is logged.** Who opened
+  which member's contacts, and when, for the welfare officer to see. One
+  opened offline is recorded through the registrar app's write queue once
+  there's signal. Nothing asks why, because a question in front of somebody
+  at an emergency is the wrong hurdle; the log is what makes snooping
+  visible
+- **The log stays in the database, with no screen for now** (28 Nov 2026).
+  It's there for an incident, a complaint, or a parent's subject access
+  request asking who looked at their child's details. **It's append-only,
+  like the ledger**: a trigger refuses UPDATE and DELETE, service-role key
+  included, so no page, API call or mistake can edit or remove a row, and
+  `clear-training-data.sql` leaves it alone. Making it readable by an admin
+  wouldn't have protected it, since rows could go before anybody looked
+- **What append-only doesn't stop, written down.** Whoever owns the Supabase
+  project can switch a trigger off in the SQL Editor, as the test-data
+  scripts do. So tampering by the owner isn't impossible, only a deliberate
+  act outside the app. The ledger is in the same position. If the committee
+  wants more: a second committee member with dashboard access, or a periodic
+  export of the log held by somebody else, like the treasurer's ledger CSV
+- **Being a superuser doesn't open Emergency contacts.** Only the flag does,
+  so the developer has it only if the committee ticks it
+- **Tonight's session comes first.** The screen opens on who's signed in;
+  searching the whole club is there for the exceptions, and logged the same
+- **Everybody's contacts, adults included**, where an adult has given one.
+  Adults collapse at training too
+- **The full safeguarding record gets its own look.** Medical details are
+  special category data, and a narrower scope may suit them even though it
+  doesn't suit phone numbers
 
 #### Work
 
@@ -901,6 +937,7 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 - [ ] Tapping a runner opens their emergency contacts
 - [ ] Phone numbers are `tel:` links, so tapping one opens the phone's call screen
 - [ ] Search the whole club, for somebody not signed in or an incident away from training
+- [ ] Log every opening (who, which member, when) in an append-only table, offline ones through the write queue. No screen for now
 - [ ] **Offline**: the contacts are cached on the phone, so search and the session list work with no coverage
 - [ ] The header switcher's "Emergency ▾" below 360px, and the **Emergency** badge in admin
 
@@ -911,7 +948,7 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 
 ### Ts&Cs and privacy notice
 
-- [ ] Update the privacy notice: what's collected, why, who sees it, how long it's kept, the Article 9 condition
+- [ ] Update the privacy notice: what's collected, why, who sees it, how long it's kept, the Article 9 condition. Say that a small group named by the committee can open emergency contacts, and that every opening is recorded
 - [ ] Update the terms: guardians' responsibility to keep it current; coaches' and officers' obligations (as decision 8 does for registrars)
 - [ ] Card payments (Phase 4, Stripe) in the same revision
 - [ ] Re-acceptance: existing members accepted the old terms. Does `terms_accepted_at` need a version, so everyone is asked again?
@@ -927,16 +964,16 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 - Are previous versions kept, or only the current one?
 
 **Access**
-- Exactly who sees what. Everybody with the flag sees everyone, or only their squads, with officers seeing everyone?
+- ~~Exactly who sees what~~ Settled 28 Nov 2026 for emergency contacts: everybody with the flag sees the whole club, adults included, and every opening is logged. Open again for the full safeguarding record
 - ~~Which officers, and is that a role or a flag?~~ Settled 28 Nov 2026 for emergency contacts: one flag, given to whoever the committee chooses. Whether the full safeguarding record needs a second, narrower one is still open
 - **How roles are modelled.** The emergency contacts flag (28 Nov 2026) is the first privilege held beside the role rather than on it. Today `role` is one ladder: `member` / `registrar` / `admin` / `superuser`. With coaches the ladder stops fitting, since an admin or a member may or may not be a registrar and/or a coach. One option: keep `superuser` / `admin` / `member` as the role, with `is_registrar` and `is_coach` as booleans beside it. That touches the access-token hook (`app_role` plus new claims), every RLS policy that calls `can_run_a_session()`, `roles.ts`, the registrar app's `lib/training/registrar.ts`, the members' area cards and `/admin/households/[id]`. Decide before adding a `coach` role, so it isn't built twice
-- Should viewing a record be logged, so the welfare officer can see who looked at what?
+- ~~Should viewing a record be logged?~~ Yes, every opening, append-only, settled 28 Nov 2026. Nobody reads it through the site for now; who should, if anyone, is for later
 
 **The emergency contacts section**
 - ~~Does it need to be separate from the registrar app, or a second mode of it?~~ Settled 27 Nov 2026: one club app with a section for each job (Phase 10), each offline section with its own worker
 - ~~Its name, and whether holding it is a coach role or a flag~~ Settled 28 Nov 2026: "Emergency contacts", held through a flag of its own
 - Guests: children signed in as guests have no form. Should Add guest take an emergency contact?
-- What "present" means: everyone signed in, or children only?
+- ~~What "present" means~~ Everyone signed in, adults included (28 Nov 2026)
 
 **Offline mode**
 - The requirement means a coach's phone holds every child's safeguarding record. Is that proportionate, or is it limited to the coach's squads, or tonight's sessions?

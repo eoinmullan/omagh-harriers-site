@@ -874,7 +874,9 @@ origin, one sign-in*), with its own worker scoped to its own folder.
   "Emergency"
 - **Access is a flag of its own, not a coach role.** Holding the section is
   one flag on a login, ticked and unticked one person at a time on
-  `/admin/households/[id]`. Nobody gets it by being a coach, a registrar or an
+  `/admin/households/[id]`. Phase 12 moves it: a club admin gives it to a
+  member on their own page, and only a login that's that member's own can
+  hold it. Nobody gets it by being a coach, a registrar or an
   admin. The list of who can see these details is the list of people with
   the flag, which is the answer the welfare officer, a DPIA or a parent will
   ask for. It also lets the committee give it to a welfare officer or
@@ -999,7 +1001,7 @@ with test data at phone sizes, against the live database.
 **Access**
 - ~~Exactly who sees what~~ Settled 28 Nov 2026 for emergency contacts: everybody with the flag sees the whole club, adults included, and every opening is logged. Open again for the full safeguarding record
 - ~~Which officers, and is that a role or a flag?~~ Settled 28 Nov 2026 for emergency contacts: one flag, given to whoever the committee chooses. Whether the full safeguarding record needs a second, narrower one is still open
-- **How roles are modelled.** The emergency contacts flag (28 Nov 2026) is the first privilege held beside the role rather than on it. Today `role` is one ladder: `member` / `registrar` / `admin` / `superuser`. With coaches the ladder stops fitting, since an admin or a member may or may not be a registrar and/or a coach. One option: keep `superuser` / `admin` / `member` as the role, with `is_registrar` and `is_coach` as booleans beside it. That touches the access-token hook (`app_role` plus new claims), every RLS policy that calls `can_run_a_session()`, `roles.ts`, the registrar app's `lib/training/registrar.ts`, the members' area cards and `/admin/households/[id]`. Decide before adding a `coach` role, so it isn't built twice
+- ~~**How roles are modelled.**~~ Decided with Phase 12 (28 Nov 2026): registrar becomes a flag on the login, beside Emergency contacts, and the role keeps member, admin and superuser. What follows is the question as it stood. The emergency contacts flag (28 Nov 2026) is the first privilege held beside the role rather than on it. Today `role` is one ladder: `member` / `registrar` / `admin` / `superuser`. With coaches the ladder stops fitting, since an admin or a member may or may not be a registrar and/or a coach. One option: keep `superuser` / `admin` / `member` as the role, with `is_registrar` and `is_coach` as booleans beside it. That touches the access-token hook (`app_role` plus new claims), every RLS policy that calls `can_run_a_session()`, `roles.ts`, the registrar app's `lib/training/registrar.ts`, the members' area cards and `/admin/households/[id]`. Decide before adding a `coach` role, so it isn't built twice
 - ~~Should viewing a record be logged?~~ Yes, every opening, append-only, settled 28 Nov 2026. Nobody reads it through the site for now; who should, if anyone, is for later
 
 **The emergency contacts section**
@@ -1174,6 +1176,40 @@ free" rather than a figure.
 - [x] The Klubfunder sync leaves both columns alone (it only writes the columns it names)
 - [x] Checked end to end in the dev server against the live database, with ZZ test data since removed: set on the admin page (and refused without a reason), ∞ in the app, a tick that wrote attendance and no ledger row, an untick the trigger allowed, the sheet and the history
 
+## Phase 12 — Logins of their own
+
+**Status: agreed 28 Nov 2026, not started.** Before go-live, and before
+anybody is given Emergency contacts. The model and the reasoning are in
+`households-members-logins.md`.
+
+A household and a login are one row today, so access sits on an email, and
+an email can be several people: a registrar's partner and teenagers sign in
+as a registrar too. Logins become their own table. **A household has one
+login, from Klubfunder, unless the superuser adds another**, for a volunteer
+who shares a family email. A login is either shared or one person's (it
+names a member, or carries a name for somebody who isn't one), and **access
+only goes on a login that's one person's**. Members who train free stay a
+member setting.
+
+**Admin means club admin; the superuser is the site admin.** Club admins run
+sessions, squads, money and members' training settings, and give a member
+Registration or Emergency contacts. Adding logins, saying whose they are, roles and
+adding a household by hand fall to the superuser, and are hidden from club
+admins.
+
+### Work
+
+- [x] Decide what lapses with a household, whether a member's own login follows them, who a club admin is told to ask, and how roles are modelled (28 Nov 2026: registrar becomes a flag)
+- [x] Settle the registrar flag (28 Nov 2026): an admin keeps Registration without it, a club admin gives it, and it takes no reason
+- [ ] Migration: `logins` (email, Supabase user, terms, role of member, admin or superuser, the registrar flag, Emergency contacts access and reason, whose it is, `source`, `is_active`), one per existing household under the household's own id; the five "who did it" columns re-pointed by constraint, no rows rewritten; the columns that moved dropped from `principals`; a CHECK refusing access on a shared login; column grants
+- [ ] The access-token hook, the RLS helpers and every policy that finds "my household", reading the login
+- [ ] Sign-in, the callback, the middleware and `whoIsSignedIn` look up logins
+- [ ] The Klubfunder sync creates a household with its login, lapses them together, and leaves hand-added logins alone
+- [ ] Rules in `lib/`, unit tested: whose a login is, who may hold access, who may add a login or change a role
+- [ ] Admin: Members holds everything about a runner and what they can open, with Registration and Emergency contacts given there by a club admin, and volunteers who aren't members at the end under Not members, each with a slim page of their own; Households holds the money and the members; the superuser alone sees a household's Logins and adds them
+- [ ] The registrar app, Emergency contacts and the queue name the login as who did it
+- [ ] Check end to end in the dev server with ZZ data, at phone and desktop sizes
+
 ---
 
 ## Phase summary
@@ -1192,3 +1228,4 @@ free" rather than a figure.
 | 9 | Sign in with a 6-digit code as well as the link, inside a home-screen app too (shipped; device checks to come) | Supabase email template |
 | 10 | One club app, "Harriers", for everyone: Home, Registration and Admin sections, a switcher, a launch page that works offline, install guide (built; device checks to come) | Phase 9 |
 | 11 | Members who train free: a member setting with a reason; sign-ins recorded, nothing charged, ∞ in the registrar app (built) | — |
+| 12 | Logins of their own: a household can have several, access only on one person's, club admin and site admin split (agreed) | Before go-live and before Phase 8's flag is given |

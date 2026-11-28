@@ -1149,6 +1149,11 @@ as the page.
   both call `verifyOtp` through the browser client, which writes the session
   to the site's cookies. `/signin` then goes to `/members`, and the middleware
   takes anybody without accepted terms to `/signin/terms`
+- **The code screen notices a sign-in from another tab.** Clicking the
+  email's link in a second tab signs the browser in, and the first tab used
+  to go on asking for the code. When the tab is shown or focused again it
+  looks for a session in the cookies and goes to `/members`. A link,
+  *"Clicked the link in another tab?"*, does the same by hand
 
 ## Microsoft sign-in expiry
 

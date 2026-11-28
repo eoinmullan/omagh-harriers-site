@@ -161,6 +161,9 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
             <p class="text-sm text-gray-500">
               Wrong address? <a href="/signin" class="underline hover:text-gray-800">Start again</a>.
             </p>
+            <p class="text-sm text-gray-500">
+              Clicked the link in another tab? <a href="/members" class="underline hover:text-gray-800">Go to the members' area</a>.
+            </p>
           </form>
         </>
       ) : (
@@ -368,6 +371,21 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
       setButtonBusy('code', false);
       showCodeProblem(codeRefusedSentence({ status: error.status, code: error.code }));
     });
+
+    // Clicking the email's link in another tab signs this browser in, but this
+    // tab goes on asking for the code. So when the person comes back to it,
+    // look for the session the link left in the cookies and move on.
+    // Switching tabs fires visibilitychange; switching between two windows
+    // side by side only fires focus.
+    async function moveOnIfSignedInElsewhere() {
+      if (document.visibilityState !== 'visible') return;
+      const { data } = await createSupabaseBrowserClient().auth.getSession();
+      if (data.session) window.location.assign('/members');
+    }
+    if (codeForm) {
+      document.addEventListener('visibilitychange', moveOnIfSignedInElsewhere);
+      window.addEventListener('focus', moveOnIfSignedInElsewhere);
+    }
 
     // Coming back from the provider restores the page from the back/forward
     // cache mid-redirect, spinner and all, so settle the buttons on arrival.

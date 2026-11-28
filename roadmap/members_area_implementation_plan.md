@@ -805,8 +805,9 @@ had settled the code.
 ## Phase 8 — Child Safeguarding & Emergency Contacts
 
 Agreed with the committee on 26 Nov 2026. Guardians fill in a safeguarding form
-for each child; coaches and officers can see it when they need to; a second PWA
-puts it in a coach's hand at the track when something happens to a child; and
+for each child; coaches and officers can see it when they need to; the club
+app's Emergency contacts section puts a member's contacts in hand at the track
+when something happens; and
 the registrar app shows which children still have no form on file.
 
 **This is the most sensitive data the club will hold.** Children's health
@@ -816,8 +817,9 @@ collected. Phase 7's reviews covered everything up to Phase 6; this phase
 needs its own privacy, security and data-integrity passes before real forms
 are collected.
 
-**Status: scoping.** The form's contents are TBC, and the open questions below
-are to be settled in a later session.
+**Status: scoping.** The form's contents are TBC. The emergency contacts
+section is planned (28 Nov 2026) around emergency contact details only, and
+the open questions below are still to be settled.
 
 ### Safeguarding form (members' area)
 
@@ -829,30 +831,78 @@ are to be settled in a later session.
 ### Storage and access
 
 - [ ] Migration: a safeguarding table (or tables) keyed by `member_id`, with RLS
-- [ ] Coach access (a role or a flag; see *How roles are modelled* below), and some form of officer access (welfare officer?), added to `roles.ts`, the access-token hook and `/admin/households/[id]`
+- [ ] The emergency contacts flag (decision below), added to `principals`, `roles.ts`, the access-token hook (a claim beside `app_role`), RLS, and `/admin/households/[id]`, where it's ticked and unticked one person at a time
 - [ ] Column grants so registrars can tell *whether* a child has a form, and nothing else (see *A login reads columns, not rows*)
 - [ ] Admin/officer screen to see a child's record and which children have none
 
 ### Emergency contacts section (trackside incidents)
 
 **It isn't a coaching app.** Coaches are who use it most, but what it does is
-put the emergency contacts from the safeguarding form in somebody's hand when
-something happens to a child at the track. Its name is still to be settled
-(27 Nov 2026), and so is who holds it. "Coach" below is shorthand for whoever
-that is.
+put a member's emergency contacts in somebody's hand when something happens at
+the track. Until the safeguarding form's contents are settled, it's built and
+planned around **emergency contact details only**: who to call, and their
+number.
 
-A prerendered section of the club app (Phase 10), beside `/registrar/`, for
-the same reasons the registrar app lives there (see *One origin, one
-sign-in*), with its own worker scoped to its own folder. Deferred out of
-Phase 10 with the rest of this phase; Phase 10 leaves room for it in the
-section switcher.
+**How it's used.** Somebody who holds it has opened the Harriers app online at
+least once, so their phone has the contacts. On a training night they open
+tonight's session, as the registrar does, see who's signed in, and tap a
+runner for their contacts. If the person isn't signed in to that session, or
+it's somewhere else entirely, they search the whole list instead.
 
-- [ ] Reached from the club app's section switcher and a card on Home that only renders for whoever holds it
+A prerendered section of the club app (Phase 10), at `/contacts/`, beside
+`/registrar/`, for the same reasons the registrar app lives there (see *One
+origin, one sign-in*), with its own worker scoped to its own folder.
+
+#### Decisions taken (28 Nov 2026)
+
+- **The section is called "Emergency contacts".** The app stays Harriers; this
+  is the name in the section switcher, on Home and on the section's own
+  screens. It's opened under pressure, often by a volunteer who doesn't use it
+  weekly, so the name says exactly what it holds. `contacts` is the short name
+  in code: the address, the section key, the stored last section
+- **Where the full name doesn't fit, it's shortened.** The header's switcher
+  button stays on one line and says "Emergency ▾" below about 360px wide; its
+  sheet always says the full name. The admin badge says **Emergency**, beside
+  Registrar and Admin: a word every admin reads the same way. "Contacts" was
+  a plural noun among names for people, "Responder" suggests a first aider,
+  and "ICE" and "SOS" are shorthand not everybody knows, SOS being the phone's
+  999 button besides. Any home-screen shortcut, if ever added, says
+  "Emergency"
+- **Access is a flag of its own, not a coach role.** Holding the section is
+  one flag on a login, ticked and unticked one person at a time on
+  `/admin/households/[id]`. Nobody gets it by being a coach, a registrar or an
+  admin. The list of who can see these details is the list of people with
+  the flag, which is the answer the welfare officer, a DPIA or a parent will
+  ask for. It also lets the committee give it to a welfare officer or
+  first-aider who isn't a coach, and hold it back from a new coach until
+  their vetting is through. Registrars who should have it get it the same
+  way, each ticked, rather than by a rule giving it to every registrar. A
+  coach flag can be added if something ever needs one
+- **Offline, the icon asks only when there's a real choice.** The Phase 10
+  launch page already opens with no signal. Offline, somebody who holds both
+  Registration and Emergency contacts sees *"No signal. Home and Admin need a
+  connection."* with a big button for each, **Emergency contacts first**:
+  somebody reaching for it may be with an injured child. Somebody who holds
+  only one goes straight into it, and somebody who holds neither sees the
+  message as now. Online, the icon opens the section used last, as now
+- **Offline, the switcher marks what needs signal.** Each offline section's
+  switcher can reach the other with no signal, since each has its own worker.
+  Home and Admin say *"needs signal"* there rather than leading to the
+  phone's error page
+
+#### Work
+
+- [ ] `contacts` in `lib/app/sections.ts`, held through the flag rather than the role
+- [ ] The launch page's offline choice (`whereToLaunch` in `lib/app/launch.ts`), with its tests
+- [ ] "Needs signal" in both switchers when offline
+- [ ] Reached from the club app's section switcher, and in a browser from a card on Home, for whoever holds it
 - [ ] On opening: pick a session (the same session list the registrar sees)
-- [ ] The session shows every child signed in
-- [ ] Tapping a child opens their safeguarding information
+- [ ] The session shows everyone signed in
+- [ ] Tapping a runner opens their emergency contacts
 - [ ] Phone numbers are `tel:` links, so tapping one opens the phone's call screen
-- [ ] **Offline mode**: with no coverage, the coach can search every member and open their record from a cached copy
+- [ ] Search the whole club, for somebody not signed in or an incident away from training
+- [ ] **Offline**: the contacts are cached on the phone, so search and the session list work with no coverage
+- [ ] The header switcher's "Emergency ▾" below 360px, and the **Emergency** badge in admin
 
 ### Registrar app: missing form warning
 
@@ -877,14 +927,14 @@ section switcher.
 - Are previous versions kept, or only the current one?
 
 **Access**
-- Exactly who sees what. All coaches, all children? Or coaches only for their squads, with officers seeing everyone?
-- Which officers: welfare officer, child protection officer, chair? Is that a role, or a flag on a principal?
-- **How roles are modelled.** Today `role` is one ladder: `member` / `registrar` / `admin` / `superuser`. With coaches the ladder stops fitting, since an admin or a member may or may not be a registrar and/or a coach. One option: keep `superuser` / `admin` / `member` as the role, with `is_registrar` and `is_coach` as booleans beside it. That touches the access-token hook (`app_role` plus new claims), every RLS policy that calls `can_run_a_session()`, `roles.ts`, the registrar app's `lib/training/registrar.ts`, the members' area cards and `/admin/households/[id]`. Decide before adding a `coach` role, so it isn't built twice
+- Exactly who sees what. Everybody with the flag sees everyone, or only their squads, with officers seeing everyone?
+- ~~Which officers, and is that a role or a flag?~~ Settled 28 Nov 2026 for emergency contacts: one flag, given to whoever the committee chooses. Whether the full safeguarding record needs a second, narrower one is still open
+- **How roles are modelled.** The emergency contacts flag (28 Nov 2026) is the first privilege held beside the role rather than on it. Today `role` is one ladder: `member` / `registrar` / `admin` / `superuser`. With coaches the ladder stops fitting, since an admin or a member may or may not be a registrar and/or a coach. One option: keep `superuser` / `admin` / `member` as the role, with `is_registrar` and `is_coach` as booleans beside it. That touches the access-token hook (`app_role` plus new claims), every RLS policy that calls `can_run_a_session()`, `roles.ts`, the registrar app's `lib/training/registrar.ts`, the members' area cards and `/admin/households/[id]`. Decide before adding a `coach` role, so it isn't built twice
 - Should viewing a record be logged, so the welfare officer can see who looked at what?
 
 **The emergency contacts section**
 - ~~Does it need to be separate from the registrar app, or a second mode of it?~~ Settled 27 Nov 2026: one club app with a section for each job (Phase 10), each offline section with its own worker
-- Its name, now that it's for emergency contacts rather than coaching, and whether holding it is a coach role, a flag, or a privilege of its own
+- ~~Its name, and whether holding it is a coach role or a flag~~ Settled 28 Nov 2026: "Emergency contacts", held through a flag of its own
 - Guests: children signed in as guests have no form. Should Add guest take an emergency contact?
 - What "present" means: everyone signed in, or children only?
 
@@ -1068,7 +1118,7 @@ free" rather than a figure.
 | 5 | Training sessions, groups, guests, attendance, registrar role, sign-in PWA | Phase 4 schema |
 | 6 | Admin reporting area | Phase 5 schema |
 | 7 | Review — data integrity, security, privacy, then the code, then behaviour | Phase 6, and before go-live |
-| 8 | Child safeguarding form, emergency contacts section of the club app (name TBC), registrar warning, Ts&Cs update | Form contents (TBC), DPIA, committee approval of terms |
+| 8 | Child safeguarding form, the club app's Emergency contacts section (held through a flag of its own), registrar warning, Ts&Cs update | Form contents (TBC), DPIA, committee approval of terms |
 | 9 | Sign in with a 6-digit code as well as the link, inside a home-screen app too (shipped; device checks to come) | Supabase email template |
 | 10 | One club app, "Harriers", for everyone: Home, Registration and Admin sections, a switcher, a launch page that works offline, install guide (built; device checks to come) | Phase 9 |
 | 11 | Members who train free: a member setting with a reason; sign-ins recorded, nothing charged, ∞ in the registrar app (built) | — |

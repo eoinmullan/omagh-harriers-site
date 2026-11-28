@@ -1137,6 +1137,18 @@ as the page.
 - **A Turnstile token is good once.** `whyNotThisMember` is the only place
   that checks it; `/signin` calls it before choosing between a provider and
   the email, so the email isn't allowed a second check
+- **The security check fails closed** (`judgeCaptcha`). A missing secret, or
+  Cloudflare not answering, refuses the request with a sentence. The secret
+  is read from `locals.runtime.env`, as the service-role key is: Cloudflare
+  puts secrets there, not in `import.meta.env`. Reading only the latter, with
+  a fail-open behind it, meant the live site skipped the check entirely until
+  the Phase 9 security review (S9-1)
+- **A typed code is checked by the browser, never our server.** Supabase
+  limits guesses per address, and a check from the server counts a Cloudflare
+  address instead of the guesser's (S9-2). `/signin` and the registrar app
+  both call `verifyOtp` through the browser client, which writes the session
+  to the site's cookies. `/signin` then goes to `/members`, and the middleware
+  takes anybody without accepted terms to `/signin/terms`
 
 ## Microsoft sign-in expiry
 

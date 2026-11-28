@@ -21,6 +21,7 @@ Work down this list. The first match is almost always the cause.
 | The app is blank or broken for everyone, and it worked yesterday | A bad deploy | Cloudflare → Workers & Pages → the site → **Deployments** → the last good deployment → **Rollback to this deployment**. Instant, no rebuild. Then find the bad commit. |
 | *"…wasn't saved"* notices piling up, or nothing loads but the internet works | Supabase is down, or the project is **paused** | Check supabase.com/dashboard. A paused Free-plan project shows a *Restore* button. Meanwhile take the night on paper (`/admin/sessions/[id]/sheet`, printed beforehand). |
 | Members say their sign-in link never arrives | Email sending (see SMTP below) | Check Supabase → Authentication → Emails → SMTP, and the email rate limit. |
+| *"Sign-in can't run its security check right now"* on `/signin` | `TURNSTILE_SECRET_KEY` is missing from the Pages project, or Cloudflare's Turnstile is down | Pages → Settings → Variables and Secrets: set it for Production, then redeploy. Members already signed in aren't affected. |
 | The Microsoft button has gone from the sign-in page | Its client secret's date has passed | See *Microsoft sign-in* below. Email links and Google keep working. |
 
 **Paper is the fallback, not the record.** Whatever's written on the sheet has
@@ -92,7 +93,7 @@ weight, so don't lengthen the lifetime or raise that limit.
 | **Production branch** | `main`. Every push to `main` deploys. |
 | **Build command** | `pnpm build:deploy`. It runs the typecheck and the tests before the build, the same checks as CI, so a failing check fails the Pages build and the previous deployment stays live (OR4). The steps are in `apps/site/package.json`, so changing them is a commit, not a dashboard edit. |
 | **Root directory** | `apps/site`. The build command runs there, so the script has to live in the site's `package.json`, not the workspace root's. |
-| **Environment variables** | `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`. The secret key is the service role's. If it's ever rotated in Supabase, update it here and redeploy. |
+| **Environment variables** | `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`. The secret key is the service role's. If it's ever rotated in Supabase, update it here and redeploy. **`TURNSTILE_SECRET_KEY` must be set as an encrypted variable for Production.** Since the Phase 9 security review (S9-1) sign-in refuses every request without it: *"Sign-in can't run its security check right now"*, and `[signin] TURNSTILE_SECRET_KEY is not set` in the Pages function logs. Before that fix the live site had been skipping the check. |
 
 **Rollback:** Deployments → a previous deployment → *Rollback to this
 deployment*. Every deployment is kept, so it's immediate. Use it before

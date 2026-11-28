@@ -2,8 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import PageContainer from '../components/PageContainer.astro';
 import { providerForEmail, type OAuthProvider } from '../lib/auth/oauth-providers';
-import { whereToAfterSignIn } from '../lib/auth/after-sign-in';
-import { checkSignInCode, codeRefusedSentence, SIGN_IN_CODE_LENGTH } from '../lib/auth/sign-in-code';
+import { CODE_NEEDS_JAVASCRIPT, SIGN_IN_CODE_LENGTH } from '../lib/auth/sign-in-code';
 import { emailTheMember, sendSignInEmail, tidyEmail, whyNotThisMember } from '../lib/auth/sign-in-email';
 import { signInEmailSteps } from '../lib/auth/sign-in-email-steps';
 
@@ -22,21 +21,13 @@ if (Astro.request.method === 'POST') {
   const steps = signInEmailSteps(Astro);
   enteredEmail = email;
 
+  // The code is checked by the browser, never here: Supabase limits guesses
+  // per address, and a check from this server would count Cloudflare's
+  // address instead of the guesser's (Phase 9 security review, S9-2). A code
+  // only arrives here when the page's script didn't run.
   if (formData.has('code')) {
     codeEntryFor = email;
-    const check = checkSignInCode(formData.get('code')?.toString() ?? '');
-    if ('problem' in check) {
-      codeProblem = check.problem;
-    } else {
-      const { data, error } = await Astro.locals.supabase.auth.verifyOtp({
-        email,
-        token: check.code,
-        type: 'email',
-      });
-      if (error) console.error('[signin] verifyOtp failed:', error.status, error.code);
-      if (!error && data.user) return Astro.redirect(await whereToAfterSignIn(Astro.locals.supabase, data.user.id));
-      codeProblem = codeRefusedSentence({ status: error?.status, code: error?.code });
-    }
+    codeProblem = CODE_NEEDS_JAVASCRIPT;
   } else if (formData.get('email_link') === 'true') {
     const outcome = await sendSignInEmail(steps, email, turnstileToken);
     if (outcome.sent) codeEntryFor = outcome.email;
@@ -105,13 +96,16 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
             </p>
           </div>
 
-          {codeProblem && (
-            <div role="alert" class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm mb-6">
-              {codeProblem}
-            </div>
-          )}
+          <div
+            role="alert"
+            data-code-problem
+            hidden={!codeProblem}
+            class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm mb-6"
+          >
+            {codeProblem}
+          </div>
 
-          <form method="POST" class="space-y-4" data-busy-button="code">
+          <form method="POST" class="space-y-4" data-code-form>
             <input type="hidden" name="email" value={codeEntryFor} />
             <div>
               <label for="code" class="block text-sm font-medium text-gray-700 mb-1">
@@ -298,6 +292,7 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
   {siteKey && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
 
   <script>
+    import { checkSignInCode, codeRefusedSentence } from '../lib/auth/sign-in-code';
     import { createSupabaseBrowserClient } from '../lib/supabase/browser';
 
     function setButtonBusy(name: string, busy: boolean) {
@@ -336,6 +331,42 @@ const siteKey = import.meta.env.DEV ? undefined : import.meta.env.PUBLIC_TURNSTI
         setButtonBusy('provider', false);
         window.location.href = '/signin?error=invalid_link';
       }
+    });
+
+    // The code is checked here, in the browser, so Supabase counts the
+    // address of whoever is typing it. The session lands in the site's
+    // cookies, and the middleware takes it from /members to the terms page if
+    // they haven't been accepted.
+    const codeForm = document.querySelector<HTMLFormElement>('form[data-code-form]');
+    const codeProblem = document.querySelector<HTMLElement>('[data-code-problem]');
+
+    function showCodeProblem(problem: string) {
+      if (!codeProblem) return;
+      codeProblem.textContent = problem;
+      codeProblem.hidden = false;
+    }
+
+    codeForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(codeForm);
+      const check = checkSignInCode(formData.get('code')?.toString() ?? '');
+      if ('problem' in check) {
+        showCodeProblem(check.problem);
+        return;
+      }
+
+      setButtonBusy('code', true);
+      const { error } = await createSupabaseBrowserClient().auth.verifyOtp({
+        email: formData.get('email')?.toString() ?? '',
+        token: check.code,
+        type: 'email',
+      });
+      if (!error) {
+        window.location.assign('/members');
+        return;
+      }
+      setButtonBusy('code', false);
+      showCodeProblem(codeRefusedSentence({ status: error.status, code: error.code }));
     });
 
     // Coming back from the provider restores the page from the back/forward

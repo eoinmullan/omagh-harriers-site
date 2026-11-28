@@ -932,7 +932,10 @@ and the dashboard changed to match. `SIGN_IN_CODE_LENGTH` in
 - [x] **Tapping the link spends the code.** Supabase issues one token per email, and the link and the code are two ways of presenting it, so whichever is used first wins. **Supabase answers a spent code, a wrong one and an expired one with the same error** (`otp_expired`), so they can't have a sentence each. One sentence covers all three: *"That code didn't work, please check it again. If you tapped the link in the email, that invalidates the code, so press Send another below to send another."* The **Send another** button sits under it, on `/signin` as well as in the app, so nobody has to leave the app
 - [x] Guessing: showing the code adds no exposure. Every magic link email already has a code behind it, and Supabase's `/verify` takes it from anyone with the public key, so a limit of our own would stop nothing: a guesser would go round it. The protection is Supabase's: 6 digits, the code's lifetime, and the per-IP token verification rate limit. All three are recorded in `OPERATIONS.md`, with the lifetime and limit still to confirm in the dashboard
 - [ ] Check on an iPhone home-screen app, Android, and desktop: signing in by link and by code, and a code used after it has expired. **Done in the dev server at phone and desktop sizes** with a test login and codes from `generateLink`: a code on `/signin`, a code in the app, a spent code, a malformed one, and a non-member. Not yet on real devices, and the real email hasn't been seen, since the template isn't set
-- [ ] Security review of the new path (a Phase 7 style pass). The sign-in notes in `CLAUDE.md` are updated
+- [x] Security review of the new path ([findings](reviews/phase-9-security.md)), 27 Nov 2026. The sign-in notes in `CLAUDE.md` are updated
+  - [x] S9-1 (high): the live site doesn't check Turnstile; read the secret from the runtime env and fail closed. Fixed 27 Nov 2026
+  - [x] S9-2 (medium): verify the code in the browser on `/signin`, so Supabase's per-IP limit counts the guesser. Fixed 27 Nov 2026
+  - S9-3 (low): the new endpoint follows P6, whatever the committee decides
 
 ---
 

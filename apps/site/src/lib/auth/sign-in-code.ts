@@ -16,6 +16,11 @@ interface AuthFailure {
 
 export const NO_SIGNAL = "Couldn't reach the club's site. Check you have signal, then try again.";
 
+// The code is checked by the browser, so a page that posts it to the server
+// had no script running.
+export const CODE_NEEDS_JAVASCRIPT =
+  'Typing the code needs JavaScript switched on. Click the link in the email instead, or switch JavaScript on and try again.';
+
 export type CodeCheck = { code: string } | { problem: string };
 
 // Phones paste "123 456" or "123-456" as readily as "123456", and a space

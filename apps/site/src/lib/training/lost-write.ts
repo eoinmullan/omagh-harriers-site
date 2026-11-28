@@ -51,6 +51,11 @@ export function describeLostWrite(write: Write, names: Names): string {
         : "A guest's untick wasn't saved, so they're still signed in.";
     }
 
+    case 'emergency_opening': {
+      const who = names.member(write.memberId);
+      return `The record of opening ${who ? `${who}'s` : "a member's"} emergency contact wasn't saved.`;
+    }
+
     case 'cash': {
       const amount = cashLabel(Math.abs(write.row.amount_pence));
       const household = names.household(write.row.principal_id) ?? 'a household';

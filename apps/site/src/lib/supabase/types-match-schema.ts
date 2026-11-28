@@ -51,6 +51,8 @@ export const tables: TableMatches = {
   attendance: true,
   attendance_aliases: true,
   credit_transactions: true,
+  emergency_contact_openings: true,
+  emergency_contacts: true,
   groups: true,
   guests: true,
   member_groups: true,

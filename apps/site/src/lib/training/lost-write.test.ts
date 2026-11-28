@@ -17,6 +17,15 @@ describe('describeLostWrite', () => {
     expect(text).toBe("Jack Kelly's sign-in wasn't saved.");
   });
 
+  it('names whose emergency contact was opened when the record of it was lost', () => {
+    const text = describeLostWrite(
+      { kind: 'emergency_opening', openingId: 'o', memberId: 'm1', openedBy: 'p', openedAt: '2026-11-28T19:00:00Z' },
+      names,
+    );
+
+    expect(text).toBe("The record of opening Jack Kelly's emergency contact wasn't saved.");
+  });
+
   it('says a runner is still signed in when their untick was lost', () => {
     const text = describeLostWrite({ kind: 'undo_sign_in', attendanceId: 'a', memberId: 'm1' }, names);
 

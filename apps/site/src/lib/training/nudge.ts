@@ -58,6 +58,9 @@ export function channelsToNudge(writes: Write[]): string[] {
       case 'cash':
         if (write.row.session_id) channels.add(sessionChannel(write.row.session_id));
         break;
+      case 'emergency_opening':
+        // Changes nothing another phone shows.
+        break;
     }
   }
 

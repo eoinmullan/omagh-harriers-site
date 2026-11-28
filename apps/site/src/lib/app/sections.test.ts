@@ -28,6 +28,11 @@ describe('sectionsFor', () => {
     expect(held).toEqual(['home', 'registration', 'admin']);
   });
 
+  it('adds Emergency contacts for whoever holds the flag, whatever their role', () => {
+    expect(sectionsFor('member', true).map((section) => section.key)).toEqual(['home', 'emergency']);
+    expect(sectionsFor('admin', true).map((section) => section.key)).toEqual(['home', 'registration', 'emergency', 'admin']);
+  });
+
   it('gives an unreadable role Home only', () => {
     const held = keys(undefined);
 
@@ -58,6 +63,10 @@ describe('sectionOfPath', () => {
   it('places the registrar app in Registration, with or without the slash', () => {
     expect(sectionOfPath('/registrar/')).toBe('registration');
     expect(sectionOfPath('/registrar')).toBe('registration');
+  });
+
+  it('places the emergency contacts section in Emergency', () => {
+    expect(sectionOfPath('/emergency/')).toBe('emergency');
   });
 
   it('places admin pages in Admin', () => {

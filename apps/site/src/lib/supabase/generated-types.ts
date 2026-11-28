@@ -205,6 +205,62 @@ export type Database = {
           },
         ]
       }
+      emergency_contact_openings: {
+        Row: {
+          id: string
+          member_id: string
+          opened_at: string
+          opened_by: string
+          recorded_at: string
+        }
+        Insert: {
+          id: string
+          member_id: string
+          opened_at: string
+          opened_by: string
+          recorded_at?: string
+        }
+        Update: {
+          id?: string
+          member_id?: string
+          opened_at?: string
+          opened_by?: string
+          recorded_at?: string
+        }
+        Relationships: []
+      }
+      emergency_contacts: {
+        Row: {
+          contact_name: string | null
+          contact_phone: string
+          member_id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          contact_name?: string | null
+          contact_phone: string
+          member_id: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_name?: string | null
+          contact_phone?: string
+          member_id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emergency_contacts_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: true
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
           created_at: string
@@ -376,9 +432,11 @@ export type Database = {
           created_at: string
           display_name: string
           email: string
+          emergency_contacts_reason: string | null
           id: string
           is_active: boolean
           last_seen_in_klubfunder_at: string | null
+          opens_emergency_contacts: boolean
           role: string
           source: string
           terms_accepted_at: string | null
@@ -389,9 +447,11 @@ export type Database = {
           created_at?: string
           display_name: string
           email: string
+          emergency_contacts_reason?: string | null
           id?: string
           is_active?: boolean
           last_seen_in_klubfunder_at?: string | null
+          opens_emergency_contacts?: boolean
           role?: string
           source?: string
           terms_accepted_at?: string | null
@@ -402,9 +462,11 @@ export type Database = {
           created_at?: string
           display_name?: string
           email?: string
+          emergency_contacts_reason?: string | null
           id?: string
           is_active?: boolean
           last_seen_in_klubfunder_at?: string | null
+          opens_emergency_contacts?: boolean
           role?: string
           source?: string
           terms_accepted_at?: string | null
@@ -507,6 +569,7 @@ export type Database = {
       current_app_role: { Args: never; Returns: string }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       is_club_admin: { Args: never; Returns: boolean }
+      opens_emergency_contacts: { Args: never; Returns: boolean }
       own_household_member_ids: { Args: never; Returns: string[] }
       sign_in_guest: {
         Args: {

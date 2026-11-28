@@ -32,7 +32,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     const principal = orThrow(await context.locals.supabase
       .from('principals')
-      .select('id, display_name, role, is_active, terms_accepted_at')
+      .select('id, display_name, role, is_active, terms_accepted_at, opens_emergency_contacts')
       .eq('auth_user_id', user.id)
       .maybeSingle());
 
@@ -61,6 +61,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       id: principal.id,
       display_name: principal.display_name,
       role: principal.role,
+      opensEmergencyContacts: principal.opens_emergency_contacts,
     };
   }
 

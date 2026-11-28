@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminLine, registrationLine } from './home-cards';
+import { adminLine, emergencyLine, registrationLine } from './home-cards';
 
 const evening = new Date('2026-11-27T12:00:00Z');
 
@@ -54,6 +54,16 @@ describe('registrationLine', () => {
     );
 
     expect(line).toBe('Today: Endurance at 18:45.');
+  });
+});
+
+describe('emergencyLine', () => {
+  it('says how many members have a contact on file', () => {
+    expect(emergencyLine(280, 312)).toBe('280 of 312 members have a contact on file.');
+  });
+
+  it('says when every member has one', () => {
+    expect(emergencyLine(312, 312)).toBe('Every member has a contact on file.');
   });
 });
 

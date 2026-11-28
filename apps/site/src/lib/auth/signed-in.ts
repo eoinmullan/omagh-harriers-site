@@ -17,6 +17,7 @@ export interface SignedInPrincipal {
   id: string;
   display_name: string;
   role: PrincipalRole;
+  opensEmergencyContacts: boolean;
 }
 
 export interface SignedIn<U = User> {

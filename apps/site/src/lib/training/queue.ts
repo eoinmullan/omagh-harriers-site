@@ -90,7 +90,22 @@ export interface Cash {
   row: CreditTransactionInsert;
 }
 
-export type Write = CreateSession | SignIn | UndoSignIn | GuestSignIn | GuestUndo | Cash;
+/**
+ * Somebody opened a member's emergency contact (migration 0026). Queued like
+ * everything else, so an opening at a track with no signal is still recorded
+ * once there is some. The id is minted at the tap, so a retry lands once, and
+ * the write names who opened it, since a different login may be signed in by
+ * the time it's sent.
+ */
+export interface EmergencyOpening {
+  kind: 'emergency_opening';
+  openingId: string;
+  memberId: string;
+  openedBy: string;
+  openedAt: string;
+}
+
+export type Write = CreateSession | SignIn | UndoSignIn | GuestSignIn | GuestUndo | Cash | EmergencyOpening;
 
 export interface Queued {
   /** Stable across retries, and what the store keys on. */

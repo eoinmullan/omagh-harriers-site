@@ -21,6 +21,13 @@ import {
   parseKlubfunderCSV,
   planIsEmpty,
 } from '../src/lib/sync/klubfunder';
+import {
+  applyEmergencyContactPlan,
+  describeAppliedEmergencyContacts,
+  describeEmergencyContactPlan,
+  loadStoredContacts,
+  planEmergencyContacts,
+} from '../src/lib/sync/emergency-contacts';
 
 interface CliArgs {
   csvPath: string;
@@ -90,7 +97,16 @@ async function main() {
 
   console.log(describePlan(plan));
 
-  if (planIsEmpty(plan)) {
+  // Members the plan adds have no id yet, so a dry run counts contacts only
+  // for members already in the database. The real run plans them again
+  // after applying.
+  const contactsBefore = planEmergencyContacts(rows, existing.members, await loadStoredContacts(supabase));
+  console.log('');
+  console.log(describeEmergencyContactPlan(contactsBefore));
+  if (!planIsEmpty(plan)) console.log('  (plus contacts for any members added above, set once they exist)');
+
+  const contactsChange = contactsBefore.set.length > 0 || contactsBefore.clear.length > 0;
+  if (planIsEmpty(plan) && !contactsChange) {
     console.log('');
     console.log('Plan is empty — nothing to apply.');
     return;
@@ -104,11 +120,20 @@ async function main() {
 
   console.log('');
   console.log('Applying...');
-  const result = await applyPlan(plan, supabase);
-  console.log('');
-  console.log(describeApplyResult(result));
+  const result = planIsEmpty(plan) ? undefined : await applyPlan(plan, supabase);
+  if (result) {
+    console.log('');
+    console.log(describeApplyResult(result));
+  }
 
-  if (result.errors.length > 0) {
+  const membersNow = (await loadExistingState(supabase)).members;
+  const contacts = planEmergencyContacts(rows, membersNow, await loadStoredContacts(supabase));
+  const contactErrors = await applyEmergencyContactPlan(contacts, supabase);
+  console.log('');
+  console.log(describeAppliedEmergencyContacts(contacts));
+  for (const error of contactErrors) console.log(`  ✗ ${error}`);
+
+  if ((result && result.errors.length > 0) || contactErrors.length > 0) {
     process.exit(1);
   }
 }

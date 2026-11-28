@@ -53,6 +53,24 @@ describe('whereToLaunch', () => {
     expect(launch).toEqual({ goTo: '/registrar/' });
   });
 
+  it('opens Emergency contacts with no signal for somebody who holds only that', () => {
+    const launch = whereToLaunch({ last: 'home', held: ['home', 'emergency'] }, false);
+
+    expect(launch).toEqual({ goTo: '/emergency/' });
+  });
+
+  it('asks, Emergency contacts first, with no signal for somebody who holds both', () => {
+    const launch = whereToLaunch({ last: 'registration', held: ['home', 'registration', 'emergency', 'admin'] }, false);
+
+    expect('choose' in launch && launch.choose.map((section) => section.key)).toEqual(['emergency', 'registration']);
+  });
+
+  it('opens Emergency contacts online when it was used last', () => {
+    const launch = whereToLaunch({ last: 'emergency', held: ['home', 'emergency'] }, true);
+
+    expect(launch).toEqual({ goTo: '/emergency/' });
+  });
+
   it('has nowhere to go with no signal for a member', () => {
     const launch = whereToLaunch({ last: 'home', held: ['home'] }, false);
 

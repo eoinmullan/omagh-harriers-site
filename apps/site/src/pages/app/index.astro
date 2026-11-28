@@ -28,6 +28,10 @@ export const prerender = true;
     <main class="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-center gap-6 px-5 py-8">
       <p class="text-3xl font-bold text-amber">Harriers</p>
       <p data-opening class="text-lg text-neutral-400">Opening…</p>
+      <div data-choose hidden class="flex flex-col gap-4">
+        <p class="text-lg text-neutral-300">No signal. Home and Admin need a connection.</p>
+        <div data-choose-sections class="flex flex-col gap-4"></div>
+      </div>
       <div data-offline hidden class="flex flex-col gap-6">
         <p class="text-lg text-neutral-300">No signal. Home and Admin need a connection.</p>
         <button
@@ -55,6 +59,7 @@ export const prerender = true;
 
 <script>
   import { phoneStore, readRemembered, whereToLaunch } from '../../lib/app/launch';
+  import type { AppSection } from '../../lib/app/sections';
 
   // navigator.onLine says true on a phone with bars and no data, so the page
   // asks the site for something small. A captive wifi page answers with a
@@ -77,14 +82,38 @@ export const prerender = true;
 
   const opening = document.querySelector<HTMLElement>('[data-opening]')!;
   const offline = document.querySelector<HTMLElement>('[data-offline]')!;
+  const choose = document.querySelector<HTMLElement>('[data-choose]')!;
+  const choices = document.querySelector<HTMLElement>('[data-choose-sections]')!;
+
+  // One big button per section that opens with no signal, in the order
+  // whereToLaunch gives them: Emergency contacts first.
+  function offerChoice(sections: AppSection[]) {
+    choices.replaceChildren(
+      ...sections.map((section) => {
+        const link = document.createElement('a');
+        link.href = section.href;
+        link.textContent = section.label;
+        link.className =
+          'flex min-h-14 w-full items-center justify-center rounded-xl bg-neutral-100 px-5 text-lg font-semibold text-black active:bg-neutral-300';
+        return link;
+      }),
+    );
+    opening.hidden = true;
+    choose.hidden = false;
+  }
 
   async function launch() {
     opening.hidden = false;
     offline.hidden = true;
+    choose.hidden = true;
     const where = whereToLaunch(readRemembered(phoneStore), await hasSignal());
     if ('goTo' in where) {
       // Replace, so back from the section closes the app rather than landing here.
       window.location.replace(where.goTo);
+      return;
+    }
+    if ('choose' in where) {
+      offerChoice(where.choose);
       return;
     }
     opening.hidden = true;

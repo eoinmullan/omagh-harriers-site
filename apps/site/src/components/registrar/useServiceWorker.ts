@@ -6,7 +6,9 @@ import { useEffect } from 'react';
 // on this origin is a public marketing page, and the moment one of them
 // registers a worker the blast radius stops being this app.
 
-export function useServiceWorker() {
+// Each offline section has a worker of its own, in its own folder, so the
+// browser keeps it there (see public/registrar/sw.js).
+export function useServiceWorker(script = '/registrar/sw.js', scope = '/registrar/') {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
 
@@ -15,10 +17,10 @@ export function useServiceWorker() {
     if (import.meta.env.DEV) return;
 
     void navigator.serviceWorker
-      .register('/registrar/sw.js', { scope: '/registrar/' })
+      .register(script, { scope })
       .catch(() => {
         // A refused registration is not worth a broken screen. The app works
         // online either way; it just will not open without a signal.
       });
-  }, []);
+  }, [script, scope]);
 }

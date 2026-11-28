@@ -93,7 +93,7 @@ success = takeFlash(Astro.cookies);
 
 const principals = orThrow(await adminClient
   .from('principals')
-  .select('id, email, display_name, role, is_active')
+  .select('id, email, display_name, role, is_active, opens_emergency_contacts')
   .order('display_name'));
 
 const activeMembers = orThrow(await adminClient
@@ -127,13 +127,13 @@ const clubFloatPence = households.reduce((total, h) => total + h.balancePence, 0
 const overdrawn = households.filter((h) => h.balancePence < 0).length;
 const inCredit = households.filter((h) => h.balancePence > 0).length;
 
-const volunteers = households.filter((h) => accessOf(h.role).length > 0).length;
+const volunteers = households.filter((h) => accessOf(h.role, h.opens_emergency_contacts).length > 0).length;
 
 function tagsOf(h: (typeof households)[number]): string {
   return [
     h.balancePence < 0 && 'overdrawn',
     h.balancePence > 0 && 'in-credit',
-    accessOf(h.role).length > 0 && 'volunteer',
+    accessOf(h.role, h.opens_emergency_contacts).length > 0 && 'volunteer',
   ]
     .filter(Boolean)
     .join(' ');
@@ -190,7 +190,7 @@ function tagsOf(h: (typeof households)[number]): string {
           <td class="cell-primary">
             <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <a href={`/admin/households/${h.id}`} class="row-link">{h.display_name}</a>
-              <AccessPills role={h.role} viewer={actingPrincipal.role} />
+              <AccessPills role={h.role} viewer={actingPrincipal.role} opensEmergencyContacts={h.opens_emergency_contacts} />
             </span>
           </td>
           <td class="mobile-only cell-secondary">

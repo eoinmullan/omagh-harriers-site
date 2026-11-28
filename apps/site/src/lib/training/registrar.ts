@@ -60,6 +60,15 @@ export function roleClaimIsMissing(token: string | null | undefined): boolean {
   return typeof claims === 'object' && claims !== null && !('app_role' in claims);
 }
 
+/**
+ * Whether the token says this login holds Emergency contacts (migration 0026).
+ * Read for what to draw, as the role is; RLS is what decides what's read.
+ */
+export function opensEmergencyContacts(token: string | null | undefined): boolean {
+  const claims = claimsFromAccessToken(token);
+  return typeof claims === 'object' && claims !== null && (claims as Record<string, unknown>)['emergency_contacts'] === true;
+}
+
 function claimsFromAccessToken(token: string | null | undefined): unknown {
   const payload = token?.split('.')[1];
   if (!payload) return undefined;

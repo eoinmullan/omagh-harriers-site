@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accessOf, assignableRoles, planRoleChange, shownRole, type RoleChange } from './roles';
+import { accessOf, assignableRoles, planEmergencyAccess, planRoleChange, shownRole, type RoleChange } from './roles';
 
 const SUPERUSER = 'superuser-principal-id';
 const TARGET = 'target-principal-id';
@@ -77,6 +77,43 @@ describe('accessOf', () => {
     expect(accessOf('registrar')).toEqual(['registrar']);
     expect(accessOf('admin')).toEqual(['admin']);
     expect(accessOf('superuser')).toEqual(['superuser']);
+  });
+
+  it('adds Emergency contacts beside the role, for a member as for a volunteer', () => {
+    expect(accessOf('member', true)).toEqual(['emergency']);
+    expect(accessOf('registrar', true)).toEqual(['registrar', 'emergency']);
+  });
+});
+
+describe('planEmergencyAccess', () => {
+  it('gives it with a tidied reason', () => {
+    const plan = planEmergencyAccess({ choice: 'yes', reason: '  Coach,   Juniors ' });
+
+    expect(plan).toEqual({ update: { opens_emergency_contacts: true, emergency_contacts_reason: 'Coach, Juniors' } });
+  });
+
+  it('asks why when it is given without a reason', () => {
+    const plan = planEmergencyAccess({ choice: 'yes', reason: '   ' });
+
+    expect(plan).toEqual({ problem: expect.stringContaining('Say why') });
+  });
+
+  it('refuses a reason longer than a label', () => {
+    const plan = planEmergencyAccess({ choice: 'yes', reason: 'x'.repeat(61) });
+
+    expect(plan).toEqual({ problem: expect.stringContaining('60 characters') });
+  });
+
+  it('takes it away and clears the reason, whatever was typed', () => {
+    const plan = planEmergencyAccess({ choice: 'no', reason: 'Coach' });
+
+    expect(plan).toEqual({ update: { opens_emergency_contacts: false, emergency_contacts_reason: null } });
+  });
+
+  it('asks for a choice when none was made', () => {
+    const plan = planEmergencyAccess({ choice: '', reason: '' });
+
+    expect(plan).toEqual({ problem: expect.stringContaining('Choose') });
   });
 });
 

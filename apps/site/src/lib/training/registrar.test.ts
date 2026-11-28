@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mayRunASession, roleClaimIsMissing, roleFromAccessToken } from './registrar';
+import { mayRunASession, opensEmergencyContacts, roleClaimIsMissing, roleFromAccessToken } from './registrar';
 
 function tokenCarrying(claims: Record<string, unknown>): string {
   const payload = Buffer.from(JSON.stringify(claims), 'utf8')
@@ -91,5 +91,20 @@ describe('roleClaimIsMissing', () => {
   it('says nothing about a token it cannot read', () => {
     expect(roleClaimIsMissing('not-a-token')).toBe(false);
     expect(roleClaimIsMissing(undefined)).toBe(false);
+  });
+});
+
+describe('opensEmergencyContacts', () => {
+  it('reads the emergency_contacts claim', () => {
+    expect(opensEmergencyContacts(tokenCarrying({ app_role: 'member', emergency_contacts: true }))).toBe(true);
+  });
+
+  it('is false when the claim says so, or is missing', () => {
+    expect(opensEmergencyContacts(tokenCarrying({ app_role: 'admin', emergency_contacts: false }))).toBe(false);
+    expect(opensEmergencyContacts(tokenCarrying({ app_role: 'admin' }))).toBe(false);
+  });
+
+  it('is false for an unreadable token', () => {
+    expect(opensEmergencyContacts('not-a-token')).toBe(false);
   });
 });

@@ -230,7 +230,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
 
   if (load.state === 'loading') {
     return (
-      <Screen title="Today" switcher>
+      <Screen title="Today" switcher="registration">
         <p className="text-lg text-neutral-400">Looking for today's sessions…</p>
       </Screen>
     );
@@ -238,7 +238,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
 
   if (load.state === 'failed') {
     return (
-      <Screen title="Today" switcher>
+      <Screen title="Today" switcher="registration">
         <Problem>Couldn't load tonight's sessions. {load.problem}</Problem>
         <BigButton onClick={() => void refresh()}>Try again</BigButton>
       </Screen>
@@ -275,7 +275,7 @@ export function SessionPicker({ authUserId, outbox }: { authUserId: string; outb
   }
 
   return (
-    <Screen title="Today" switcher>
+    <Screen title="Today" switcher="registration">
       {available.length > 0 ? (
         <>
           <p className="text-lg text-neutral-300">Which session are you taking?</p>

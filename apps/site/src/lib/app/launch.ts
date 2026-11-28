@@ -1,4 +1,4 @@
-import { sectionByKey, type SectionKey } from './sections';
+import { sectionByKey, type AppSection, type SectionKey } from './sections';
 
 // What the app's icon opens. The icon lands on a small prerendered launch page,
 // because Home and Admin are drawn by the server and a server page tapped with
@@ -22,22 +22,29 @@ export const phoneStore: KeyValueStore = {
   setItem: (key, value) => window.localStorage.setItem(key, value),
 };
 
-export type Launch = { goTo: string } | { offline: true };
+export type Launch = { goTo: string } | { choose: AppSection[] } | { offline: true };
 
 export interface Remembered {
   last: SectionKey | undefined;
   held: SectionKey[];
 }
 
+// Offline, Emergency contacts comes first: somebody reaching for it may be
+// with an injured child.
+const OFFLINE_ORDER: SectionKey[] = ['emergency', 'registration'];
+
 /**
  * Online, the section used last, if the person still holds it, or Home.
- * Offline, Registration if they hold it, because it's the one section that
- * opens with no signal. Otherwise there's nowhere to go, and the launch page
- * says so.
+ * Offline, only the sections that open with no signal: straight into the one
+ * they hold, a choice when they hold both, and the launch page's own message
+ * when they hold neither.
  */
 export function whereToLaunch(remembered: Remembered, online: boolean): Launch {
   if (!online) {
-    return remembered.held.includes('registration') ? { goTo: sectionHref('registration') } : { offline: true };
+    const offline = OFFLINE_ORDER.filter((key) => remembered.held.includes(key)).map((key) => sectionByKey(key)!);
+    if (offline.length === 0) return { offline: true };
+    if (offline.length === 1) return { goTo: offline[0]!.href };
+    return { choose: offline };
   }
   const last = remembered.last && remembered.held.includes(remembered.last) ? remembered.last : 'home';
   return { goTo: sectionHref(last) };

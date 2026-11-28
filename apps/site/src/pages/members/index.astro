@@ -5,7 +5,7 @@ import { formatBalance } from '../../lib/credits/money';
 import { createSupabaseAdminClientFromLocals } from '../../lib/supabase/admin';
 import { orThrow } from '../../lib/supabase/or-throw';
 import { whoIsSignedIn } from '../../lib/auth/signed-in';
-import { adminLine, registrationLine } from '../../lib/app/home-cards';
+import { adminLine, emergencyLine, registrationLine } from '../../lib/app/home-cards';
 import { sectionsFor } from '../../lib/app/sections';
 import { clubDayWindow } from '../../lib/training/tonight';
 
@@ -51,8 +51,9 @@ const members = orThrow(await createSupabaseAdminClientFromLocals(Astro.locals)
 
 // Each tool's card carries a line worth reading. Registrars read sessions
 // through RLS; the overdrawn count is the admin pages' own read.
-const held = sectionsFor(principal.role).map((section) => section.key);
+const held = sectionsFor(principal.role, principal.opensEmergencyContacts).map((section) => section.key);
 const holdsRegistration = held.includes('registration');
+const holdsEmergency = held.includes('emergency');
 const holdsAdmin = held.includes('admin');
 
 let registrationSummary = '';
@@ -66,6 +67,18 @@ if (holdsRegistration) {
   registrationSummary = registrationLine(
     (sessions ?? []).map((session) => ({ groupName: session.group?.name ?? 'A session', startsAt: session.starts_at, isCancelled: session.is_cancelled })),
   );
+}
+
+let emergencySummary = '';
+if (holdsEmergency) {
+  const adminClient = createSupabaseAdminClientFromLocals(Astro.locals);
+  const [active, withContact] = await Promise.all([
+    adminClient.from('members').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    adminClient.from('emergency_contacts').select('member_id, members!inner(is_active)', { count: 'exact', head: true }).eq('members.is_active', true),
+  ]);
+  orThrow(active);
+  orThrow(withContact);
+  emergencySummary = emergencyLine(withContact.count ?? 0, active.count ?? 0);
 }
 
 let adminSummary = '';
@@ -161,7 +174,7 @@ if (holdsAdmin) {
 
     {/* In the app the section switcher already lists the tools, so these cards
         are for the browser only. */}
-    {(holdsRegistration || holdsAdmin) && (
+    {(holdsRegistration || holdsEmergency || holdsAdmin) && (
       <section class="browser-only mt-8 sm:mt-10">
         <h2 class="text-lg font-semibold mb-3">Helping out</h2>
         <ul class="-mx-4 sm:mx-0 border-y border-gray-200 sm:border sm:rounded-lg divide-y divide-gray-200 bg-white">
@@ -171,6 +184,17 @@ if (holdsAdmin) {
                 <span>
                   <span class="block font-semibold">Registration</span>
                   <span class="block text-sm text-gray-500">{registrationSummary}</span>
+                </span>
+                <span aria-hidden="true" class="text-2xl text-gray-300">›</span>
+              </a>
+            </li>
+          )}
+          {holdsEmergency && (
+            <li>
+              <a href="/emergency/" class="flex items-center justify-between gap-4 px-4 py-3 min-h-15 hover:bg-gray-50 active:bg-gray-100">
+                <span>
+                  <span class="block font-semibold">Emergency contacts</span>
+                  <span class="block text-sm text-gray-500">{emergencySummary}</span>
                 </span>
                 <span aria-hidden="true" class="text-2xl text-gray-300">›</span>
               </a>

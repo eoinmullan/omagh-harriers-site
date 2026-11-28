@@ -21,7 +21,7 @@ const { title, description = "Omagh Harriers AC - Running Club in Omagh, County 
 // the home screen stays an ordinary bookmark.
 const principal = Astro.locals.principal;
 const appSection = principal ? sectionOfPath(Astro.url.pathname) : undefined;
-const heldSections = appSection ? sectionsFor(principal?.role) : [];
+const heldSections = appSection ? sectionsFor(principal?.role, principal?.opensEmergencyContacts) : [];
 ---
 
 <!doctype html>

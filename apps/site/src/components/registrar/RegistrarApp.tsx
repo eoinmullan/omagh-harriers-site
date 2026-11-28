@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { phoneStore, rememberSection } from '../../lib/app/launch';
 import { sectionsFor } from '../../lib/app/sections';
-import { mayRunASession, roleClaimIsMissing, roleFromAccessToken } from '../../lib/training/registrar';
+import { mayRunASession, opensEmergencyContacts, roleClaimIsMissing, roleFromAccessToken } from '../../lib/training/registrar';
 import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
 import { NotForYou } from './NotForYou';
 import { RolesNotArriving } from './RolesNotArriving';
-import { HeldSections } from './SectionSwitcher';
+import { HeldSections } from '../app/SectionSwitcher';
 import { SessionPicker } from './SessionPicker';
 import { SignedOut } from './SignedOut';
 import { Screen } from './ui';
@@ -53,7 +53,8 @@ export function RegistrarApp() {
   }, []);
 
   const role = session ? roleFromAccessToken(session.access_token) : undefined;
-  const held = useMemo(() => sectionsFor(role), [role]);
+  const opensContacts = session ? opensEmergencyContacts(session.access_token) : false;
+  const held = useMemo(() => sectionsFor(role, opensContacts), [role, opensContacts]);
 
   // The Harriers icon opens the section used last (lib/app/launch.ts).
   // Remembered once the app knows this login may register, so a member who

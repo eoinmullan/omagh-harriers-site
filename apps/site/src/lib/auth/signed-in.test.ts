@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { whoIsSignedIn } from './signed-in';
 
 const user = { id: 'auth-id', email: 'mary@example.com' };
-const principal = { id: 'principal-id', display_name: 'Mary Kelly', role: 'admin' as const };
+const principal = { id: 'principal-id', display_name: 'Mary Kelly', role: 'admin' as const, opensEmergencyContacts: false };
 
 describe('whoIsSignedIn', () => {
   it('hands a page the user and principal the middleware already looked up', () => {

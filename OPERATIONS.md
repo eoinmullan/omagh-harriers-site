@@ -36,7 +36,7 @@ There is no `supabase/config.toml`, so none of this is in the repo.
 
 | Setting | Where | Value |
 |---|---|---|
-| **Access-token hook** | Authentication → Hooks → Customize Access Token (JWT) Claims | **Enabled**, Postgres function `public.custom_access_token_hook`. Defined in migrations `0003` and `0004`; registering it is manual. Without it no token carries `app_role`, RLS refuses every registrar write, and the registrar app shows *"Club roles aren't reaching this app"*. |
+| **Access-token hook** | Authentication → Hooks → Customize Access Token (JWT) Claims | **Enabled**, Postgres function `public.custom_access_token_hook`. Defined in migrations `0003` and `0004`; registering it is manual. Without it no token carries `app_role`, RLS refuses every registrar write, and the registrar app shows *"Club roles aren't reaching this app"*. Since `0026` it also adds `emergency_contacts`, which gates the Emergency contacts section; without the hook nobody can open it, and phones keep their copy rather than deleting it. |
 | **New sign-ups** | Authentication → Sign In / Providers | **Off**. Confirmed: `disable_signup: true`. Only the Klubfunder sync and the admin area create logins. |
 | **Email provider** | Authentication → Sign In / Providers → Email | **On** (magic links). Confirmed. |
 | **Magic link email template** | Authentication → Emails → Templates → Magic Link | **Set** on 27 November 2026. It must show the code, `{{ .Token }}`, as well as the link. `/signin` and the registrar app both ask for the code, so without it they ask for something the email doesn't contain. The template is `supabase/templates/magic-link.html`; see *The sign-in email* below. |

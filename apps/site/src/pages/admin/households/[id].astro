@@ -4,7 +4,7 @@ import { nudgeTheRegistrarApp } from '../../../lib/training/admin-nudge';
 import { createSupabaseAdminClientFromLocals } from '../../../lib/supabase/admin';
 import { planDisplayName } from '../../../lib/people';
 import { redirectAfterPost, takeFlash } from '../../../lib/http/after-post';
-import { assignableRoles, planRoleChange, ROLE_DESCRIPTIONS, shownRole } from '../../../lib/auth/roles';
+import { assignableRoles, EMERGENCY_ACCESS_DESCRIPTION, EMERGENCY_REASON_MAX, planEmergencyAccess, planRoleChange, ROLE_DESCRIPTIONS, shownRole } from '../../../lib/auth/roles';
 import { formatBalance, formatPounds } from '../../../lib/credits/money';
 import { householdHistory } from '../../../lib/credits/history';
 import Statement from '../../../components/Statement.astro';
@@ -216,6 +216,27 @@ async function recordLedgerEntry(action: string, field: Field): Promise<Outcome>
   return { error: insertError.message };
 }
 
+// What was typed into the Emergency contacts form, so a refusal keeps it.
+let typedEmergencyAccess: { opens: boolean; reason: string } | undefined;
+
+async function changeEmergencyAccess(field: Field): Promise<Outcome> {
+  typedEmergencyAccess = { opens: field('opens_emergency_contacts') === 'yes', reason: field('emergency_contacts_reason') };
+  const change = planEmergencyAccess({ choice: field('opens_emergency_contacts'), reason: field('emergency_contacts_reason') });
+  if ('problem' in change) return { error: change.problem };
+
+  const { error } = await adminClient
+    .from('principals')
+    .update(change.update)
+    .eq('id', householdId);
+
+  if (error) return { error: error.message };
+  return {
+    success: change.update.opens_emergency_contacts
+      ? 'They can open Emergency contacts, from their next sign-in or within the hour.'
+      : 'They can no longer open Emergency contacts. Their phone deletes its copy the next time it opens the section.',
+  };
+}
+
 let outcome: Outcome | undefined;
 // So a failed form reopens the dialog it came from.
 let postedAction = '';
@@ -228,7 +249,9 @@ if (Astro.request.method === 'POST') {
 
   outcome = IDENTITY_ACTIONS.includes(action)
     ? await changeIdentity(action, field)
-    : await recordLedgerEntry(action, field);
+    : action === 'emergency_access'
+      ? await changeEmergencyAccess(field)
+      : await recordLedgerEntry(action, field);
 }
 
 const error = outcome && 'error' in outcome ? outcome.error : null;
@@ -317,11 +340,17 @@ function formatDob(dob: string): string {
 const DIALOG_FOR_ACTION: Record<string, string> = {
   update_name: 'rename-household',
   set_role: 'change-access',
+  emergency_access: 'emergency-access',
   cash: 'record-cash',
   adjust: 'adjust-balance',
   transfer: 'transfer-balance',
 };
 const reopenDialog = error ? DIALOG_FOR_ACTION[postedAction] : undefined;
+
+const emergencyForm = typedEmergencyAccess ?? {
+  opens: principal.opens_emergency_contacts,
+  reason: principal.emergency_contacts_reason ?? '',
+};
 ---
 
 <AdminLayout section="households" title={principal.display_name} breadcrumb={[{ label: 'Households', href: '/admin/households' }, { label: principal.display_name }]}>
@@ -329,7 +358,7 @@ const reopenDialog = error ? DIALOG_FOR_ACTION[postedAction] : undefined;
 
   <RecordHeader title={principal.display_name}>
     <Fragment slot="pills">
-      <AccessPills role={principal.role} viewer={actingPrincipal.role} />
+      <AccessPills role={principal.role} viewer={actingPrincipal.role} opensEmergencyContacts={principal.opens_emergency_contacts} />
       {principal.is_active ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Inactive</Pill>}
     </Fragment>
     <p>{principal.email}</p>
@@ -359,12 +388,28 @@ const reopenDialog = error ? DIALOG_FOR_ACTION[postedAction] : undefined;
       <SummaryRow label="Email">{principal.email}</SummaryRow>
       <SummaryRow label="Access">
         <span class="inline-flex flex-wrap items-center gap-2">
+          {/* The role alone: Emergency contacts has its own row below. */}
           <AccessPills role={principal.role} viewer={actingPrincipal.role} />
           <span class="text-gray-600">{ROLE_DESCRIPTIONS[shownRole(principal.role, actingPrincipal.role)]}</span>
         </span>
         {isSuperuser && (
           <button slot="action" type="button" data-open-dialog="change-access" class="btn-link text-sm">Change</button>
         )}
+      </SummaryRow>
+      <SummaryRow label="Emergency contacts">
+        {principal.opens_emergency_contacts ? (
+          <>
+            Can open them
+            {principal.emergency_contacts_reason ? (
+              <span class="text-gray-500"> · {principal.emergency_contacts_reason}</span>
+            ) : (
+              <span class="text-amber-700"> · no reason given yet</span>
+            )}
+          </>
+        ) : (
+          'No'
+        )}
+        <button slot="action" type="button" data-open-dialog="emergency-access" class="btn-link text-sm">Change</button>
       </SummaryRow>
       <SummaryRow label="Source">{principal.source}</SummaryRow>
       <SummaryRow label="Terms accepted">
@@ -534,6 +579,37 @@ const reopenDialog = error ? DIALOG_FOR_ACTION[postedAction] : undefined;
       </div>
     </FormDialog>
   )}
+
+  <FormDialog id="emergency-access" title="Emergency contacts" submitLabel="Save" error={error} reopen={reopenDialog === 'emergency-access'} wide>
+    <input type="hidden" name="action" value="emergency_access" />
+    <fieldset class="space-y-2">
+      <legend class="field-label">Can {principal.display_name} open Emergency contacts?</legend>
+      <label class="flex items-start gap-3 border border-gray-200 rounded-md px-3 py-2.5 cursor-pointer has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+        <input type="radio" name="opens_emergency_contacts" value="no" checked={!emergencyForm.opens} class="mt-1" />
+        <span class="block font-medium">No</span>
+      </label>
+      <label class="flex items-start gap-3 border border-gray-200 rounded-md px-3 py-2.5 cursor-pointer has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+        <input type="radio" name="opens_emergency_contacts" value="yes" checked={emergencyForm.opens} class="mt-1" />
+        <span>
+          <span class="block font-medium">Yes</span>
+          <span class="block text-sm text-gray-500">{EMERGENCY_ACCESS_DESCRIPTION}</span>
+        </span>
+      </label>
+    </fieldset>
+    <div class="mt-3">
+      <label class="field-label" for="emergency-contacts-reason">Why they can open them</label>
+      <input
+        id="emergency-contacts-reason"
+        type="text"
+        name="emergency_contacts_reason"
+        value={emergencyForm.reason}
+        maxlength={EMERGENCY_REASON_MAX}
+        placeholder="Coach, Juniors · Welfare officer…"
+        class="field"
+      />
+      <p class="text-xs text-gray-500 mt-1">Only somebody the committee has chosen. Taking it away clears the reason.</p>
+    </div>
+  </FormDialog>
 
   {isSuperuser && (
     <FormDialog id="change-access" title="Change access" submitLabel="Save access" error={error} reopen={reopenDialog === 'change-access'} wide>

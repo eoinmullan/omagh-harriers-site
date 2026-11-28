@@ -20,6 +20,8 @@ export interface KlubfunderRow {
   gender: string | null;
   athleticAssociationNumber: string | null;
   parentOrGuardianFullName: string | null;
+  /** The emergency contact's number (lib/sync/emergency-contacts.ts). */
+  parentOrGuardianPhone: string | null;
   email: string; // lowercased + trimmed
   status: MemberStatus;
   rowNumber: number; // 1-based, including header
@@ -154,6 +156,7 @@ interface RawCsvRow {
   'Select gender'?: string;
   'Athletic Association Number'?: string;
   'Parent or Guardian Full Name'?: string;
+  'Parent or Guardian Contact number'?: string;
   'Parent or Guardian Email'?: string;
   Status?: string;
 }
@@ -253,6 +256,9 @@ export function parseKlubfunderCSV(csv: string): ParseResult {
       parentOrGuardianFullName: nullIfEmpty(
         (raw['Parent or Guardian Full Name'] ?? '').trim(),
       ),
+      parentOrGuardianPhone: nullIfEmpty(
+        (raw['Parent or Guardian Contact number'] ?? '').trim(),
+      ),
       email,
       status,
       rowNumber,
@@ -313,6 +319,23 @@ function matchExistingMember(
   return matchedByKey && !matchedByKey.klubfunder_member_id
     ? matchedByKey
     : undefined;
+}
+
+/** The member a row of the export is, by the same rule the plan matches on. */
+export function memberFinder(members: MemberRow[]): (row: KlubfunderRow) => MemberRow | undefined {
+  const byKlubfunderId = new Map<string, MemberRow>();
+  const byNaturalKey = new Map<string, MemberRow>();
+  for (const member of members) {
+    if (member.klubfunder_member_id) byKlubfunderId.set(member.klubfunder_member_id, member);
+    byNaturalKey.set(memberNaturalKeyFromRow(member), member);
+  }
+  return (row) =>
+    matchExistingMember(
+      row,
+      memberNaturalKey(row.firstName, row.surname, row.dateOfBirth),
+      byKlubfunderId,
+      byNaturalKey,
+    );
 }
 
 function memberChanges(existing: MemberRow, row: KlubfunderRow): MemberChanges {

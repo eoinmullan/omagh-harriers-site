@@ -494,6 +494,51 @@ session lands in the app's own cookies and nothing navigates out of
 `/registrar/`. Safari has no install prompt, so iOS gets a written hint where
 Chrome gets `beforeinstallprompt`.
 
+## Emergency contacts (`/emergency/`)
+
+The club app's third offline section (Phase 8): a member's emergency contact
+in somebody's hand when something happens at training. Built the way the
+registrar app is, a prerendered React island with its own worker in its own
+folder (`public/emergency/sw.js`), sharing the site's session and the phone's
+one outbox. Migration `0026`.
+
+- **Access is a flag, not a role.** `principals.opens_emergency_contacts`,
+  carried in the token as `emergency_contacts` beside `app_role`, and read by
+  RLS through `opens_emergency_contacts()`. Nobody holds it by being a coach,
+  registrar or admin, so the list of who can see the details is the list of
+  logins with the flag. Any admin sets it on `/admin/households/[id]`
+  (`planEmergencyAccess` in `roles.ts`), with a short reason ("Coach,
+  Juniors", "Welfare officer") so that list explains itself
+  (`emergency_contacts_reason`, migration `0027`). Required when it's given,
+  cleared when it's taken away, as `trains_free_reason` is. It shows as a red
+  **Emergency** badge
+- **Flag holders read the whole club**: every member's contact, today's
+  sessions, who's signed in, guests. Restricting it to a holder's squads
+  would fail at the incident. The flag is the restriction
+- **The contacts come from Klubfunder** for now: the export's parent or
+  guardian name and number, stored by the sync in `emergency_contacts`
+  (`lib/sync/emergency-contacts.ts`). A member missing from the export keeps
+  theirs; retention is Phase 8's question. Medical details are not imported
+- **Every opening is recorded**, in `emergency_contact_openings`: who, which
+  member, when. It's queued (`emergency_opening` in `queue.ts`) so an opening
+  with no signal lands later, keyed on an id minted at the tap. The table is
+  **append-only** like the ledger (UPDATE, DELETE and TRUNCATE refused,
+  service role included), has **no foreign keys** because a log must outlive
+  what it names, and **has no SELECT policy**: nothing reads it through the
+  API. A login can only record openings in its own name
+- **The phone keeps a copy** (`lib/emergency/copy.ts`, in the registrar's
+  IndexedDB snapshots store) so the section opens with no signal. Refreshed
+  on every online open and every minute while open; deleted after a year
+  without a refresh, and as soon as a token says the login doesn't hold the
+  flag. Signing out leaves it. A token with no club claims at all is a broken
+  hook, not a decision, so it doesn't delete the copy
+- **Offline, the launch page asks** when somebody holds both Registration and
+  Emergency contacts, Emergency contacts first (`whereToLaunch`). The shared
+  switcher (`components/app/SectionSwitcher.tsx`) marks Home and Admin *needs
+  signal* when offline, and says "Emergency ▾" below 360px
+- **Test data**: `remove-zz-test-data.sql` removes openings of ZZ members and
+  by ZZ logins too. Nothing else can, since the log refuses DELETE
+
 ## The paper fallback
 
 `/admin/sessions/[id]/sheet` prints the night: the session's Usuals ordered by
@@ -1054,7 +1099,7 @@ rename a group or re-price a session.
 **A login reads columns, not rows.** RLS decides which rows; column privileges
 decide which columns, for every login alike. Through anything but the service
 role, `principals` exposes only `id, auth_user_id, display_name, role,
-is_active, terms_accepted_at`, and `members` only `id, principal_id,
+is_active, terms_accepted_at, opens_emergency_contacts`, and `members` only `id, principal_id,
 first_name, surname, is_active, trains_free`. A registrar can read every name in the club
 and no date of birth, gender, Athletics NI number or email. A page that needs a
 hidden column reads it with the service role, scoped to the signed-in

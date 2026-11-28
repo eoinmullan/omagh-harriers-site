@@ -38,6 +38,7 @@ function row(overrides: Partial<KlubfunderRow> = {}): KlubfunderRow {
     gender: 'Female',
     athleticAssociationNumber: null,
     parentOrGuardianFullName: 'Roisin McCullagh',
+    parentOrGuardianPhone: null,
     email: 'rmccullagh@hotmail.com',
     status: 'paid',
     rowNumber: 2,
@@ -56,6 +57,8 @@ function principal(overrides: Partial<PrincipalRow> = {}): PrincipalRow {
     source: 'klubfunder',
     terms_accepted_at: null,
     last_seen_in_klubfunder_at: null,
+    opens_emergency_contacts: false,
+    emergency_contacts_reason: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -105,6 +108,14 @@ describe('parseKlubfunderCSV', () => {
     });
   });
 
+  it("reads the parent or guardian's contact number", () => {
+    const result = parseKlubfunderCSV(
+      csv('Hannah,McCullagh,2013-12-07,Female,,,,,,,Roisin McCullagh, 07700 900123 ,rmccullagh@hotmail.com,,,,Paid'),
+    );
+
+    expect(result.rows[0]).toMatchObject({ parentOrGuardianPhone: '07700 900123' });
+  });
+
   it('lowercases emails and normalises single-digit dates', () => {
     const result = parseKlubfunderCSV(
       csv('Martin,McCullagh,1972-4-3,Male,,,,,,,,,RMcCullagh@HOTMAIL.com,,,,Paid'),
@@ -123,6 +134,7 @@ describe('parseKlubfunderCSV', () => {
       gender: 'Male',
       athleticAssociationNumber: null,
       parentOrGuardianFullName: null,
+      parentOrGuardianPhone: null,
     });
   });
 

@@ -817,9 +817,11 @@ collected. Phase 7's reviews covered everything up to Phase 6; this phase
 needs its own privacy, security and data-integrity passes before real forms
 are collected.
 
-**Status: scoping.** The form's contents are TBC. The emergency contacts
-section is planned (28 Nov 2026) around emergency contact details only, and
-the open questions below are still to be settled.
+**Status: scoping.** The form's contents are TBC. The Emergency contacts
+section is **built** (28 Nov 2026) around emergency contact details only,
+from Klubfunder's parent or guardian name and number; giving the flag to
+anybody waits for the committee to sign the proposal off. The other open
+questions below are still to be settled.
 
 ### Safeguarding form (members' area)
 
@@ -849,7 +851,7 @@ tonight's session, as the registrar does, see who's signed in, and tap a
 runner for their contacts. If the person isn't signed in to that session, or
 it's somewhere else entirely, they search the whole list instead.
 
-A prerendered section of the club app (Phase 10), at `/contacts/`, beside
+A prerendered section of the club app (Phase 10), at `/emergency/`, beside
 `/registrar/`, for the same reasons the registrar app lives there (see *One
 origin, one sign-in*), with its own worker scoped to its own folder.
 
@@ -858,8 +860,10 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 - **The section is called "Emergency contacts".** The app stays Harriers; this
   is the name in the section switcher, on Home and on the section's own
   screens. It's opened under pressure, often by a volunteer who doesn't use it
-  weekly, so the name says exactly what it holds. `contacts` is the short name
-  in code: the address, the section key, the stored last section
+  weekly, so the name says exactly what it holds. `emergency` is the short
+  name in code: the address (`/emergency/`, matching the badge, as
+  `/registrar/` is named for the job), the section key, the stored last
+  section
 - **Where the full name doesn't fit, it's shortened.** The header's switcher
   button stays on one line and says "Emergency ▾" below about 360px wide; its
   sheet always says the full name. The admin badge says **Emergency**, beside
@@ -878,6 +882,10 @@ origin, one sign-in*), with its own worker scoped to its own folder.
   their vetting is through. Registrars who should have it get it the same
   way, each ticked, rather than by a rule giving it to every registrar. A
   coach flag can be added if something ever needs one
+- **Giving the flag takes a short reason** ("Coach, Juniors", "Welfare
+  officer"), so the list of who holds it explains why (28 Nov 2026,
+  migration `0027`). Required when it's given, cleared when it's taken away,
+  as for members who train free
 - **Offline, the icon asks only when there's a real choice.** The Phase 10
   launch page already opens with no signal. Offline, somebody who holds both
   Registration and Emergency contacts sees *"No signal. Home and Admin need a
@@ -946,18 +954,25 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 
 #### Work
 
-- [ ] `contacts` in `lib/app/sections.ts`, held through the flag rather than the role
-- [ ] The launch page's offline choice (`whereToLaunch` in `lib/app/launch.ts`), with its tests
-- [ ] "Needs signal" in both switchers when offline
-- [ ] Reached from the club app's section switcher, and in a browser from a card on Home, for whoever holds it
-- [ ] On opening: pick a session (the same session list the registrar sees)
-- [ ] The session shows everyone signed in
-- [ ] Tapping a runner opens their emergency contacts
-- [ ] Phone numbers are `tel:` links, so tapping one opens the phone's call screen
-- [ ] Search the whole club, for somebody not signed in or an incident away from training
-- [ ] Log every opening (who, which member, when) in an append-only table, offline ones through the write queue. No screen for now
-- [ ] **Offline**: the contacts are cached on the phone, so search and the session list work with no coverage. Refreshed on every online open, deleted after a year without a refresh, and deleted when an online open finds the flag gone. Signing out leaves it
-- [ ] The header switcher's "Emergency ▾" below 360px, and the **Emergency** badge in admin
+Built 28 November 2026 (migration `0026`), and checked in the dev server
+with test data at phone sizes, against the live database.
+
+- [x] The flag (`principals.opens_emergency_contacts`), the `emergency_contacts` claim in the token, RLS for flag holders, and an Emergency contacts setting on `/admin/households/[id]` for any admin, with a required reason (`0027`)
+- [x] The Klubfunder sync stores each member's parent or guardian name and number in `emergency_contacts` (`lib/sync/emergency-contacts.ts`). Medical details are left out
+- [x] `emergency` in `lib/app/sections.ts`, held through the flag rather than the role
+- [x] The launch page's offline choice (`whereToLaunch` in `lib/app/launch.ts`), with its tests
+- [x] "Needs signal" in the offline sections' switcher
+- [x] Reached from the club app's section switcher, and in a browser from a card on Home, for whoever holds it
+- [x] On opening: today's sessions
+- [x] The session shows everyone signed in, guests included, and who has no contact on file
+- [x] Tapping a runner opens their emergency contact
+- [x] Phone numbers are `tel:` links, behind a Call button
+- [x] Search the whole club, for somebody not signed in or an incident away from training
+- [x] Log every opening (who, which member, when) in an append-only table, offline ones through the write queue. No screen for now
+- [x] **Offline**: the copy is kept on the phone, so search and the session list work with no coverage. Refreshed on every online open and every minute while open, deleted after a year without a refresh, and deleted when an online open finds the flag gone. Signing out leaves it
+- [x] The header switcher's "Emergency ▾" below 360px, and the **Emergency** badge in admin
+- [ ] Run the Klubfunder sync with `--apply` so real contacts are stored. Only after the committee has signed off, and before giving anybody the flag
+- [ ] Check on real phones: an iPhone home-screen app and Android, online and with no signal, including the launch page's offline choice, which the dev server couldn't show
 
 ### Registrar app: missing form warning
 
@@ -976,7 +991,7 @@ origin, one sign-in*), with its own worker scoped to its own folder.
 
 **The form**
 - What it asks for. Likely candidates: emergency contacts, medical conditions, allergies, medication, GP, consent to first aid/emergency treatment, photography consent. Check Athletics NI's safeguarding requirements and any template they provide
-- Does Klubfunder already collect any of this? If so, import it rather than ask twice
+- ~~Does Klubfunder already collect any of this?~~ Yes: a parent or guardian name and contact number, and medical conditions and allergies. The number is imported (28 Nov 2026); medical details aren't, until the form's own decisions
 - Who counts as a child: under 18 by date of birth? Do adult members fill in anything (emergency contact only)?
 - Does it expire, e.g. renewed each season or at Klubfunder renewal, so a stale form shows as missing?
 - Are previous versions kept, or only the current one?

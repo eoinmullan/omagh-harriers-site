@@ -55,10 +55,17 @@ CREATE TEMP TABLE zz_attendance ON COMMIT DROP AS
      OR member_id IN (SELECT id FROM zz_members)
      OR guest_id IN (SELECT id FROM zz_guests);
 
+-- Openings of a ZZ member's emergency contact, or by a ZZ login (0026). The
+-- log has no foreign keys, so nothing else would remove them.
+CREATE TEMP TABLE zz_openings ON COMMIT DROP AS
+SELECT id FROM public.emergency_contact_openings
+WHERE member_id IN (SELECT id FROM zz_members)
+   OR opened_by IN (SELECT id FROM zz_principals);
+
 CREATE TEMP TABLE zz_counts ON COMMIT DROP AS
 SELECT format(
   'squads %s, sessions %s, households %s, members %s, guests %s, ledger rows %s, sign-ins %s, '
-  'ledger rows on real households %s, logins %s',
+  'ledger rows on real households %s, logins %s, emergency contact openings %s',
   (SELECT count(*) FROM zz_groups),
   (SELECT count(*) FROM zz_sessions),
   (SELECT count(*) FROM zz_principals),
@@ -67,15 +74,18 @@ SELECT format(
   (SELECT count(*) FROM zz_ledger),
   (SELECT count(*) FROM zz_attendance),
   (SELECT count(*) FROM zz_ledger WHERE principal_id NOT IN (SELECT id FROM zz_principals)),
-  (SELECT count(*) FROM zz_principals WHERE auth_user_id IS NOT NULL)
+  (SELECT count(*) FROM zz_principals WHERE auth_user_id IS NOT NULL),
+  (SELECT count(*) FROM zz_openings)
 ) AS removed;
 
 ALTER TABLE public.credit_transactions DISABLE TRIGGER credit_transactions_append_only;
 ALTER TABLE public.attendance DISABLE TRIGGER attendance_keeps_its_money;
+ALTER TABLE public.emergency_contact_openings DISABLE TRIGGER emergency_contact_openings_append_only;
 
 DELETE FROM public.credit_transactions WHERE id IN (SELECT id FROM zz_ledger);
 -- attendance_aliases go with their rows (ON DELETE CASCADE).
 DELETE FROM public.attendance WHERE id IN (SELECT id FROM zz_attendance);
+DELETE FROM public.emergency_contact_openings WHERE id IN (SELECT id FROM zz_openings);
 DELETE FROM public.training_sessions WHERE id IN (SELECT id FROM zz_sessions);
 -- member_groups go with their member or squad (ON DELETE CASCADE).
 DELETE FROM public.groups WHERE id IN (SELECT id FROM zz_groups);
@@ -86,6 +96,7 @@ DELETE FROM auth.users WHERE id IN (SELECT auth_user_id FROM zz_principals WHERE
 
 ALTER TABLE public.credit_transactions ENABLE TRIGGER credit_transactions_append_only;
 ALTER TABLE public.attendance ENABLE TRIGGER attendance_keeps_its_money;
+ALTER TABLE public.emergency_contact_openings ENABLE TRIGGER emergency_contact_openings_append_only;
 
 DO $$
 DECLARE

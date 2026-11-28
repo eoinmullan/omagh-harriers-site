@@ -72,6 +72,19 @@ export async function send(
       return failureFrom(response);
     }
 
+    case 'emergency_opening': {
+      // The log is append-only and nobody reads it back, so a retry of an
+      // opening that already landed meets the primary key: that's success.
+      const response = await supabase.from('emergency_contact_openings').insert({
+        id: write.openingId,
+        member_id: write.memberId,
+        opened_by: write.openedBy,
+        opened_at: write.openedAt,
+      });
+      if (response.error && isDuplicate(response.error)) return undefined;
+      return failureFrom(response);
+    }
+
     case 'cash': {
       const response = await supabase.from('credit_transactions').insert(write.row);
 

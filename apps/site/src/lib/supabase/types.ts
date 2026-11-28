@@ -21,6 +21,10 @@ export type PrincipalRow = {
   source: RecordSource;
   terms_accepted_at: string | null;
   last_seen_in_klubfunder_at: string | null;
+  /** Migration 0026. Holds the Emergency contacts section; see CLAUDE.md. */
+  opens_emergency_contacts: boolean;
+  /** Migration 0027. Why, set with the flag and cleared without it. */
+  emergency_contacts_reason: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -35,6 +39,8 @@ export type PrincipalInsert = {
   source?: RecordSource;
   terms_accepted_at?: string | null;
   last_seen_in_klubfunder_at?: string | null;
+  opens_emergency_contacts?: boolean;
+  emergency_contacts_reason?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -49,6 +55,8 @@ export type PrincipalUpdate = {
   source?: RecordSource;
   terms_accepted_at?: string | null;
   last_seen_in_klubfunder_at?: string | null;
+  opens_emergency_contacts?: boolean;
+  emergency_contacts_reason?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -277,6 +285,40 @@ export type AttendanceInsert = {
 // there are no policies permitting it.
 export type AttendanceUpdate = Record<string, never>;
 
+// Migration 0026. One per member, written only by the Klubfunder sync.
+export type EmergencyContactRow = {
+  member_id: string;
+  contact_name: string | null;
+  contact_phone: string;
+  source: 'klubfunder';
+  updated_at: string;
+};
+
+export type EmergencyContactInsert = {
+  member_id: string;
+  contact_name?: string | null;
+  contact_phone: string;
+  source?: 'klubfunder';
+  updated_at?: string;
+};
+
+// Migration 0026. Append-only, and readable by nobody through the API.
+export type EmergencyContactOpeningRow = {
+  id: string;
+  opened_by: string;
+  member_id: string;
+  opened_at: string;
+  recorded_at: string;
+};
+
+export type EmergencyContactOpeningInsert = {
+  id: string;
+  opened_by: string;
+  member_id: string;
+  opened_at: string;
+  recorded_at?: string;
+};
+
 export type PrincipalBalanceRow = {
   principal_id: string;
   balance_pence: number;
@@ -429,6 +471,25 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      emergency_contacts: {
+        Row: EmergencyContactRow;
+        Insert: EmergencyContactInsert;
+        Update: Partial<EmergencyContactInsert>;
+        Relationships: [
+          {
+            foreignKeyName: 'emergency_contacts_member_id_fkey';
+            columns: ['member_id'];
+            referencedRelation: 'members';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      emergency_contact_openings: {
+        Row: EmergencyContactOpeningRow;
+        Insert: EmergencyContactOpeningInsert;
+        Update: Record<string, never>;
+        Relationships: [];
       };
       // Migration 0019. Written and read only inside the sign-in RPCs; listed
       // so the tables here match the database (types-match-schema.ts).

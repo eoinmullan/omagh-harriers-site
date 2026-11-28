@@ -9,6 +9,12 @@ describe('channelsToNudge', () => {
     expect(channelsToNudge([tick])).toEqual([sessionChannel('s1')]);
   });
 
+  it('nudges nobody for an emergency contact opening, which no other phone shows', () => {
+    const opening: Write = { kind: 'emergency_opening', openingId: 'o', memberId: 'm', openedBy: 'p', openedAt: '2026-11-28T19:00:00Z' };
+
+    expect(channelsToNudge([opening])).toEqual([]);
+  });
+
   it('nudges each session once, however many writes landed for it', () => {
     const cash: Write = {
       kind: 'cash',

@@ -21,6 +21,12 @@ export function registrationLine(sessions: readonly SessionToday[], now: Date = 
   return `Today: ${on.length} sessions, from ${formatClubTime(on[0]!.startsAt)}.`;
 }
 
+export function emergencyLine(withContact: number, activeMembers: number): string {
+  if (activeMembers === 0) return 'No members yet.';
+  if (withContact === activeMembers) return `Every member has a contact on file.`;
+  return `${withContact} of ${activeMembers} members have a contact on file.`;
+}
+
 export function adminLine(overdrawnHouseholds: number): string {
   if (overdrawnHouseholds === 0) return 'No household is overdrawn.';
   if (overdrawnHouseholds === 1) return '1 household is overdrawn.';
